@@ -40,6 +40,27 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.decide(operator, { planId: proposed.id, revision: proposed.revision, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
     await service.dispatch(coordinator, proposed.id, 'fixture-action'); await service.dispatch(coordinator, proposed.id, 'fixture-action'); assert.equal(magnus.requests.length, 1);
   });
+  await t.test('operator review can outlive cached heartbeat but fresh Magnus identity and eligibility remain required', async () => {
+    const { service, magnus } = await reset();
+    const original = target(); assert.equal(original.kind, 'target'); if (original.kind !== 'target') throw new Error('Fixture target required');
+    await service.entity(operator, { ...original, lifecycle: 'offline', lastSeenAt: new Date(Date.now() - 600000).toISOString() });
+    const proposed = await service.propose(coordinator, plan()); await service.publish(coordinator, proposed.id, 1);
+    await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
+    const fresh = await magnus.capabilities();
+    for (const changed of [{ agentId: 'replacement-agent' }, { executionNamespace: 'replacement-namespace' }, { environment: 'production' }, { instanceId: 'replacement-instance' }, { scope: { ...scope, targetIds: ['another-target'] } }]) {
+      magnus.capabilities = async () => ({ ...fresh, targets: [{ ...original, ...changed }] });
+      await assert.rejects(service.dispatch(coordinator, proposed.id, 'fixture-action'), /TARGET_EXECUTION_IDENTITY_CHANGED/);
+    }
+    for (const changed of [{ lifecycle: 'offline' as const }, { lastSeenAt: new Date(0).toISOString() }, { capabilities: [] }]) {
+      magnus.capabilities = async () => ({ ...fresh, targets: [{ ...original, ...changed }] });
+      await assert.rejects(service.dispatch(coordinator, proposed.id, 'fixture-action'), /TARGET_(NOT_ELIGIBLE|CAPABILITY_UNAVAILABLE)/);
+    }
+    magnus.capabilities = async () => ({ ...fresh, observedAt: new Date(0).toISOString() });
+    await assert.rejects(service.dispatch(coordinator, proposed.id, 'fixture-action'), /MAGNUS_CAPABILITIES_STALE/);
+    assert.equal(magnus.requests.length, 0);
+    magnus.capabilities = async () => fresh;
+    await service.dispatch(coordinator, proposed.id, 'fixture-action'); assert.equal(magnus.requests.length, 1);
+  });
   await t.test('standing authorization proceeds after publication without acknowledgement', async () => {
     const { service, magnus } = await reset(); const proposed = await service.propose(coordinator, plan()); await service.policy(operator, policy());
     await assert.rejects(service.authorizePolicy(coordinator, proposed.id, 'fixture-policy'), /PUBLICATION/);
@@ -110,6 +131,19 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const { service } = await reset(); const value = await service.propose(coordinator, plan());
     await assert.rejects(service.execute(coordinator, value.id, { revision: value.revision + 1, digest: value.digest }), /STALE_EXECUTION/);
     assert.equal(await db.job.count(), 0);
+  });
+  await t.test('recommendations retain scoped job failures across restart without exposing another revision', async () => {
+    const { service, magnus } = await reset(); const proposed = await service.propose(coordinator, plan());
+    const broadOperator = { ...operator, scope: { ...scope, targetIds: [...scope.targetIds, 'another-target'] } };
+    const id = await service.execute(broadOperator, proposed.id, { revision: proposed.revision, digest: proposed.digest });
+    await db.job.update({ where: { id }, data: { status: 'unknown', error: 'TARGET_NOT_ELIGIBLE' } });
+    const restarted = new Embermend(db, magnus);
+    const [row] = await restarted.timeline(coordinator); assert.equal(row?.jobs[0]?.id, id); assert.equal(row?.jobs[0]?.error, 'TARGET_NOT_ELIGIBLE');
+    assert.equal((await restarted.job(coordinator, id)).status, 'unknown');
+    await assert.rejects(restarted.job({ ...coordinator, scope: { ...scope, targetIds: [] } }, id), /SCOPE_OR_PERMISSION_DENIED/);
+    await restarted.propose(coordinator, { ...plan(), revision: 2 });
+    assert.deepEqual((await restarted.timeline(coordinator))[0]?.jobs, []);
+    assert.equal(await db.execution.count(), 0);
   });
   await t.test('API denies anonymous and coordinator approval requests', async () => {
     const { service } = await reset(); const app = createApi(service, async token => { if (token !== 'fixture-coordinator-token') throw new Error('invalid'); return coordinator; });

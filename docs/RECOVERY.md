@@ -38,3 +38,16 @@ Older incomplete ledgers may lack sufficient identity or target metadata.
 They remain unknown rather than receiving invented completion evidence. Any new
 assessment uses normal admission and a fresh operation identity. Native reboot
 continuation and complete remote cancellation remain separate acceptance work.
+
+Recommendation responses retain the durable jobs for their current plan revision,
+including queued, running, failed and unknown work. Reading a job uses its request
+scope rather than the wider scope of the principal that submitted it. An admitted
+job is never hidden merely because dispatch stopped before an execution was
+reserved; a new plan revision does not inherit the previous revision's job.
+
+Operator review may outlast the cached target heartbeat. Host dispatch therefore
+uses a fresh Magnus capability response for current enrollment, lifecycle,
+heartbeat and action availability. It still requires the stored and current
+execution identity, scope, environment, platform, managing agent, namespace and
+container instance bindings to match. Changed bindings require inventory review;
+a stale capability response or current offline target cannot authorize dispatch.

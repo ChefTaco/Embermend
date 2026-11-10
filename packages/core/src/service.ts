@@ -209,10 +209,16 @@ export class Embermend {
     if (action.targetKind === 'repository') return this.dispatchRepository(actor, plan, action);
     const capabilities = await this.magnus.capabilities();
     const storedTarget = await this.db.entity.findUnique({ where: { id: action.targetId } });
-    if (!storedTarget) throw new DomainError('TARGET_UNKNOWN'); const target = entitySchema.parse(storedTarget.data); assertTarget(action, target);
+    if (!storedTarget) throw new DomainError('TARGET_UNKNOWN'); const target = entitySchema.parse(storedTarget.data);
     if (target.kind !== 'target') throw new DomainError('PROVIDER_ACTION_REQUIRES_PROVIDER_DISPATCH');
     const currentTarget = capabilities.targets.find(item => item.kind === 'target' && item.magnusTargetId === target.magnusTargetId && item.magnusInstallationId === target.magnusInstallationId);
-    if (!currentTarget || capabilities.installationId !== target.magnusInstallationId || !capabilities.actions.includes(action.version)) throw new DomainError('MAGNUS_CAPABILITY_UNAVAILABLE');
+    if (!currentTarget || currentTarget.kind !== 'target' || capabilities.installationId !== target.magnusInstallationId || !capabilities.actions.includes(action.version)) throw new DomainError('MAGNUS_CAPABILITY_UNAVAILABLE');
+    const capabilityAge = Date.now() - Date.parse(capabilities.observedAt);
+    if (!Number.isFinite(capabilityAge) || Math.abs(capabilityAge) > 120000) throw new DomainError('MAGNUS_CAPABILITIES_STALE');
+    // Inventory may predate the operator's review. Use Magnus's fresh liveness
+    // and capabilities, while refusing a changed execution identity or scope.
+    const identity = (value: Extract<Entity, { kind: 'target' }>): string => digest([value.id, value.scope, value.magnusInstallationId, value.magnusTargetId, value.agentId, value.targetKind, value.platform, value.environment ?? null, value.parentHostId, value.workloadId, value.instanceId, value.executionNamespace]);
+    if (identity(target) !== identity(currentTarget)) throw new DomainError('TARGET_EXECUTION_IDENTITY_CHANGED');
     assertTarget(action, currentTarget);
     const execution = await this.db.$transaction(async tx => {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `campaign:${plan.campaignId}`); await lock(tx, `plan:${plan.id}`);
@@ -408,12 +414,12 @@ export class Embermend {
   async timeline(actor: Actor) {
     requirePermission(actor, 'read', actor.scope);
     const plans = await this.db.plan.findMany({ where: { installationId: actor.scope.installationId }, take: 200 }); const result = [];
-    for (const row of plans) { const plan = await this.plan(actor, row.id).catch((error: unknown) => { if (error instanceof DomainError && error.status === 403) return null; throw error; }); if (plan && within(actor.scope, plan.scope)) result.push({ plan, digest: digest(plan), status: row.status, publications: await this.db.publication.findMany({ where: { planId: row.id, revision: row.currentRevision } }), executions: (await this.db.execution.findMany({ where: { planId: row.id } })).map(({ id, state, actionId, targetId, receipt }) => ({ id, state, actionId, targetId, receipt })), campaign: await this.db.campaign.findUnique({ where: { id: row.campaignId } }) }); }
+    for (const row of plans) { const plan = await this.plan(actor, row.id).catch((error: unknown) => { if (error instanceof DomainError && error.status === 403) return null; throw error; }); if (plan && within(actor.scope, plan.scope)) result.push({ plan, digest: digest(plan), status: row.status, jobs: await Promise.all((await this.db.job.findMany({ where: { kind: 'campaign', payload: { path: ['planId'], equals: plan.id } }, orderBy: { createdAt: 'desc' }, take: 100 })).filter(job => z.object({ revision: z.number() }).parse(job.payload).revision === plan.revision).map(job => this.job(actor, job.id))), publications: await this.db.publication.findMany({ where: { planId: row.id, revision: row.currentRevision } }), executions: (await this.db.execution.findMany({ where: { planId: row.id } })).map(({ id, state, actionId, targetId, receipt }) => ({ id, state, actionId, targetId, receipt })), campaign: await this.db.campaign.findUnique({ where: { id: row.campaignId } }) }); }
     return result;
   }
   async job(actor: Actor, id: string) {
     const row = await this.db.job.findUnique({ where: { id } }); if (!row) throw new DomainError('NOT_FOUND', 404);
-    const scope = z.object({ scope: z.object({ installationId: z.string(), applicationIds: z.array(z.string()), targetIds: z.array(z.string()) }) }).parse(row.actor).scope; requirePermission(actor, 'read', scope);
+    const scope = z.object({ scope: scopeSchema }).parse(row.payload).scope; requirePermission(actor, 'read', scope);
     if (row.result !== null && ['source', 'preparation', 'scan', 'reconciliation'].includes(row.kind)) requirePermission(actor, 'evidence', scope);
     return { id: row.id, kind: row.kind, status: row.status, progress: row.progress, deadline: row.deadline.toISOString(), cancelRequested: row.cancelRequested, result: row.result, error: row.error };
   }

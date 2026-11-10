@@ -147,6 +147,7 @@ export const assessmentRequestSchema = z.object({ id, scope: scopeSchema, target
 export const jobSchema = z.object({ id, kind: id, status: z.enum(['queued', 'running', 'completed', 'failed', 'unknown', 'canceled']), progress: z.number().min(0).max(1), cancelRequested: z.boolean(), deadline: timestamp, error: z.string().nullable(), result: z.json().nullable() }).strict();
 export const recommendationSchema = z.object({
   plan: planSchema, digest: sha256, status: id,
+  jobs: z.array(jobSchema).default([]),
   publications: z.array(z.object({ id, planId: id, revision: z.number().int().positive(), digest: sha256, surface: id, explanation: z.string(), publishedAt: timestamp })),
   executions: z.array(z.object({ id, state: id, actionId: id, targetId: id, receipt: receiptSchema.nullable() })),
   campaign: z.object({ id, installationId: id, paused: z.boolean(), generation: z.number().int(), createdAt: timestamp }).nullable(),
