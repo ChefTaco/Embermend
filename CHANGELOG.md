@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Consume the suite's released Ardent 3.0.0 plugin API and pinned Node 26.13.0 runtime image.
+
 - Establish strict TypeScript 6.0.3 workspaces, product contracts, PostgreSQL
   state, authorization, durable jobs, evidence, and verification boundaries.
 - Add the custom source-analysis scanner and typed Ardent coordinator plugin.
