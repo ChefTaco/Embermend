@@ -46,6 +46,23 @@ commit evidence. It never submits another request while observing that outcome.
 Separately authorized source verification is still required after a merge.
 [GitHub asynchronous merge contract](https://docs.github.com/en/rest/pulls/pulls#merge-a-pull-request-asynchronously).
 
+## Lost pull-request replies
+
+The provider reserves each mutation phase durably before its request. A lost PR
+creation reply retains the original branch, commit, base and preparation marker.
+Reconciliation reads that exact ref and queries all PR states, verifies both
+repository IDs and the exact head, and adopts one uniquely matching PR. It sends
+no provider mutation. Changed heads, ambiguous matches, incomplete listings or
+missing results keep the outcome unknown; absence never authorizes another PR.
+
+An operator with recovery permission can separately resolve an operation for
+which no mutation phase was ever reserved as `not-dispatched`. That proof and
+phase admission share the resource lock. A concurrent handler must see the
+terminal decision before it can reserve a write. This releases a stale-source
+refusal without clearing a possibly admitted effect. Earlier object-creation
+phases with uncertain replies remain held until their original effects can be
+established; this is not a general provider retry mechanism.
+
 ## Existing operator authentication
 
 Existing GitHub CLI authentication can support authorized local implementation

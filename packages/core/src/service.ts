@@ -9,6 +9,7 @@ import { prioritize } from './priority.js';
 import { verifiedOccurrence } from './verification.js';
 
 import { Records } from './records.js';
+const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 export class Embermend {
   public readonly records: Records;
@@ -312,8 +313,16 @@ export class Embermend {
     const request = z.object({ action: z.object({ targetKind: z.string() }).passthrough() }).passthrough().parse(execution.request);
     if (request.action.targetKind === 'repository') {
       const retained = execution.receipt ? receiptSchema.parse(execution.receipt) : null;
-      if (retained && ['completed', 'failed'].includes(retained.state)) return retained;
+      if (retained && ['completed', 'failed', 'not-dispatched'].includes(retained.state)) return retained;
+      if (actor.permissions.has('recover')) {
+        requirePermission(actor, 'recover', plan.scope);
+        const released = await this.releaseUnreservedProviderOperation(actor, execution); if (released) return released;
+      }
       const action = z.object({ class: z.string(), parameters: z.object({ changeId: z.string() }).passthrough() }).passthrough().parse(request.action);
+      if (action.class === 'repository-write' && this.github) {
+        const observed = await this.reconcileRepositoryWrite(actor, execution, action.parameters.changeId);
+        if (observed) return observed;
+      }
       if (action.class === 'merge' && this.github) {
         const preparation = await this.db.preparation.findUnique({ where: { id: action.parameters.changeId } });
         if (!preparation) throw new DomainError('ORIGINAL_PREPARATION_MISSING'); requirePermission(actor, 'read', preparationSchema.parse(preparation.data).scope);
@@ -494,10 +503,26 @@ export class Embermend {
     const reserved = await this.authorized(actor, plan, action, async tx => {
       const prior = await tx.providerEffect.findUnique({ where: { planId_revision_actionId_phase: key } });
       if (prior) { if (prior.requestDigest !== digest(input)) throw new DomainError('PROVIDER_EFFECT_IDENTITY_CONFLICT'); if (prior.state !== 'completed') throw new DomainError('UNKNOWN_PROVIDER_EFFECT_RECONCILE_ORIGINAL'); return { existing: true, value: prior.result, id: prior.id }; }
+      const execution = await tx.execution.findUnique({ where: { id: digest([plan.id, plan.revision, action.id]) } });
+      if (!execution || ['not-dispatched', 'completed', 'failed'].includes(execution.state)) throw new DomainError('PROVIDER_EXECUTION_NOT_ADMITTED');
       const row = await tx.providerEffect.create({ data: { id: randomUUID(), ...key, requestDigest: digest(input), state: 'unknown' } }); await audit(tx, actor, 'provider.effect.reserved', row.id, { phase, requestDigest: row.requestDigest }); return { existing: false, value: null, id: row.id };
     });
     if (reserved.existing) return z.object({ value: z.json() }).parse(reserved.value).value;
     return this.authorized(actor, plan, action, async tx => { const value = await effect(); await tx.providerEffect.update({ where: { id: reserved.id }, data: { state: 'completed', result: json({ value }) } }); await audit(tx, actor, 'provider.effect.completed', reserved.id, { phase }); return value; });
+  }
+  private async releaseUnreservedProviderOperation(actor: Actor, execution: { id: string; planId: string; revision: number; actionId: string; targetId: string; requestDigest: string }): Promise<Receipt | null> {
+    return this.db.$transaction(async tx => {
+      // providerEffect holds the same resource lock before reserving any write.
+      // A concurrent phase must see this terminal receipt before admission.
+      await lock(tx, `provider-resource:${execution.targetId}`);
+      const current = await tx.execution.findUnique({ where: { id: execution.id } });
+      if (!current || current.requestDigest !== execution.requestDigest) throw new DomainError('PROVIDER_OPERATION_IDENTITY_CONFLICT');
+      if (current.receipt && ['completed', 'failed', 'not-dispatched'].includes(current.state)) return receiptSchema.parse(current.receipt);
+      if (await tx.providerEffect.count({ where: { planId: execution.planId, revision: execution.revision, actionId: execution.actionId } })) return null;
+      const receipt: Receipt = { operationId: execution.id, requestDigest: execution.requestDigest, targetId: execution.targetId, state: 'not-dispatched', evidenceIds: [], result: { reason: 'NO_PROVIDER_MUTATION_RESERVED' }, ownershipReleased: true, observedAt: new Date().toISOString() };
+      await tx.execution.update({ where: { id: execution.id }, data: { state: receipt.state, receipt: json(receipt) } });
+      await audit(tx, actor, 'provider.operation.not-dispatched', execution.id, { reason: 'NO_PROVIDER_MUTATION_RESERVED' }); return receipt;
+    });
   }
   private async recordMergeObservation(actor: Actor, execution: { id: string; requestDigest: string; targetId: string }, changeId: string, merge: GitHubMergeOperation): Promise<Receipt> {
     return this.db.$transaction(async tx => {
@@ -509,6 +534,42 @@ export class Embermend {
       if (merge.state === 'merged') { const change = await tx.repositoryChange.findUnique({ where: { id: changeId } }); if (!change) throw new DomainError('ORIGINAL_REPOSITORY_CHANGE_MISSING'); const original = z.record(z.string(), z.json()).parse(change.data); await tx.repositoryChange.update({ where: { id: changeId }, data: { state: 'merged', data: json({ ...original, commit: merge.commit, mergeOperation: merge }) } }); }
       await tx.execution.update({ where: { id: execution.id }, data: { state: receipt.state, receipt: json(receipt) } });
       await audit(tx, actor, 'provider.merge.observed', execution.id, { state: merge.state, providerRequestId: merge.requestId }); return receipt;
+    });
+  }
+  private async reconcileRepositoryWrite(actor: Actor, execution: { id: string; planId: string; revision: number; actionId: string; targetId: string; requestDigest: string; request: unknown }, changeId: string): Promise<Receipt | null> {
+    const github = this.github; if (!github) return null;
+    const request = z.object({ action: z.object({ expectedRevision: z.string(), patchDigest: z.string() }) }).parse(execution.request);
+    const change = await this.db.preparation.findUnique({ where: { id: changeId } }); if (!change?.result) return null;
+    const preparation = preparationSchema.parse(change.data); const prepared = preparationResultSchema.parse(change.result); requirePermission(actor, 'read', preparation.scope);
+    if (preparation.repositoryId !== execution.targetId || preparation.baseCommit !== request.action.expectedRevision || !prepared.validated || prepared.patchDigest !== request.action.patchDigest || digest(prepared.edits) !== prepared.patchDigest) throw new DomainError('ORIGINAL_PREPARATION_IDENTITY_CHANGED');
+    const row = await this.db.entity.findUnique({ where: { id: execution.targetId } }); const repository = row ? entitySchema.parse(row.data) : null;
+    if (!repository || repository.kind !== 'repository' || repository.providerId !== preparation.providerId) throw new DomainError('ORIGINAL_REPOSITORY_MISSING'); requirePermission(actor, 'read', repository.scope);
+    const key = { planId: execution.planId, revision: execution.revision, actionId: execution.actionId };
+    const phases = await this.db.providerEffect.findMany({ where: key });
+    const treePhase = phases.find(phase => phase.phase === 'tree' && phase.state === 'completed');
+    const commitPhase = phases.find(phase => phase.phase === 'commit' && phase.state === 'completed');
+    const branchPhase = phases.find(phase => phase.phase === 'branch' && phase.state === 'completed');
+    const pullPhase = phases.find(phase => phase.phase === 'pull-request');
+    if (!treePhase || !commitPhase || !branchPhase || !pullPhase) return null;
+    const tree = z.object({ value: z.string().regex(/^[a-f0-9]{40,64}$/) }).parse(treePhase.result).value;
+    const commit = z.object({ value: z.string().regex(/^[a-f0-9]{40,64}$/) }).parse(commitPhase.result).value;
+    const branch = remediationBranch(preparation.id);
+    if (treePhase.requestDigest !== digest({ patchDigest: prepared.patchDigest, baseCommit: preparation.baseCommit }) || commitPhase.requestDigest !== digest({ tree, baseCommit: preparation.baseCommit }) || branchPhase.requestDigest !== digest({ branch, commit }) || z.object({ value: z.string() }).parse(branchPhase.result).value !== `refs/heads/${branch}` || pullPhase.requestDigest !== digest({ branch, base: preparation.branch, commit })) throw new DomainError('ORIGINAL_PROVIDER_PHASE_IDENTITY_CHANGED');
+    const pull = await github.findPullRequest(repository.providerId, { branch, base: preparation.branch, headCommit: commit, operationId: preparation.id });
+    if (!pull) return null; // A missing result cannot establish absence or authorize replay.
+    const result = { number: pull.number, url: pull.url, headCommit: pull.headCommit };
+    const receipt: Receipt = { operationId: execution.id, requestDigest: execution.requestDigest, targetId: repository.id, state: 'completed', evidenceIds: [], result, ownershipReleased: true, observedAt: new Date().toISOString() };
+    return this.db.$transaction(async tx => {
+      await lock(tx, `provider-observation:${execution.id}`);
+      const current = await tx.execution.findUnique({ where: { id: execution.id } }); if (!current || current.requestDigest !== execution.requestDigest) throw new DomainError('PROVIDER_OPERATION_IDENTITY_CONFLICT');
+      if (current.state === 'completed' && current.receipt) return receiptSchema.parse(current.receipt);
+      const phase = await tx.providerEffect.findUniqueOrThrow({ where: { id: pullPhase.id } });
+      if (phase.requestDigest !== pullPhase.requestDigest || phase.state === 'completed' && digest(phase.result) !== digest({ value: result })) throw new DomainError('ORIGINAL_PROVIDER_PHASE_IDENTITY_CHANGED');
+      const existing = await tx.repositoryChange.findUnique({ where: { id: preparation.id } }); if (existing && (existing.repositoryId !== repository.id || existing.providerIdentity !== String(pull.number))) throw new DomainError('LINKED_PULL_REQUEST_IDENTITY_CHANGED');
+      await tx.providerEffect.update({ where: { id: phase.id }, data: { state: 'completed', result: json({ value: result }) } });
+      await tx.repositoryChange.upsert({ where: { id: preparation.id }, create: { id: preparation.id, installationId: repository.scope.installationId, planId: execution.planId, revision: execution.revision, repositoryId: repository.id, baseCommit: preparation.baseCommit, patchDigest: prepared.patchDigest, state: pull.state === 'open' ? 'pull-request' : 'closed', providerIdentity: String(pull.number), data: json(result) }, update: {} });
+      await tx.execution.update({ where: { id: execution.id }, data: { state: 'completed', receipt: json(receipt) } });
+      await audit(tx, actor, 'provider.pull-request.observed', execution.id, { phaseId: phase.id, pullNumber: pull.number }); return receipt;
     });
   }
   private async dispatchRepository(actor: Actor, plan: Plan, action: Action): Promise<Receipt> {
@@ -523,16 +584,19 @@ export class Embermend {
     if (action.preconditions['branch'] !== preparation.branch || action.parameters['repositoryId'] !== undefined && action.parameters['repositoryId'] !== repository.id) throw new DomainError('AUTHORITATIVE_REPOSITORY_SCOPE_MISMATCH');
     const operationId = digest([plan.id, plan.revision, action.id]);
     const request = { planId: plan.id, revision: plan.revision, planDigest: digest(plan), action };
-    await this.authorized(actor, plan, action, async tx => {
+    const terminal = await this.authorized(actor, plan, action, async tx => {
       const prior = await tx.execution.findUnique({ where: { id: operationId } });
       if (prior && prior.requestDigest !== digest(request)) throw new DomainError('PROVIDER_OPERATION_IDENTITY_CONFLICT');
+      if (prior?.receipt && ['completed', 'failed', 'not-dispatched'].includes(prior.state)) return receiptSchema.parse(prior.receipt);
       if (!prior) await tx.execution.create({ data: { id: operationId, planId: plan.id, revision: plan.revision, actionId: action.id, targetId: repository.id, requestDigest: digest(request), request: json(request), state: 'unknown', dispatchGeneration: 0 } });
+      return null;
     });
+    if (terminal) return terminal;
     const finish = async (result: Record<string, z.infer<ReturnType<typeof z.json>>>): Promise<Receipt> => {
       const receipt: Receipt = { operationId, requestDigest: digest(request), targetId: repository.id, state: 'completed', evidenceIds: [], result, ownershipReleased: true, observedAt: new Date().toISOString() };
       await this.db.execution.update({ where: { id: operationId }, data: { state: 'completed', receipt: json(receipt) } }); return receipt;
     };
-    const branch = `embermend/${preparation.id.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
+    const branch = remediationBranch(preparation.id);
     if (action.class === 'repository-write') {
       if (await github.resolve(repository.providerId, preparation.branch) !== preparation.baseCommit) throw new DomainError('SOURCE_BASE_CHANGED');
       const tree = z.string().parse(await this.providerEffect(actor, plan, action, 'tree', { patchDigest: prepared.patchDigest, baseCommit: prepared.baseCommit }, () => github.createTree(repository.providerId, prepared)));

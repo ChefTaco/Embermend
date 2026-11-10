@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reconcile a lost PR-creation reply through exact branch/head/operation evidence without another write; permit separately authorized no-effect recovery when no provider mutation was reserved, with concurrent admission guards.
+
 - Retain complete managed assessment identities and observe original receipts after worker loss or execution deadlines, without redispatch or clearing cancellation; preserve verified history on duplicate evidence ingestion.
 
 - Evaluate GitHub operations by permission and live merge readiness instead of rejecting repository administrators; explicitly disable rule bypass and retain asynchronous merge identities for read-only reconciliation.

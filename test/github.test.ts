@@ -108,3 +108,23 @@ test('expired merge request results use original PR evidence and never authorize
   const pending = await client.observeMerge('123', original); assert.equal(pending.state, 'pending'); assert.equal(pending.requestId, mergeUuid);
   merged = true; assert.equal((await client.observeMerge('123', original)).commit, 'b'.repeat(40)); assert.ok(methods.every(method => method === 'GET'));
 });
+test('lost pull-request replies reconcile only exact original branch, commit and operation evidence with GETs', async () => {
+  const branch = 'embermend/fixture-change'; const operationId = 'fixture-change';
+  const pull = { number: 8, html_url: 'https://github.com/fixture-owner/fixture-repository/pull/8', state: 'open', body: `Prepared by Embermend.\n\nOperation: ${operationId}\n`, head: { ref: branch, sha: commit, repo: { id: 123 } }, base: { ref: 'main', repo: { id: 123 } } };
+  for (const mode of ['match', 'closed', 'absent', 'ambiguous', 'incomplete', 'branch', 'head', 'marker', 'fork']) {
+    const methods: string[] = [];
+    const request: typeof fetch = async (url, init) => {
+      methods.push(init?.method ?? 'GET'); const parsed = new URL(String(url));
+      if (parsed.pathname.startsWith('/repositories/')) return Response.json(repoReply);
+      if (parsed.pathname.includes('/git/ref/')) return Response.json({ ref: `refs/heads/${branch}`, object: { type: 'commit', sha: mode === 'branch' ? 'b'.repeat(40) : commit } });
+      assert.equal(parsed.searchParams.get('state'), 'all'); assert.equal(parsed.searchParams.get('head'), `fixture-owner:${branch}`); assert.equal(parsed.searchParams.get('base'), 'main');
+      const value = { ...pull, ...(mode === 'closed' ? { state: 'closed' } : mode === 'marker' ? { body: 'Operation: another-change' } : mode === 'head' ? { head: { ...pull.head, sha: 'b'.repeat(40) } } : mode === 'fork' ? { head: { ...pull.head, repo: { id: 456 } } } : {}) };
+      return Response.json(mode === 'absent' ? [] : Array.from({ length: mode === 'ambiguous' ? 2 : mode === 'incomplete' ? 100 : 1 }, () => value));
+    };
+    const observed = new GitHubClient('fixture-provider-token', grants, request).findPullRequest('123', { branch, base: 'main', headCommit: commit, operationId });
+    if (mode === 'absent' || mode === 'fork') assert.equal(await observed, null);
+    else if (mode === 'match' || mode === 'closed') { const found = await observed; assert.equal(found?.number, 8); assert.equal(found?.state, mode === 'closed' ? 'closed' : 'open'); }
+    else await assert.rejects(observed);
+    assert.ok(methods.every(method => method === 'GET'));
+  }
+});

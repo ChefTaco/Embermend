@@ -58,6 +58,20 @@ export class GitHubClient {
     const { path, grant } = await this.repository(providerId); if (!grant.allowedBranches.includes(base)) throw new Error('BASE_BRANCH_OUTSIDE_PROVIDER_GRANT');
     const result = z.object({ number: z.number().int().positive(), html_url: z.url(), head: z.object({ sha: revision }) }).parse(await this.call(`${path}/pulls`, 'POST', { title: 'Remediate verified security finding', head: branch, base, body: `Prepared and validated by Embermend.\n\nOperation: ${operationId}\n\nMerge and deployment require separate authorization.`, draft: false })); return { number: result.number, url: result.html_url, headCommit: result.head.sha };
   }
+  async findPullRequest(providerId: string, expected: { branch: string; base: string; headCommit: string; operationId: string }): Promise<{ number: number; url: string; headCommit: string; state: 'open' | 'closed' } | null> {
+    const { path, grant } = await this.repository(providerId);
+    if (!grant.allowedBranches.includes(expected.base) || !/^embermend\/[a-zA-Z0-9._-]{1,100}$/.test(expected.branch)) throw new Error('RECONCILIATION_OUTSIDE_PROVIDER_GRANT');
+    const ref = z.object({ ref: z.string(), object: z.object({ sha: revision, type: z.literal('commit') }) }).parse(await this.call(`${path}/git/ref/heads/${encodeURIComponent(expected.branch)}`));
+    if (ref.ref !== `refs/heads/${expected.branch}` || ref.object.sha !== expected.headCommit) throw new Error('REMEDIATION_BRANCH_HEAD_CHANGED');
+    const query = new URLSearchParams({ state: 'all', head: `${grant.owner}:${expected.branch}`, base: expected.base, per_page: '100' });
+    const pulls = z.array(z.object({ number: z.number().int().positive(), html_url: z.url(), state: z.enum(['open', 'closed']), body: z.string().nullable(), head: z.object({ ref: z.string(), sha: revision, repo: z.object({ id: z.number().int().positive() }).nullable() }), base: z.object({ ref: z.string(), repo: z.object({ id: z.number().int().positive() }) }) })).parse(await this.call(`${path}/pulls?${query}`));
+    if (pulls.length >= 100) throw new Error('PULL_REQUEST_RECONCILIATION_INCOMPLETE');
+    const matches = pulls.filter(pull => pull.head.ref === expected.branch && pull.base.ref === expected.base && String(pull.head.repo?.id) === providerId && String(pull.base.repo.id) === providerId);
+    if (matches.length > 1) throw new Error('PULL_REQUEST_RECONCILIATION_AMBIGUOUS');
+    const pull = matches[0]; if (!pull) return null;
+    if (pull.head.sha !== expected.headCommit || !pull.body?.split(/\r?\n/).includes(`Operation: ${expected.operationId}`)) throw new Error('PULL_REQUEST_RECONCILIATION_IDENTITY_CHANGED');
+    return { number: pull.number, url: pull.html_url, headCommit: pull.head.sha, state: pull.state };
+  }
   async pullRequest(providerId: string, number: number) {
     const { path } = await this.repository(providerId);
     return z.object({ number: z.number(), state: z.string(), merged: z.boolean(), merge_commit_sha: revision.nullable(), head: z.object({ sha: revision, ref: z.string() }), base: z.object({ ref: z.string(), sha: revision }) }).parse(await this.call(`${path}/pulls/${number}`));

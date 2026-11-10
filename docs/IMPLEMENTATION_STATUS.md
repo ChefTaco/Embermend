@@ -41,7 +41,16 @@ Docker, same-harness original/draft security probes, two validated fixture
 findings and one disputed finding, and actual stale GitHub head refusal before
 provider writes. Source remediation and deployment closure remain open. Magnus
 now retains inner supervisor identities for read-only original receipt adoption;
-that implementation passes regression tests but still needs live crash proof.
+that implementation passes regression tests; native agent-process crash proof
+remains pending.
+
+Actual product-worker SIGKILL and disposable control-service restart now have
+retained proof during an isolated preparation. The original lease and deadline
+expired naturally; an observation-only principal obtained the same completed
+native command receipt and ownership release through one GET. It did not renew
+the original grant, clear cancellation or dispatch again. Native agent-process
+loss, reboot continuation and the full crash matrix remain pending. See
+[recovery semantics](RECOVERY.md) and the dated worker recovery evidence.
 
 GitHub merge admission now evaluates live rules and checks without a repository
 role whitelist, and explicitly requests no rule bypass through the versioned

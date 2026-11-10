@@ -20,13 +20,13 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Artifact/deployment entities and runtime digest verification | Pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries | Pending |
 | AC-14 | Independent security/health verification checks | Pending |
-| AC-15 | Real native request with lost client reply reconciled under original identity | Partial; crash/reboot injection pending |
+| AC-15 | Actual worker SIGKILL and control restart; original native receipt observed after natural lease/deadline expiry without dispatch | Partial crash proof; native agent/reboot cases pending |
 | AC-16 | Authoritative pause regression; recovery capability work remains | Pending |
 | AC-17 | Separate container/workload/artifact identities | Pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
 | AC-19 | Scoped expiring exceptions and durable expiry events | Pending |
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
-| AC-21 | Durable jobs, duplicate native delivery, exact PostgreSQL restore and restored history guards | Partial; full restart/hostile-work acceptance pending |
+| AC-21 | Durable jobs, duplicate native delivery, real worker/control restart recovery, exact PostgreSQL restore and restored history guards | Partial; coordinator/native restart and hostile-work acceptance pending |
 | AC-22 | Compact HiveXUI recommendations, decisions, pause and outcome view | Pending |
 | AC-23 | Scoped exports; reporting and campaign completion work remains | Pending |
 | AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
@@ -70,3 +70,11 @@ SQLite injection and owner filtering received technical validation; the abstract
 store finding remains disputed. A separately published and explicitly approved
 plan was refused against the actual changed GitHub head before provider writes.
 Prepared edits have not changed a maintained branch, built artifact or deployment.
+
+The [worker recovery evidence](acceptance/2026-11-10-worker-recovery.json) covers
+actual product worker loss and a disposable control-service restart during an
+isolated preparation. The original lease and deadline expired naturally. A
+separate read/evidence/recover principal observed the original native receipt,
+preserved cancellation intent, and confirmed released ownership with one receipt
+GET and no dispatch. Native agent crashes, reboot continuation, and the remaining
+dispatch/persistence fault points are not established by this combined case.

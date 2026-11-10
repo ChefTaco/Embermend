@@ -233,6 +233,49 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await db.job.findUniqueOrThrow({ where: { id } })).status, 'unknown');
   });
 
+  await t.test('lost PR creation reply adopts one original PR through reads without repeating provider mutations', async () => {
+    const { magnus, service: records } = await reset(); const base = 'a'.repeat(40); const head = 'b'.repeat(40); const tree = 'd'.repeat(40);
+    const changeId = 'fixture-lost-pr'; const branch = 'embermend/' + changeId; const writes: string[] = []; let changed = false; let holdResolve = false; const readStarted = Promise.withResolvers<void>(); const readGate = Promise.withResolvers<void>();
+    const fake: typeof fetch = async (url, init) => {
+      const parsed = new URL(String(url)); const path = parsed.pathname; const method = init?.method ?? 'GET';
+      if (path.startsWith('/repositories/')) return Response.json({ id: 123, full_name: 'fixture-owner/fixture-repository', owner: { login: 'fixture-owner' }, name: 'fixture-repository', default_branch: 'main' });
+      if (method === 'POST') {
+        writes.push(path);
+        if (path.endsWith('/git/trees')) return Response.json({ sha: tree });
+        if (path.endsWith('/git/commits')) return Response.json({ sha: head });
+        if (path.endsWith('/git/refs')) return Response.json({ ref: 'refs/heads/' + branch, object: { sha: head } });
+        if (path.endsWith('/pulls')) throw new IntegrationError('FIXTURE_LOST_PULL_REPLY', true);
+      }
+      if (path.includes('/commits/')) { if (holdResolve) { readStarted.resolve(); await readGate.promise; } return Response.json({ sha: base, commit: { tree: { sha: tree } } }); }
+      if (path.includes('/git/ref/')) return Response.json({ ref: 'refs/heads/' + branch, object: { type: 'commit', sha: changed ? 'f'.repeat(40) : head } });
+      if (path.endsWith('/pulls')) return Response.json([{ number: 9, html_url: 'https://github.com/fixture-owner/fixture-repository/pull/9', state: 'open', body: 'Operation: ' + changeId, head: { ref: branch, sha: head, repo: { id: 123 } }, base: { ref: 'main', repo: { id: 123 } } }]);
+      throw new Error('Unexpected fixture request');
+    };
+    const service = new Embermend(db, magnus, new GitHubClient('fixture-token-not-real', [{ providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', allowedBranches: ['main'], workflowIds: [] }], fake));
+    await records.entity(operator, { id: 'fixture-repository', kind: 'repository', scope, label: 'Fixture repository', provenance: { source: 'github', assurance: 'established', evidenceIds: [], observedAt: now() }, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
+    await records.evidence(operator, { ...evidence(), id: 'source-proof', subjectId: 'fixture-repository' });
+    await records.finding(operator, { ...finding(), id: 'source-finding', identity: 'c'.repeat(64), kind: 'code', component: 'fixture-app', weakness: 'injection', evidenceIds: ['source-proof'] }, { ...occurrence(), id: 'source-occurrence', findingId: 'source-finding', subjectId: 'fixture-repository', branch: 'main', revision: base, sourceState: 'open', runtimeState: 'unknown', evidenceIds: ['source-proof'] });
+    const edits = [{ path: 'apps/api/index.ts', beforeDigest: 'a'.repeat(64), content: 'fixture repaired source' }]; const patchDigest = digest(edits);
+    const preparation = { id: changeId, repositoryId: 'fixture-repository', applicationId: 'fixture-app', providerId: '123', scope, baseCommit: base, branch: 'main', workerTargetId: 'fixture-node', includedPaths: ['apps/api'], excludedPaths: [], edits, validationProfileId: 'fixture-validation', deadline: later() };
+    const prepared = { preparationId: preparation.id, baseCommit: base, patchDigest, validated: true, edits, validationEvidence: { method: 'fixture-test' }, coverage: { status: 'complete', requested: ['apps/api/index.ts'], examined: ['apps/api/index.ts'], excluded: [], failures: [], mode: 'incremental', observedAt: now() } };
+    await db.preparation.create({ data: { id: changeId, installationId: scope.installationId, repositoryId: preparation.repositoryId, applicationId: preparation.applicationId, jobId: 'fixture-preparation-job', requestDigest: digest(preparation), data: preparation, result: prepared } });
+    const value: Plan = { ...plan(), id: 'fixture-pr-plan', campaignId: 'fixture-pr-campaign', findingIds: ['source-finding'], evidenceIds: ['source-proof'], canaryTargetId: 'fixture-repository', actions: [{ ...plan().actions[0], id: 'open-fix', version: 'repository-pr.v1', class: 'repository-write', targetId: 'fixture-repository', targetKind: 'repository', requiredCapabilities: ['embermend:repository-pr.v1'], parameters: { changeId, repositoryId: 'fixture-repository', baseCommit: base, patchDigest }, preconditions: { environment: 'lab', branch: 'main' }, dependsOn: [], verificationIds: ['source-check'], recovery: 'Separate source recovery approval required', expectedRevision: base, patchDigest, disruption: 'none' }] };
+    const unstarted = { ...value, id: 'fixture-held-read-plan', campaignId: 'fixture-held-read-campaign' };
+    const admitted = await service.propose(operator, unstarted); await service.publish(operator, unstarted.id, 1); await service.decide(operator, { planId: unstarted.id, revision: 1, digest: admitted.digest, decision: 'approve', expiresAt: unstarted.expiresAt });
+    holdResolve = true; const delayed = service.dispatch(operator, unstarted.id, 'open-fix'); const delayedRefusal = assert.rejects(delayed, /PROVIDER_EXECUTION_NOT_ADMITTED/); await readStarted.promise;
+    const reserved = await db.execution.findFirstOrThrow({ where: { planId: unstarted.id } });
+    assert.equal((await service.reconcile({ ...operator, permissions: new Set(['read']) }, reserved.id)).state, 'unknown');
+    const notDispatched = await service.reconcile(operator, reserved.id); assert.equal(notDispatched.state, 'not-dispatched'); assert.equal(notDispatched.ownershipReleased, true);
+    holdResolve = false; readGate.resolve(); await delayedRefusal; assert.equal(writes.length, 0); assert.equal(await db.providerEffect.count(), 0);
+    assert.deepEqual(await service.dispatch(operator, unstarted.id, 'open-fix'), notDispatched);
+    const proposed = await service.propose(operator, value); await service.publish(operator, value.id, 1); await service.decide(operator, { planId: value.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
+    await assert.rejects(service.dispatch(operator, value.id, 'open-fix'), /FIXTURE_LOST_PULL_REPLY/); assert.equal(writes.length, 4);
+    const original = await db.execution.findFirstOrThrow({ where: { planId: value.id } }); assert.equal(original.state, 'unknown'); assert.equal(await db.repositoryChange.count(), 0);
+    changed = true; await assert.rejects(service.reconcile(operator, original.id), /BRANCH_HEAD_CHANGED/); assert.equal((await db.execution.findUniqueOrThrow({ where: { id: original.id } })).state, 'unknown');
+    changed = false; const receipt = await service.reconcile(operator, original.id); assert.equal(receipt.state, 'completed'); assert.equal(receipt.ownershipReleased, true); assert.equal(receipt.result['headCommit'], head);
+    assert.deepEqual(await service.reconcile(operator, original.id), receipt); await service.dispatch(operator, value.id, 'open-fix'); assert.equal(writes.length, 4); assert.equal(await db.repositoryChange.count(), 1);
+  });
+
   await t.test('merge request UUID survives queueing and read-only reconciliation without another provider mutation', async () => {
     const { magnus, service: records } = await reset();
     const base = 'a'.repeat(40); const head = 'b'.repeat(40); const mergedCommit = 'c'.repeat(40); const requestId = '630b9d5e-3f2a-4f7e-8b0c-2d5f9a8c1e42';

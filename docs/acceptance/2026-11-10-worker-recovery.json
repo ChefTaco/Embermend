@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "productSourceRevision": "f43a4ed4ee29ff1aa42f2f64d526b069f7ccfaa4",
+  "controlSourceRevision": "775c81277d40c58d3746a1ff8f486de45ed2336b",
+  "scope": "One isolated preparation on a previously enrolled Ubuntu 24.04.5 rootless worker; disposable product worker and control service only",
+  "faults": [
+    "SIGKILL of the product worker after the original native running receipt",
+    "SIGKILL and restart of the same disposable control container before native completion",
+    "Natural product lease expiry and original admission deadline expiry",
+    "Cancellation intent retained on the original job"
+  ],
+  "observation": {
+    "freshObservationJob": true,
+    "scope": "Separate read/evidence/recover operator, without preparation or execution permission",
+    "providerCalls": [
+      {
+        "method": "GET",
+        "operation": "read-original-receipt"
+      }
+    ],
+    "newDispatches": 0,
+    "newCapabilitiesRequests": 0,
+    "originalNativeCommandCount": 1,
+    "originalNativeIdentityRetained": true,
+    "requestDigestRetained": true,
+    "receiptState": "completed",
+    "ownershipReleased": true,
+    "originalDeadlinePreserved": true,
+    "cancelRequested": true,
+    "preparationValidated": true
+  },
+  "receiptSha256": "5e4b1e453b5be561e5c9c46b7ccec29cce917a583c27e8d015923bdd65c0b72e",
+  "patchDigest": "9732d136e282b056aa3040e92293e5f671f286c43043a1bffb5589b9ca0321bd",
+  "scannerImage": "sha256:dcdcb5c4daa5dd63c0912c22587ab99e17e7e6eba36b7a1ef9136e62f2da277b",
+  "agentPackageSha256": "aab4af437d0af64912af33f3c26b7e55f7d7f1d2a3fc82524c110c2ea55b5c7b",
+  "privateRecordSha256": "3e99f6edc28eceef01f7576066805924a80ffefca3e2146f9c555e81ca86dcc8",
+  "limitations": [
+    "One combined worker/control crash case, not every dispatch/persistence crash point",
+    "Native node-agent process loss and reboot continuation remain unproven",
+    "Cancellation is retained intent; no remote termination claim",
+    "No maintained source, publication, deployment or production policy changed",
+    "Combined suite restore and authenticated operator/coordinator journeys remain pending"
+  ],
+  "postRecoveryRestore": {
+    "scope": "Disposable product PostgreSQL only",
+    "dumpSha256": "5380b669f3c00394770b9ece979da732d5625ce5d7c0c9ca9899f7f4f0845a56",
+    "tableCount": 26,
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true
+  }
+}
