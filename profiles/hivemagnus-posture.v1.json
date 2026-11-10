@@ -1,0 +1,9 @@
+{
+  "id":"hivemagnus-posture","version":"1.0.0","platform":"ubuntu-24.04",
+  "description":"The managed assessment's enrolled, signed, supervised execution boundary. Root allowlists, identity grants and external exposure still need a separate installation review.",
+  "coverage":["Magnus-supervised assessment receipt boundary","Versioned Embermend bridge protocol"],
+  "rules":[
+    {"id":"managed-boundary","explanation":"Use the supervised managed HTTP execution boundary","capability":"inventory.v1","field":"magnus.boundary","expected":"supervised-http-v1","actionVersion":null,"impact":"Unsupported management boundaries block execution; there is no direct SSH fallback."},
+    {"id":"bridge-protocol","explanation":"Require the versioned Embermend capability protocol","capability":"inventory.v1","field":"magnus.protocol","expected":1,"actionVersion":null,"impact":"Upgrade Magnus through its owning release path before enabling unsupported remediation capabilities."}
+  ]
+}

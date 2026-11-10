@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+temporary="$(mktemp -d)"
+trap 'rm -rf "$temporary"' EXIT
+cat > "$temporary/refs"
+bash scripts/check-private-data.sh
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -n "$local_ref" && -n "$remote_ref" && "$local_sha" =~ ^[0-9a-f]{40,64}$ && "$remote_sha" =~ ^[0-9a-f]{40,64}$ ]] || exit 2
+  [[ "$local_sha" =~ ^0+$ ]] && continue
+  range="$local_sha"
+  if [[ ! "$remote_sha" =~ ^0+$ ]] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then range="$remote_sha..$local_sha"; fi
+  # Review outgoing messages and patches as well as the current tracked tree.
+  # Keep private content off the terminal and never invoke external diff tools.
+  git log --no-ext-diff --no-textconv --format=%B --patch "$range" > "$temporary/history"
+  bash scripts/check-private-data.sh --message "$temporary/history"
+done < "$temporary/refs"
+bash scripts/gitleaks.sh --pre-push < "$temporary/refs"

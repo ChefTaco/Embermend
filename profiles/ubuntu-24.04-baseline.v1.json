@@ -1,0 +1,12 @@
+{
+  "id": "ubuntu-24.04-baseline",
+  "version": "1.0.0",
+  "platform": "ubuntu-24.04",
+  "description": "Selected effective configuration on explicitly allowlisted resources. This is not a complete CIS benchmark or a vendor vulnerability assessment.",
+  "coverage": ["Selected SSH drop-in effective settings", "Selected credential/configuration permissions", "Unsupported or unconfigured resources remain not assessed"],
+  "rules": [
+    {"id":"ssh-password-authentication","explanation":"Disable SSH password authentication after reviewing key-based access","capability":"inventory.v1","field":"resources.ssh-policy.passwordAuthentication","expected":"no","actionVersion":"ssh-policy.v1","impact":"May prevent password-based login. Review key access and management reachability before authorizing a change."},
+    {"id":"ssh-root-login","explanation":"Disable direct SSH root login after reviewing delegated administration","capability":"inventory.v1","field":"resources.ssh-policy.permitRootLogin","expected":"no","actionVersion":"ssh-policy.v1","impact":"May prevent existing root SSH sessions from reconnecting. The Magnus HTTPS management path needs independent verification."},
+    {"id":"configuration-permissions","explanation":"Restrict the selected service configuration to its owner","capability":"inventory.v1","field":"configuration.service-config.mode","expected":"0600","actionVersion":"file-mode.v1","impact":"Consumers running under another account may lose read access; verify the owning service and its configured credential migration."}
+  ]
+}

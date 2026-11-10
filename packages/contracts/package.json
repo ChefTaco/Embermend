@@ -1,0 +1,41 @@
+{
+  "name": "@hivemagnus/embermend-contracts",
+  "version": "0.1.0",
+  "private": false,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "NOTICE",
+    "openapi.json"
+  ],
+  "engines": {
+    "node": "^24.22.1 || ^26.13.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChefTaco/Embermend.git",
+    "directory": "packages/contracts"
+  }
+}

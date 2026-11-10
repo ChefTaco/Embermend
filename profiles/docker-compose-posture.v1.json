@@ -1,0 +1,10 @@
+{
+  "id":"docker-compose-posture","version":"1.0.0","platform":"ubuntu-24.04",
+  "description":"Effective Docker configuration for running containers observed by the managed host. Application security, daemon exposure and external reachability require separate assessment.",
+  "coverage":["Running container privilege configuration","Read-only root filesystem configuration","Explicit capability drop and no-new-privileges configuration"],
+  "rules":[
+    {"id":"container-not-privileged","explanation":"Run application containers without privileged mode","capability":"inventory.v1","field":"containerPosture.allNonPrivileged","expected":true,"actionVersion":"compose-deploy.v1","appliesWhen":{"field":"containerPosture.applicable","equals":true},"impact":"Requires a reviewed Compose configuration and replacement of affected instances. Workloads needing host privileges require explicit review."},
+    {"id":"container-read-only","explanation":"Use a read-only root filesystem with explicit writable data mounts","capability":"inventory.v1","field":"containerPosture.allReadOnly","expected":true,"actionVersion":"compose-deploy.v1","appliesWhen":{"field":"containerPosture.applicable","equals":true},"impact":"Applications writing to the root filesystem require explicit data or temporary mounts before deployment."},
+    {"id":"container-no-new-privileges","explanation":"Prevent container processes gaining new privileges","capability":"inventory.v1","field":"containerPosture.allNoNewPrivileges","expected":true,"actionVersion":"compose-deploy.v1","appliesWhen":{"field":"containerPosture.applicable","equals":true},"impact":"Setuid-dependent workloads may stop working; validate replacement containers and application health."}
+  ]
+}

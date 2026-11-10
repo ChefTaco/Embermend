@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "status": "partial-development-evidence",
+  "targets": {
+    "count": 3,
+    "platform": "Ubuntu 24.04.5",
+    "virtualization": "KVM",
+    "reference": "Disposable Magnus-enrolled guests"
+  },
+  "compiler": "6.0.3",
+  "agentCandidate": {
+    "version": "2.3.4",
+    "note": "Locally built development candidate; no compatible release published",
+    "packageSha256": "c031c2e39312a4b03a649f1a3842e4d6128611f85e8dac4d831cc5888a815525",
+    "contractsSha256": "df662724c7dbc4e92f3e2ff86240df2dc80d5908daf5db6682be26a3ee035048"
+  },
+  "proofs": {
+    "authorizedFixtureModeChanges": [
+      {
+        "label": "host-a",
+        "receiptFileSha256": "85affd570c9aef7bb45e015a88a6acdd1074b9fe39b7cd71728d66cf25640c0e"
+      },
+      {
+        "label": "host-b",
+        "receiptFileSha256": "ed97a12d4f657bafb0ffc00fdb16db8305846ebd45fcc33f8748570c7af7f0a3"
+      },
+      {
+        "label": "host-c",
+        "receiptFileSha256": "b40084a337b895c23698c2cbaebfcd505f1eb583e5745b009574596db56684fb"
+      }
+    ],
+    "independentReadback": true,
+    "duplicateDeliveryRetainedOriginalIdentity": true,
+    "responseLoss": "Real native request delivered, client reply deliberately discarded, original receipt reconciled",
+    "recovery": "Separately authorized original inode-mode restoration and rehardening; recurrence preserves historical verification",
+    "vendorAssessment": {
+      "engine": "OpenSCAP 1.3.9",
+      "definitions": 1597,
+      "affectedPackageFindings": 14,
+      "coverage": "complete for evaluated Ubuntu OVAL feed",
+      "feedGeneratedAt": "2026-11-10T00:00:53.000Z",
+      "feedSha256": "da8001aa980c5ecc96252cd4887c73fcc969c024011a194a6f5fb2df82fc4d24"
+    },
+    "postgresRestore": {
+      "tables": 26,
+      "allRowsAndHistoryDigestsMatched": true,
+      "appendOnlyGuardVerified": true,
+      "dumpSha256": "5fdbc8afa76031052a7e2f714266448859996d5d812d087330cdc6ba3b17dc6e"
+    }
+  },
+  "limitations": [
+    "No integrated acceptance criterion is complete",
+    "Mode fixture has no application consumer; host heartbeat is not application deployment health",
+    "New recurrence security verification remains outstanding after rehardening",
+    "Database-only restore; combined suite restore remains pending",
+    "Approved real model configuration not identified",
+    "No real GitHub monorepo or Compose deployment acceptance",
+    "No reboot/crash continuation acceptance",
+    "No release or real-fleet assessment"
+  ]
+}

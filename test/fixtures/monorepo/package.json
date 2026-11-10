@@ -1,0 +1,7 @@
+{
+  "name": "embermend-controlled-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*"],
+  "scripts": {"test": "node --test test/*.test.mjs"}
+}

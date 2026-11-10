@@ -1,0 +1,3 @@
+title = "Embermend secret protection"
+[extend]
+useDefault = true

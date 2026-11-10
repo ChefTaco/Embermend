@@ -1,0 +1,48 @@
+{
+  "name": "embermend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": "^24.22.1 || ^26.13.0"
+  },
+  "packageManager": "npm@11.19.1",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @hivemagnus/embermend-contracts -w @hivemagnus/embermend-store -w @hivemagnus/embermend-integrations -w @hivemagnus/embermend-scanner -w @hivemagnus/embermend-core -w @hivemagnus/embermend-ardent-plugin -w @hivemagnus/embermend-runtime",
+    "typecheck": "npm run typecheck --workspaces && tsc --noEmit -p tsconfig.test.json",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:integration": "node --import tsx --test test/integration/*.test.ts",
+    "db:generate": "prisma generate --config packages/store/prisma.config.ts",
+    "db:migrate": "prisma migrate deploy --config packages/store/prisma.config.ts",
+    "start": "node services/runtime/dist/index.js api",
+    "worker": "node services/runtime/dist/index.js worker",
+    "openapi:check": "node scripts/openapi.mjs --check",
+    "openapi:write": "node scripts/openapi.mjs --write",
+    "check:private": "bash scripts/check-private-data.sh",
+    "scan:secrets": "bash scripts/gitleaks.sh --staged",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "verify": "npm run db:generate && npm run build && npm run scan:artifacts && npm run typecheck && npm test && npm run openapi:check && npm run check:packages && npm run check:strict && npm run check:private",
+    "check:strict": "node scripts/check-strict.mjs",
+    "scan:artifacts": "bash scripts/gitleaks.sh --artifacts",
+    "check:packages": "node scripts/check-packages.mjs"
+  },
+  "devDependencies": {
+    "@hivemagnus/ardent": "2.3.1",
+    "@types/node": "24.19.2",
+    "@types/pg": "8.20.0",
+    "jose": "6.2.13",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "prisma": "7.10.1"
+  }
+}

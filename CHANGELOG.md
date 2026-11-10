@@ -1,0 +1,16 @@
+# Changelog
+
+## Unreleased
+
+- Establish strict TypeScript 6.0.3 workspaces, product contracts, PostgreSQL
+  state, authorization, durable jobs, evidence, and verification boundaries.
+- Add the custom source-analysis scanner and typed Ardent coordinator plugin.
+- Add managed Magnus execution, versioned posture profiles, vendor OVAL/Trivy
+  adapters, bounded provider operations and the compact HiveXUI integration.
+- Require branch/component-bound source verification, restricted-evidence access,
+  exact displayed revisions, authoritative environment checks and independent
+  effective-state evidence.
+- Retain partial disposable-host and PostgreSQL restore evidence; no release or
+  production automation is enabled.
+
+This development record does not establish integrated product acceptance.

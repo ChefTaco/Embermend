@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated"
+}
+datasource db {
+  provider = "postgresql"
+}
+model Entity {
+  id String @id
+  kind String
+  installationId String
+  stableKey String @unique
+  data Json
+  version Int @default(1)
+  updatedAt DateTime @updatedAt
+  @@index([installationId, kind])
+}
+model Relationship {
+  id String @id
+  fromId String
+  toId String
+  kind String
+  provenance Json
+  @@unique([fromId, toId, kind])
+}
+model Evidence {
+  id String @id
+  installationId String
+  subjectId String
+  digest String
+  data Json
+  createdAt DateTime @default(now())
+  @@index([installationId, subjectId])
+}
+model Observation {
+  id String @id
+  source String
+  sourceEventId String
+  installationId String
+  subjectId String
+  data Json
+  observedAt DateTime
+  @@unique([installationId, source, sourceEventId])
+}
+model Finding {
+  id String @id
+  installationId String
+  identity String
+  data Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([installationId, identity])
+}
+model Occurrence {
+  id String @id
+  findingId String
+  subjectId String
+  data Json
+  updatedAt DateTime @updatedAt
+  @@index([findingId, subjectId])
+}
+model Profile {
+  id String
+  version String
+  data Json
+  @@id([id, version])
+}
+model ProfileAssignment {
+  id String @id
+  installationId String
+  profileId String
+  profileVersion String
+  data Json
+}
+model Policy {
+  id String @id
+  installationId String
+  revision Int
+  data Json
+}
+model Campaign {
+  id String @id
+  installationId String
+  paused Boolean @default(false)
+  generation Int @default(1)
+  createdAt DateTime @default(now())
+}
+model Plan {
+  id String @id
+  installationId String
+  campaignId String
+  currentRevision Int
+  status String @default("draft")
+}
+model PlanRevision {
+  planId String
+  revision Int
+  digest String
+  data Json
+  createdAt DateTime @default(now())
+  @@id([planId, revision])
+}
+model Publication {
+  id String @id
+  planId String
+  revision Int
+  digest String
+  surface String
+  explanation String
+  publishedAt DateTime @default(now())
+  @@unique([planId, revision, surface])
+}
+model Authorization {
+  id String @id
+  planId String
+  revision Int
+  digest String
+  actorId String
+  kind String
+  policyId String?
+  policyRevision Int?
+  expiresAt DateTime
+  revoked Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([planId, revision])
+}
+model Execution {
+  id String @id
+  planId String
+  revision Int
+  actionId String
+  targetId String
+  requestDigest String
+  request Json
+  state String
+  receipt Json?
+  dispatchGeneration Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([planId, revision, actionId])
+  @@index([state])
+}
+model Verification {
+  id String @id
+  occurrenceId String
+  data Json
+  createdAt DateTime @default(now())
+  @@index([occurrenceId])
+}
+model Exception {
+  id String @id
+  installationId String
+  expiresAt DateTime
+  status String
+  data Json
+}
+model RepositoryChange {
+  id String @id
+  installationId String
+  planId String
+  revision Int
+  repositoryId String
+  baseCommit String
+  patchDigest String
+  state String
+  providerIdentity String?
+  data Json
+}
+model Preparation {
+  id String @id
+  installationId String
+  repositoryId String
+  applicationId String
+  jobId String @unique
+  requestDigest String
+  data Json
+  result Json?
+}
+model ProviderEffect {
+  id String @id
+  planId String
+  revision Int
+  actionId String
+  phase String
+  requestDigest String
+  state String
+  result Json?
+  createdAt DateTime @default(now())
+  @@unique([planId, revision, actionId, phase])
+}
+model Build {
+  id String @id
+  installationId String
+  repositoryId String
+  sourceCommit String
+  providerRunId String
+  status String
+  data Json
+  @@unique([repositoryId, providerRunId])
+}
+model Job {
+  id String @id
+  kind String
+  installationId String
+  actor Json
+  dedupeKey String @unique
+  payload Json
+  status String @default("queued")
+  progress Float @default(0)
+  cancelRequested Boolean @default(false)
+  availableAt DateTime @default(now())
+  deadline DateTime
+  leaseOwner String?
+  leaseUntil DateTime?
+  result Json?
+  error String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, availableAt])
+}
+model Schedule {
+  id String @id
+  installationId String
+  actor Json
+  kind String
+  payload Json
+  intervalSeconds Int
+  nextAt DateTime
+  enabled Boolean @default(true)
+}
+model Outbox {
+  id String @id
+  kind String
+  subjectId String
+  payload Json
+  status String @default("queued")
+  createdAt DateTime @default(now())
+}
+model Audit {
+  id String @id
+  actorId String
+  operation String
+  subjectId String
+  installationId String
+  details Json
+  createdAt DateTime @default(now())
+  @@index([installationId, createdAt])
+}
