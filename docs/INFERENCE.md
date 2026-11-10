@@ -134,3 +134,9 @@ Protocol references: [Codex app server](https://developers.openai.com/codex/app-
 [Codex configuration](https://developers.openai.com/codex/config-reference/),
 [Claude CLI reference](https://code.claude.com/docs/en/cli-reference), and
 [llama.cpp server](https://github.com/ggml-org/llama.cpp/tree/master/tools/server).
+
+Scanner stdio failures use the bounded `MODEL_BROKER_UNAVAILABLE` error frame,
+bound to the original request ID. Compatible scanner images record failed file
+analysis and partial coverage instead of treating missing output as a clean
+result. The container CI gate exercises this frame and the actual source-reader
+and preparation entry commands using fake data and no network.

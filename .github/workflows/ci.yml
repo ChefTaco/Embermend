@@ -46,8 +46,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.22.1
       - run: docker build --target runtime -t embermend-runtime:ci .
       - run: docker run --rm embermend-runtime:ci --version
       - run: docker build --target scanner -t embermend-scanner:ci .
       - name: Verify scanner compiler and isolation-compatible runtime
         run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint node embermend-scanner:ci --input-type=module -e "import ts from 'typescript'; if (ts.version !== '6.0.3') process.exit(1); await import('@hivemagnus/embermend-scanner'); if (process.execPath !== '/usr/bin/node') throw new Error('Reviewed worker Node path changed');"
+      - name: Exercise scanner broker failures and isolated source/preparation entry commands
+        run: node test/containers/scanner-protocol.mjs embermend-scanner:ci

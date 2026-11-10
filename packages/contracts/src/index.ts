@@ -173,3 +173,9 @@ export const profileAssignmentSchema = z.object({ id, scope: scopeSchema, profil
 export const scheduleSchema = z.object({ id, scope: scopeSchema, kind: z.enum(['assessment', 'vulnerabilities', 'scan']), payload: z.unknown(), intervalSeconds: z.number().int().min(300).max(2592000), nextAt: timestamp, enabled: z.boolean() }).strict();
 export const compatibilitySchema = z.object({ product: z.literal('embermend'), version: id, protocol: z.literal(1), magnusRequired: z.literal(true), operatorSurface: z.literal('hivexui'), runtime: id, storage: z.literal('postgresql'), supportedTargets: z.array(id) }).strict();
 export const readinessSchema = z.object({ status: z.enum(['ready', 'degraded']), serviceAvailable: z.literal(true), assessmentReady: z.boolean(), managedDispatch: z.boolean(), eligibleTargets: z.number().int().min(0), blockers: z.array(id), capabilities: capabilitySchema.nullable() }).strict();
+
+/** Version-one scanner stdio reply. Failure is explicit and carries no provider data. */
+export const scannerBrokerReplySchema = z.union([
+  z.object({ id: z.string().min(1).max(200), result: z.unknown() }).strict(),
+  z.object({ id: z.string().min(1).max(200), error: z.literal('MODEL_BROKER_UNAVAILABLE') }).strict(),
+]);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { scan, safePath, indexSource } from '@hivemagnus/embermend-scanner';
+import { scan, safePath, indexSource, scannerBrokerResult } from '@hivemagnus/embermend-scanner';
 import type { ScanRequest } from '@hivemagnus/embermend-contracts';
 import type { Model } from '@hivemagnus/embermend-integrations';
 import { sourceFile, scope, commit, later } from './fixtures.js';
@@ -34,4 +34,11 @@ test('distinct defects sharing a classification and function remain separate fin
   const file = sourceFile('apps/api/server.ts', 'export function route(input: string) {\n exec("echo " + input);\n exec("printf " + input);\n}');
   const custom: Model = { ...model, analyze: async () => ({ candidates: [2, 3].map(line => ({ path: file.path, line, symbol: 'route', weakness: 'injection', title: 'Input reaches a shell', evidence: `Independent sink at line ${line}`, assumptions: [], severity: 'high', confidence: 0.9 })) }) };
   const result = await scan(request(), [file], custom, new AbortController().signal); assert.equal(result.candidates.length, 2); assert.notEqual(result.candidates[0]?.fingerprint, result.candidates[1]?.fingerprint);
+});
+
+test('explicit broker failure retains partial coverage and refuses cross-request replies', async () => {
+  assert.throws(() => scannerBrokerResult({ id: 'different', result: { candidates: [] } }, 'expected'), /IDENTITY_MISMATCH/);
+  assert.throws(() => scannerBrokerResult({ id: 'expected', error: 'provider-secret-detail' }, 'expected'));
+  const result = await scan(request(), [sourceFile('apps/api/server.ts', 'export function route() {}')], { ...model, analyze: async () => scannerBrokerResult({ id: 'expected', error: 'MODEL_BROKER_UNAVAILABLE' }, 'expected') }, new AbortController().signal);
+  assert.equal(result.coverage.status, 'partial'); assert.deepEqual(result.coverage.examined, []); assert.deepEqual(result.coverage.failures, ['analysis-failed:apps/api/server.ts']);
 });

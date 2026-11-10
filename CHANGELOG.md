@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve explicit partial scanner coverage on model-broker failures; exercise source reading, preparation and broker errors inside the built container in CI.
+
 - Accept the reviewed Node executable path used by the suite runtime for isolated validation, and verify that image path in CI.
 
 - Apply monorepo application scope before reading scanner files or spending source budgets; retain excluded, unsupported and unsafe filesystem entries as explicit coverage.

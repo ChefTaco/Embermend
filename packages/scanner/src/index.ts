@@ -2,7 +2,7 @@ import ts from 'typescript';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { posix } from 'node:path';
-import { scanRequestSchema, scanResultSchema, type ScanRequest, type ScanResult, type ScanCandidate } from '@hivemagnus/embermend-contracts';
+import { scanRequestSchema, scanResultSchema, scannerBrokerReplySchema, type ScanRequest, type ScanResult, type ScanCandidate } from '@hivemagnus/embermend-contracts';
 import { redact, type Model } from '@hivemagnus/embermend-integrations';
 
 export const sourceFileSchema = z.object({ path: z.string().min(1).max(1000), content: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
@@ -93,3 +93,10 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
 }
 
 export { readScanSources } from './source-reader.js';
+
+export function scannerBrokerResult(raw: unknown, expectedId: string): unknown {
+  const response = scannerBrokerReplySchema.parse(raw);
+  if (response.id !== expectedId) throw new Error('MODEL_BROKER_IDENTITY_MISMATCH');
+  if ('error' in response) throw new Error('MODEL_BROKER_UNAVAILABLE');
+  return response.result;
+}
