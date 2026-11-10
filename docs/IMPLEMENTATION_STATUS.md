@@ -42,3 +42,11 @@ findings and one disputed finding, and actual stale GitHub head refusal before
 provider writes. Source remediation and deployment closure remain open. Magnus
 now retains inner supervisor identities for read-only original receipt adoption;
 that implementation passes regression tests but still needs live crash proof.
+
+GitHub merge admission now evaluates live rules and checks without a repository
+role whitelist, and explicitly requests no rule bypass through the versioned
+asynchronous API. Durable request identities and pending/queue/merged distinctions
+have unit and PostgreSQL regression coverage. Existing operator authentication
+can be used when its actual scope and repository access suffice; an optional
+unattended App proposal is documented in [provider authorization](GITHUB_PROVIDER_AUTH.md).
+This does not establish a live provider merge or the complete build/deploy journey.

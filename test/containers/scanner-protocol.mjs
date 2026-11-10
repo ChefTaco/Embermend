@@ -29,6 +29,9 @@ async function run(entry, payload, onFrame = () => undefined) {
 }
 try {
   await mkdir(join(root, 'apps/api'), { recursive: true }); await chmod(root, 0o777); await chmod(join(root, 'apps'), 0o777); await chmod(join(root, 'apps/api'), 0o777); await writeFile(join(root, path), content, { mode: 0o666 });
+  // Creation mode is filtered by the host umask. This disposable fixture must
+  // remain writable by the image's unprivileged UID when it differs from CI's.
+  await chmod(join(root, path), 0o666);
   const scanRequest = { repositoryId: common.repositoryId, providerId: common.providerId, applicationId: common.applicationId, scope, workerTargetId: common.workerTargetId, deadline: common.deadline, commit, branch: 'main', pullRequest: null, includedPaths: ['apps/api'], excludedPaths: [], profile: 'typescript-security.v1', mode: 'full', operationId: 'fixture-scan', cancellationId: 'fixture-cancel', maxFiles: 10, maxBytes: 10000, sourcePolicy: { providerRef: 'fixture-model', allowRemoteModel: false, allowRepositoryExecution: false } };
   const scanned = await run('cli', { request: scanRequest, modelRef: 'fixture-model', localModel: true }, (frame, stdin) => { assert.equal(frame.kind, 'model-request'); stdin.write(JSON.stringify({ id: frame.id, error: 'MODEL_BROKER_UNAVAILABLE' }) + '\n'); });
   assert.equal(scanned.state, 'partial'); assert.equal(scanned.coverage.status, 'partial'); assert.deepEqual(scanned.coverage.examined, []); assert.deepEqual(scanned.coverage.failures, ['analysis-failed:' + path]);

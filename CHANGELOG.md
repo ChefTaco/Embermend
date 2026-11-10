@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Evaluate GitHub operations by permission and live merge readiness instead of rejecting repository administrators; explicitly disable rule bypass and retain asynchronous merge identities for read-only reconciliation.
+
 - Preserve explicit partial scanner coverage on model-broker failures; exercise source reading, preparation and broker errors inside the built container in CI.
 
 - Accept the reviewed Node executable path used by the suite runtime for isolated validation, and verify that image path in CI.

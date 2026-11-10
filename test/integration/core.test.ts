@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { database, digest, claim, enqueue } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
-import { IntegrationError, type Magnus } from '@hivemagnus/embermend-integrations';
-import { type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
+import { IntegrationError, GitHubClient, type Magnus } from '@hivemagnus/embermend-integrations';
+import { type OperationRequest, type Receipt, type Plan } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
 import { createApi } from '../../services/runtime/dist/api.js';
@@ -162,6 +162,39 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const outcomes = await Promise.allSettled(['b', 'c'].map(marker => service.finding(operator, { ...finding(), id: 'shared-finding-id', identity: marker.repeat(64) }, { ...occurrence(), id: 'concurrent-' + marker, findingId: 'shared-finding-id' })));
     assert.equal(outcomes.filter(result => result.status === 'fulfilled').length, 1);
     const retained = await db.finding.findUniqueOrThrow({ where: { id: 'shared-finding-id' } }); assert.equal(retained.identity, retained.data && typeof retained.data === 'object' && !Array.isArray(retained.data) ? retained.data['identity'] : null);
+  });
+
+  await t.test('merge request UUID survives queueing and read-only reconciliation without another provider mutation', async () => {
+    const { magnus, service: records } = await reset();
+    const base = 'a'.repeat(40); const head = 'b'.repeat(40); const mergedCommit = 'c'.repeat(40); const requestId = '630b9d5e-3f2a-4f7e-8b0c-2d5f9a8c1e42';
+    let phase = 'pending'; let writes = 0;
+    const checks = { total_count: 1, check_runs: [{ id: 1, name: 'Verify', head_sha: head, status: 'completed', conclusion: 'success' }] };
+    const fake: typeof fetch = async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path.startsWith('/repositories/')) return Response.json({ id: 123, full_name: 'fixture-owner/fixture-repository', owner: { login: 'fixture-owner' }, name: 'fixture-repository', default_branch: 'main' });
+      if (path.endsWith('/check-runs')) return Response.json(checks);
+      if (path === '/graphql') return Response.json({ data: { repository: { databaseId: 123, nameWithOwner: 'fixture-owner/fixture-repository', viewerPermission: 'ADMIN', pullRequest: { headRefOid: head, baseRefName: 'main', baseRefOid: base, isDraft: false, state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', reviewDecision: null } } } });
+      if (init?.method === 'PUT') { writes++; assert.equal(JSON.stringify(JSON.parse(String(init.body))), JSON.stringify({ sha: head, merge_method: 'squash', merge_action: 'default', bypass_rules: false })); return Response.json({ status: 'pending', details: { uuid: requestId, expected_head_sha: head, merge_method: 'squash', merge_action: 'default', bypass_rules: false } }, { status: 202 }); }
+      if (path.includes('/merge-async/')) return Response.json(phase === 'pending' ? { status: 'pending', details: { uuid: requestId, expected_head_sha: head, merge_method: 'squash', merge_action: 'default', bypass_rules: false } } : phase === 'enqueued' ? { status: 'enqueued', details: {} } : { status: 'merged', details: { sha: mergedCommit } });
+      return Response.json({ number: 1, state: phase === 'merged' ? 'closed' : 'open', merged: phase === 'merged', merge_commit_sha: phase === 'merged' ? mergedCommit : null, head: { sha: head, ref: 'embermend/fixture' }, base: { ref: 'main', sha: base } });
+    };
+    const service = new Embermend(db, magnus, new GitHubClient('fixture-token-not-real', [{ providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', allowedBranches: ['main'], workflowIds: [] }], fake));
+    await records.entity(operator, { id: 'fixture-repository', kind: 'repository', scope, label: 'Fixture repository', provenance: { source: 'github', assurance: 'established', evidenceIds: [], observedAt: now() }, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
+    await records.evidence(operator, { ...evidence(), id: 'source-proof', subjectId: 'fixture-repository' });
+    await records.finding(operator, { ...finding(), id: 'source-finding', identity: 'c'.repeat(64), kind: 'code', component: 'fixture-app', weakness: 'injection', evidenceIds: ['source-proof'] }, { ...occurrence(), id: 'source-occurrence', findingId: 'source-finding', subjectId: 'fixture-repository', branch: 'main', revision: base, sourceState: 'open', runtimeState: 'unknown', evidenceIds: ['source-proof'] });
+    const edits = [{ path: 'apps/api/index.ts', beforeDigest: 'a'.repeat(64), content: 'fixture repaired source' }]; const patchDigest = digest(edits);
+    const preparation = { id: 'fixture-prepared-change', repositoryId: 'fixture-repository', applicationId: 'fixture-app', providerId: '123', scope, baseCommit: base, branch: 'main', workerTargetId: 'fixture-node', includedPaths: ['apps/api'], excludedPaths: [], edits, validationProfileId: 'fixture-validation', deadline: later() };
+    const prepared = { preparationId: preparation.id, baseCommit: base, patchDigest, validated: true, edits, validationEvidence: { method: 'fixture-test' }, coverage: { status: 'complete', requested: ['apps/api/index.ts'], examined: ['apps/api/index.ts'], excluded: [], failures: [], mode: 'incremental', observedAt: now() } };
+    await db.preparation.create({ data: { id: preparation.id, installationId: scope.installationId, repositoryId: preparation.repositoryId, applicationId: preparation.applicationId, jobId: 'fixture-preparation-job', requestDigest: digest(preparation), data: preparation, result: prepared } });
+    const value: Plan = { ...plan(), id: 'fixture-merge-plan', campaignId: 'fixture-merge-campaign', findingIds: ['source-finding'], evidenceIds: ['source-proof'], canaryTargetId: 'fixture-repository', actions: [{ ...plan().actions[0], id: 'merge-fix', version: 'repository-merge.v1', class: 'merge', targetId: 'fixture-repository', targetKind: 'repository', requiredCapabilities: ['embermend:repository-merge.v1'], parameters: { changeId: preparation.id, headCommit: head, checksDigest: digest(checks) }, preconditions: { environment: 'lab', branch: 'main' }, dependsOn: [], verificationIds: ['merged-source-check'], recovery: 'Separate source recovery approval required', expectedRevision: base, patchDigest, disruption: 'none' }] };
+    await db.repositoryChange.create({ data: { id: preparation.id, installationId: scope.installationId, planId: value.id, revision: 1, repositoryId: preparation.repositoryId, baseCommit: base, patchDigest, state: 'pull-request', providerIdentity: '1', data: { number: 1, url: 'https://github.com/fixture-owner/fixture-repository/pull/1', headCommit: head } } });
+    const proposed = await service.propose(operator, value); await service.publish(operator, value.id, 1); await service.decide(operator, { planId: value.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
+    const accepted = await service.dispatch(operator, value.id, 'merge-fix'); assert.equal(accepted.state, 'queued'); assert.equal(accepted.ownershipReleased, false); assert.equal(writes, 1);
+    assert.equal((await db.repositoryChange.findUniqueOrThrow({ where: { id: preparation.id } })).state, 'pull-request');
+    assert.equal((await service.reconcile(operator, accepted.operationId)).state, 'queued'); phase = 'enqueued'; const queued = await service.reconcile(operator, accepted.operationId); assert.equal(queued.state, 'queued'); assert.equal(queued.ownershipReleased, false);
+    phase = 'merged'; const finished = await service.reconcile(operator, accepted.operationId); assert.equal(finished.state, 'completed'); assert.equal(finished.result['commit'], mergedCommit); assert.equal(finished.ownershipReleased, true);
+    assert.deepEqual(await service.reconcile(operator, accepted.operationId), finished); assert.equal(writes, 1);
+    const retained = await db.repositoryChange.findUniqueOrThrow({ where: { id: preparation.id } }); assert.equal(retained.state, 'merged'); assert.equal(typeof retained.data === 'object' && retained.data !== null && !Array.isArray(retained.data) ? retained.data['url'] : null, 'https://github.com/fixture-owner/fixture-repository/pull/1');
   });
 
 });

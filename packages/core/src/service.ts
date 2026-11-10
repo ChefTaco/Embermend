@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
 import { audit, digest, enqueue, json, lock, within, type Database, type Transaction } from '@hivemagnus/embermend-store';
-import { redactObject, redact, IntegrationError, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
+import { redactObject, redact, IntegrationError, githubMergeOperationSchema, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
 import { matchesPath, safePath } from '@hivemagnus/embermend-scanner';
 import { DomainError, requirePermission, requireActionPermission, validateAction, policyCovers, assertTarget } from './authorization.js';
 import { prioritize } from './priority.js';
@@ -302,9 +302,24 @@ export class Embermend {
   async reconcile(actor: Actor, operationId: string): Promise<Receipt> {
     const execution = await this.db.execution.findUnique({ where: { id: operationId } }); if (!execution) throw new DomainError('NOT_FOUND', 404);
     const plan = await this.plan(actor, execution.planId); requirePermission(actor, 'read', plan.scope);
-    const request = z.object({ action: z.object({ targetKind: z.string() }) }).passthrough().parse(execution.request);
+    const request = z.object({ action: z.object({ targetKind: z.string() }).passthrough() }).passthrough().parse(execution.request);
     if (request.action.targetKind === 'repository') {
-      if (execution.receipt) return receiptSchema.parse(execution.receipt);
+      const retained = execution.receipt ? receiptSchema.parse(execution.receipt) : null;
+      if (retained && ['completed', 'failed'].includes(retained.state)) return retained;
+      const action = z.object({ class: z.string(), parameters: z.object({ changeId: z.string() }).passthrough() }).passthrough().parse(request.action);
+      if (action.class === 'merge' && this.github) {
+        const preparation = await this.db.preparation.findUnique({ where: { id: action.parameters.changeId } });
+        if (!preparation) throw new DomainError('ORIGINAL_PREPARATION_MISSING'); requirePermission(actor, 'read', preparationSchema.parse(preparation.data).scope);
+        const effect = await this.db.providerEffect.findUnique({ where: { planId_revision_actionId_phase: { planId: execution.planId, revision: execution.revision, actionId: execution.actionId, phase: 'merge' } } });
+        const stored = z.object({ value: githubMergeOperationSchema }).safeParse(effect?.result);
+        const repo = await this.db.entity.findUnique({ where: { id: execution.targetId } }); const repository = repo ? entitySchema.parse(repo.data) : null;
+        if (!repository || repository.kind !== 'repository') throw new DomainError('ORIGINAL_REPOSITORY_MISSING'); requirePermission(actor, 'read', repository.scope);
+        if (stored.success) {
+          if (stored.data.value.providerId !== repository.providerId || stored.data.value.headCommit !== action.parameters['headCommit']) throw new DomainError('PROVIDER_MERGE_IDENTITY_CHANGED');
+          return this.recordMergeObservation(actor, execution, preparation.id, await this.github.observeMerge(repository.providerId, stored.data.value));
+        }
+      }
+      if (retained) return retained;
       return { operationId, requestDigest: execution.requestDigest, targetId: execution.targetId, state: 'unknown', evidenceIds: [], result: { reason: 'Provider phases retain their original identities; reconcile the original provider operation before further writes' }, ownershipReleased: false, observedAt: new Date().toISOString() };
     }
     const receipt = await this.magnus.receipt(operationId); this.bindReceipt(receipt, execution);
@@ -466,6 +481,18 @@ export class Embermend {
     if (reserved.existing) return z.object({ value: z.json() }).parse(reserved.value).value;
     return this.authorized(actor, plan, action, async tx => { const value = await effect(); await tx.providerEffect.update({ where: { id: reserved.id }, data: { state: 'completed', result: json({ value }) } }); await audit(tx, actor, 'provider.effect.completed', reserved.id, { phase }); return value; });
   }
+  private async recordMergeObservation(actor: Actor, execution: { id: string; requestDigest: string; targetId: string }, changeId: string, merge: GitHubMergeOperation): Promise<Receipt> {
+    return this.db.$transaction(async tx => {
+      await lock(tx, `provider-merge-observation:${execution.id}`);
+      const current = await tx.execution.findUnique({ where: { id: execution.id } }); if (!current || current.requestDigest !== execution.requestDigest) throw new DomainError('PROVIDER_MERGE_EXECUTION_CHANGED');
+      if (current.receipt && ['completed', 'failed'].includes(current.state)) return receiptSchema.parse(current.receipt);
+      const terminal = merge.state === 'merged' || merge.state === 'failed';
+      const receipt: Receipt = { operationId: execution.id, requestDigest: execution.requestDigest, targetId: execution.targetId, state: merge.state === 'merged' ? 'completed' : merge.state === 'failed' ? 'failed' : 'queued', evidenceIds: [], result: { mergeOperation: merge, ...(merge.state === 'merged' ? { commit: merge.commit } : {}) }, ownershipReleased: terminal, observedAt: new Date().toISOString() };
+      if (merge.state === 'merged') { const change = await tx.repositoryChange.findUnique({ where: { id: changeId } }); if (!change) throw new DomainError('ORIGINAL_REPOSITORY_CHANGE_MISSING'); const original = z.record(z.string(), z.json()).parse(change.data); await tx.repositoryChange.update({ where: { id: changeId }, data: { state: 'merged', data: json({ ...original, commit: merge.commit, mergeOperation: merge }) } }); }
+      await tx.execution.update({ where: { id: execution.id }, data: { state: receipt.state, receipt: json(receipt) } });
+      await audit(tx, actor, 'provider.merge.observed', execution.id, { state: merge.state, providerRequestId: merge.requestId }); return receipt;
+    });
+  }
   private async dispatchRepository(actor: Actor, plan: Plan, action: Action): Promise<Receipt> {
     const github = this.github; if (!github) throw new DomainError('GITHUB_PROVIDER_UNCONFIGURED');
     const row = await this.db.entity.findUnique({ where: { id: action.targetId } }); const repository = row ? entitySchema.parse(row.data) : null;
@@ -501,10 +528,15 @@ export class Embermend {
     if (action.class === 'merge') {
       const sourceChange = await this.db.repositoryChange.findUnique({ where: { id: preparation.id } }); if (!sourceChange?.providerIdentity) throw new DomainError('LINKED_PULL_REQUEST_REQUIRED');
       const parameters = z.object({ headCommit: z.string(), checksDigest: z.string() }).passthrough().parse(action.parameters);
+      const linked = z.object({ headCommit: z.string() }).passthrough().parse(sourceChange.data); if (linked.headCommit !== parameters.headCommit) throw new DomainError('LINKED_PULL_REQUEST_HEAD_CHANGED');
       const checks = await github.checks(repository.providerId, parameters.headCommit); if (digest(checks) !== parameters.checksDigest) throw new DomainError('REPOSITORY_CHECKS_CHANGED');
-      const commit = z.string().parse(await this.providerEffect(actor, plan, action, 'merge', { pull: sourceChange.providerIdentity, head: parameters.headCommit, checksDigest: parameters.checksDigest }, () => github.merge(repository.providerId, Number(sourceChange.providerIdentity), parameters.headCommit)));
-      await this.db.repositoryChange.update({ where: { id: preparation.id }, data: { state: 'merged', data: json({ commit }) } });
-      return finish({ commit });
+      const result = await this.providerEffect(actor, plan, action, 'merge', { pull: sourceChange.providerIdentity, head: parameters.headCommit, checksDigest: parameters.checksDigest }, () => github.merge(repository.providerId, Number(sourceChange.providerIdentity), parameters.headCommit));
+      // Retain already completed legacy receipts without issuing a new request.
+      if (typeof result === 'string') { const commit = z.string().regex(/^[a-f0-9]{40}$/).parse(result); const original = z.record(z.string(), z.json()).parse(sourceChange.data); await this.db.repositoryChange.update({ where: { id: preparation.id }, data: { state: 'merged', data: json({ ...original, commit }) } }); return finish({ commit }); }
+      const merge = githubMergeOperationSchema.parse(result);
+      if (merge.providerId !== repository.providerId || merge.pullNumber !== Number(sourceChange.providerIdentity) || merge.headCommit !== parameters.headCommit) throw new DomainError('PROVIDER_MERGE_IDENTITY_CHANGED');
+      const observed = merge.state === 'merged' || merge.state === 'enqueued' ? await github.observeMerge(repository.providerId, merge) : merge;
+      return this.recordMergeObservation(actor, { id: operationId, requestDigest: digest(request), targetId: repository.id }, preparation.id, observed);
     }
     throw new DomainError('UNSUPPORTED_PROVIDER_ACTION');
   }

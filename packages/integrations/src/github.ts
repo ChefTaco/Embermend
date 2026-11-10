@@ -6,17 +6,32 @@ const repositorySchema = z.object({ id: z.number().int().positive(), full_name: 
 const commitSchema = z.object({ sha: revision, commit: z.object({ tree: z.object({ sha: revision }) }) });
 const objectSchema = z.object({ sha: revision });
 export interface GitHubRepositoryGrant { providerId: string; owner: string; name: string; allowedBranches: readonly string[]; workflowIds: readonly string[] }
+const mergeWire = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('pending'), details: z.object({ uuid: z.uuid(), expected_head_sha: revision, merge_method: z.string(), merge_action: z.string(), bypass_rules: z.boolean().optional() }) }),
+  z.object({ status: z.literal('merged'), details: z.object({ sha: revision }) }),
+  z.object({ status: z.literal('enqueued'), details: z.object({}) }),
+  z.object({ status: z.literal('failed'), details: z.object({}) }),
+]);
+const mergeIdentity = { providerId: z.string(), pullNumber: z.number().int().positive(), headCommit: revision, bypassRules: z.literal(false) };
+export const githubMergeOperationSchema = z.discriminatedUnion('state', [
+  z.object({ ...mergeIdentity, state: z.literal('pending'), requestId: z.uuid(), commit: z.null() }).strict(),
+  z.object({ ...mergeIdentity, state: z.literal('enqueued'), requestId: z.uuid().nullable(), commit: z.null() }).strict(),
+  z.object({ ...mergeIdentity, state: z.literal('merged'), requestId: z.uuid().nullable(), commit: revision }).strict(),
+  z.object({ ...mergeIdentity, state: z.literal('failed'), requestId: z.uuid().nullable(), commit: z.null() }).strict(),
+]);
+export type GitHubMergeOperation = z.infer<typeof githubMergeOperationSchema>;
 export class GitHubClient {
   private readonly base: URL;
   constructor(private readonly token: string, private readonly grants: readonly GitHubRepositoryGrant[], private readonly request: typeof fetch = fetch, base = 'https://api.github.com') { this.base = endpoint(base); }
-  private async call(path: string, method = 'GET', body?: unknown, readOnly = false): Promise<unknown> {
+  private async exchange(path: string, method = 'GET', body?: unknown, readOnly = false, options: { version?: string; acceptedStatuses?: readonly number[] } = {}): Promise<{ status: number; body: unknown }> {
     try {
-      const response = await this.request(new URL(path, this.base), { method, redirect: 'error', signal: AbortSignal.timeout(20000), headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${this.token}`, 'content-type': 'application/json', 'x-github-api-version': '2022-11-28' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-      if (!response.ok) throw new IntegrationError(`GITHUB_HTTP_${response.status}`, method !== 'GET' && !readOnly && response.status >= 500);
-      if (response.status === 204) return { accepted: true };
-      return responseJson(response);
+      const response = await this.request(new URL(path, this.base), { method, redirect: 'error', signal: AbortSignal.timeout(20000), headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${this.token}`, 'content-type': 'application/json', 'x-github-api-version': options.version ?? '2022-11-28' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      if (!response.ok && !options.acceptedStatuses?.includes(response.status)) throw new IntegrationError(`GITHUB_HTTP_${response.status}`, method !== 'GET' && !readOnly && response.status >= 500);
+      if (response.status === 204) return { status: 204, body: { accepted: true } };
+      return { status: response.status, body: await responseJson(response) };
     } catch (error) { if (error instanceof IntegrationError) throw error; throw new IntegrationError('GITHUB_COMMUNICATION_OR_SCHEMA_FAILURE', method !== 'GET' && !readOnly); }
   }
+  private async call(path: string, method = 'GET', body?: unknown, readOnly = false): Promise<unknown> { return (await this.exchange(path, method, body, readOnly)).body; }
   async repository(providerId: string) {
     const grant = this.grants.find(value => value.providerId === providerId); if (!grant) throw new Error('REPOSITORY_PROVIDER_GRANT_REQUIRED');
     const repository = repositorySchema.parse(await this.call(`/repositories/${encodeURIComponent(providerId)}`));
@@ -51,21 +66,48 @@ export class GitHubClient {
     const { path } = await this.repository(providerId);
     return z.object({ total_count: z.number(), check_runs: z.array(z.object({ id: z.number(), name: z.string(), head_sha: revision, status: z.string(), conclusion: z.string().nullable() })) }).parse(await this.call(`${path}/commits/${revision.parse(commit)}/check-runs?per_page=100`));
   }
-  async merge(providerId: string, number: number, head: string): Promise<string> {
+  async merge(providerId: string, number: number, head: string): Promise<GitHubMergeOperation> {
     const { path, grant } = await this.repository(providerId); const pull = await this.pullRequest(providerId, number);
     if (pull.head.sha !== head || !grant.allowedBranches.includes(pull.base.ref)) throw new Error('PULL_REQUEST_HEAD_OR_BASE_CHANGED');
     const checks = await this.checks(providerId, head);
     if (checks.total_count === 0 || checks.total_count > 100 || checks.total_count !== checks.check_runs.length || new Set(checks.check_runs.map(check => check.id)).size !== checks.total_count || checks.check_runs.some(check => check.head_sha !== head || check.status !== 'completed' || !['success', 'neutral', 'skipped'].includes(check.conclusion ?? ''))) throw new Error('CHECKS_NOT_COMPLETE_AND_PASSING');
-    const query = 'query EmbermendMergeReadiness($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){databaseId nameWithOwner viewerPermission pullRequest(number:$number){headRefOid baseRefName baseRefOid isDraft state mergeable mergeStateStatus reviewDecision}}}';
-    const readiness = z.object({ data: z.object({ repository: z.object({ databaseId: z.number().int(), nameWithOwner: z.string(), viewerPermission: z.string(), pullRequest: z.object({ headRefOid: revision, baseRefName: z.string(), baseRefOid: revision, isDraft: z.boolean(), state: z.string(), mergeable: z.string(), mergeStateStatus: z.string(), reviewDecision: z.string().nullable() }) }) }), errors: z.undefined().optional() }).parse(await this.call('/graphql', 'POST', { query, variables: { owner: grant.owner, name: grant.name, number } }, true)).data.repository;
+    const query = 'query EmbermendMergeReadiness($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){databaseId nameWithOwner pullRequest(number:$number){headRefOid baseRefName baseRefOid isDraft state mergeable mergeStateStatus reviewDecision}}}';
+    const readiness = z.object({ data: z.object({ repository: z.object({ databaseId: z.number().int(), nameWithOwner: z.string(), pullRequest: z.object({ headRefOid: revision, baseRefName: z.string(), baseRefOid: revision, isDraft: z.boolean(), state: z.string(), mergeable: z.string(), mergeStateStatus: z.string(), reviewDecision: z.string().nullable() }) }) }), errors: z.undefined().optional() }).parse(await this.call('/graphql', 'POST', { query, variables: { owner: grant.owner, name: grant.name, number } }, true)).data.repository;
     const ready = readiness.pullRequest;
-    // A broad administrator credential must not bypass protected-branch checks.
+    // Repository role is not a token permission or a reason to skip rules.
     // GitHub's live merge state also includes rules and required reviews that
     // are not represented by the check-runs list. Unknown/blocked states stop.
-    if (String(readiness.databaseId) !== providerId || readiness.nameWithOwner !== `${grant.owner}/${grant.name}` || !['WRITE', 'MAINTAIN'].includes(readiness.viewerPermission) || ready.headRefOid !== head || ready.baseRefName !== pull.base.ref || ready.baseRefOid !== pull.base.sha || ready.isDraft || ready.state !== 'OPEN' || ready.mergeable !== 'MERGEABLE' || ready.mergeStateStatus !== 'CLEAN' || ready.reviewDecision !== null && ready.reviewDecision !== 'APPROVED') throw new Error('PROVIDER_MERGE_RULES_NOT_SATISFIED');
+    if (String(readiness.databaseId) !== providerId || readiness.nameWithOwner !== `${grant.owner}/${grant.name}` || ready.headRefOid !== head || ready.baseRefName !== pull.base.ref || ready.baseRefOid !== pull.base.sha || ready.isDraft || ready.state !== 'OPEN' || ready.mergeable !== 'MERGEABLE' || ready.mergeStateStatus !== 'CLEAN' || ready.reviewDecision !== null && ready.reviewDecision !== 'APPROVED') throw new Error('PROVIDER_MERGE_RULES_NOT_SATISFIED');
     const current = await this.pullRequest(providerId, number);
     if (current.head.sha !== head || current.base.ref !== ready.baseRefName || current.base.sha !== ready.baseRefOid || current.state !== 'open' || current.merged) throw new Error('PULL_REQUEST_HEAD_OR_BASE_CHANGED');
-    const result = z.object({ merged: z.literal(true), sha: revision }).parse(await this.call(`${path}/pulls/${number}/merge`, 'PUT', { sha: revision.parse(head), merge_method: 'squash' })); return result.sha;
+    // The asynchronous API explicitly refuses rule bypass for every identity,
+    // including administrators and apps, and respects a configured merge queue.
+    const reply = await this.exchange(`${path}/pulls/${number}/merge-async`, 'PUT', { sha: revision.parse(head), merge_method: 'squash', merge_action: 'default', bypass_rules: false }, false, { version: '2026-03-10', acceptedStatuses: [400, 409] });
+    const result = mergeWire.parse(reply.body);
+    if (result.status === 'pending' && (result.details.expected_head_sha !== head || result.details.bypass_rules === true || result.details.merge_method !== 'squash' || result.details.merge_action !== 'default' || reply.status === 409 && result.details.bypass_rules !== false)) throw new IntegrationError('GITHUB_EXISTING_MERGE_OPTIONS_DIFFER', true);
+    const requestId = result.status === 'pending' ? result.details.uuid : null;
+    return githubMergeOperationSchema.parse({ providerId, pullNumber: number, headCommit: head, bypassRules: false, state: result.status, requestId, commit: result.status === 'merged' ? result.details.sha : null });
+  }
+  async observeMerge(providerId: string, raw: unknown): Promise<GitHubMergeOperation> {
+    const operation = githubMergeOperationSchema.parse(raw); if (operation.providerId !== providerId) throw new Error('MERGE_PROVIDER_IDENTITY_CHANGED');
+    const { path, grant } = await this.repository(providerId);
+    let status: z.infer<typeof mergeWire> | undefined;
+    if (operation.requestId) {
+      // GitHub expires request results after 24 hours. An expired UUID is not
+      // proof of completion or absence; inspect the original PR without replay.
+      try { status = mergeWire.parse((await this.exchange(`${path}/pulls/${operation.pullNumber}/merge-async/${operation.requestId}`, 'GET', undefined, true, { version: '2026-03-10' })).body); }
+      catch (error) { if (!(error instanceof IntegrationError) || error.message !== 'GITHUB_HTTP_404') throw error; }
+      if (status?.status === 'pending' && (status.details.uuid !== operation.requestId || status.details.expected_head_sha !== operation.headCommit || status.details.bypass_rules === true || status.details.merge_method !== 'squash' || status.details.merge_action !== 'default')) throw new Error('MERGE_PROVIDER_IDENTITY_CHANGED');
+      if (status?.status === 'failed') return { ...operation, state: 'failed', commit: null };
+    }
+    const pull = await this.pullRequest(providerId, operation.pullNumber);
+    if (pull.head.sha !== operation.headCommit || !grant.allowedBranches.includes(pull.base.ref)) throw new Error('MERGE_PULL_REQUEST_HEAD_OR_BASE_CHANGED');
+    if (pull.merged) {
+      if (!pull.merge_commit_sha || status?.status === 'merged' && status.details.sha !== pull.merge_commit_sha) throw new Error('MERGE_COMMIT_EVIDENCE_CHANGED');
+      return { ...operation, state: 'merged', commit: pull.merge_commit_sha };
+    }
+    if (pull.state !== 'open' || status?.status === 'merged') throw new Error('MERGE_PROVIDER_COMPLETION_UNCONFIRMED');
+    return status?.status === 'enqueued' ? { ...operation, state: 'enqueued', commit: null } : operation;
   }
   async workflow(providerId: string, workflowId: string, commit: string, branch: string): Promise<unknown> {
     const { path, grant } = await this.repository(providerId); if (!grant.workflowIds.includes(workflowId) || !grant.allowedBranches.includes(branch)) throw new Error('WORKFLOW_OUTSIDE_PROVIDER_GRANT');
