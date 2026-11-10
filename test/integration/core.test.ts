@@ -134,8 +134,34 @@ test('PostgreSQL-backed security and execution invariants', async t => {
   await t.test('a scoped integration cannot replace another target finding by guessing its identity', async () => {
     const { service } = await reset(); const otherScope = { ...scope, targetIds: ['fixture-other'] }; const scoped = { ...operator, kind: 'integration' as const, scope: otherScope };
     await service.evidence(scoped, { ...evidence(), id: 'other-proof', scope: otherScope, subjectId: 'fixture-other' });
-    await assert.rejects(service.finding(scoped, { ...finding(), scope: otherScope, component: 'fixture-other', evidenceIds: ['other-proof'] }, { ...occurrence(), id: 'other-occurrence', subjectId: 'fixture-other', evidenceIds: ['other-proof'] }), /EXISTING_FINDING_OUTSIDE_SCOPE/);
+    await assert.rejects(service.finding(scoped, { ...finding(), id: 'other-delivery-id', scope: otherScope, component: 'fixture-other', evidenceIds: ['other-proof'] }, { ...occurrence(), id: 'other-occurrence', findingId: 'other-delivery-id', subjectId: 'fixture-other', evidenceIds: ['other-proof'] }), /EXISTING_FINDING_OUTSIDE_SCOPE/);
     assert.equal((await service.findings(operator))[0]?.finding.component, 'fixture-node');
+  });
+
+  await t.test('primary finding IDs and stable inventory identities retain their original scope', async () => {
+    const { service } = await reset(); const otherScope = { ...scope, targetIds: ['fixture-other'] }; const scoped = { ...operator, scope: otherScope };
+    await service.evidence(scoped, { ...evidence(), id: 'other-proof', scope: otherScope, subjectId: 'fixture-other' });
+    await assert.rejects(service.finding(scoped, { ...finding(), identity: 'b'.repeat(64), scope: otherScope, component: 'fixture-other', evidenceIds: ['other-proof'] }, { ...occurrence(), id: 'other-occurrence', subjectId: 'fixture-other', evidenceIds: ['other-proof'] }), /SCOPE_OR_PERMISSION_DENIED/);
+    await assert.rejects(service.entity(scoped, { ...target(), scope: otherScope, label: 'Attempted reassignment' }), /SCOPE_OR_PERMISSION_DENIED/);
+    await assert.rejects(service.finding(operator, { ...finding(), component: 'different-component' }, occurrence()), /FINDING_MATCH_REQUIRES_REVIEW/);
+    assert.equal((await service.findings(operator))[0]?.finding.component, 'fixture-node'); assert.equal((await service.entities(operator))[0]?.label, target().label);
+  });
+  await t.test('a scoped operator cannot take over another plan, policy or campaign', async () => {
+    const { service } = await reset(); await service.propose(operator, plan()); await service.policy(operator, policy());
+    const otherScope = { ...scope, targetIds: ['fixture-other'] }; const scoped = { ...operator, scope: otherScope };
+    await service.evidence(scoped, { ...evidence(), id: 'other-proof', scope: otherScope, subjectId: 'fixture-other' });
+    await service.finding(scoped, { ...finding(), id: 'other-finding', identity: 'b'.repeat(64), scope: otherScope, component: 'fixture-other', evidenceIds: ['other-proof'] }, { ...occurrence(), id: 'other-occurrence', findingId: 'other-finding', subjectId: 'fixture-other', evidenceIds: ['other-proof'] });
+    const attempted = { ...plan(), scope: otherScope, revision: 2, findingIds: ['other-finding'], evidenceIds: ['other-proof'], canaryTargetId: 'fixture-other', actions: plan().actions.map(action => ({ ...action, targetId: 'fixture-other' })) };
+    await assert.rejects(service.propose(scoped, attempted), /SCOPE_OR_PERMISSION_DENIED/);
+    await assert.rejects(service.propose(scoped, { ...attempted, id: 'other-plan', revision: 1 }), /SCOPE_OR_PERMISSION_DENIED/);
+    await assert.rejects(service.policy(scoped, { ...policy(), scope: otherScope, revision: 2 }), /SCOPE_OR_PERMISSION_DENIED/);
+    assert.equal((await db.plan.findUniqueOrThrow({ where: { id: plan().id } })).currentRevision, 1); assert.equal(await db.plan.count(), 1); assert.equal((await db.policy.findUniqueOrThrow({ where: { id: policy().id } })).revision, 1);
+  });
+  await t.test('concurrent deliveries cannot replace the immutable identity of one finding ID', async () => {
+    const { service } = await reset();
+    const outcomes = await Promise.allSettled(['b', 'c'].map(marker => service.finding(operator, { ...finding(), id: 'shared-finding-id', identity: marker.repeat(64) }, { ...occurrence(), id: 'concurrent-' + marker, findingId: 'shared-finding-id' })));
+    assert.equal(outcomes.filter(result => result.status === 'fulfilled').length, 1);
+    const retained = await db.finding.findUniqueOrThrow({ where: { id: 'shared-finding-id' } }); assert.equal(retained.identity, retained.data && typeof retained.data === 'object' && !Array.isArray(retained.data) ? retained.data['identity'] : null);
   });
 
 });

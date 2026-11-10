@@ -22,6 +22,7 @@ export class Embermend {
     return this.db.$transaction(async tx => {
       await lock(tx, stableKey);
       const current = await tx.entity.findUnique({ where: { stableKey } });
+      if (current) requirePermission(actor, 'ingest', entitySchema.parse(current.data).scope);
       if (value.kind === 'repository') {
         const previous = current ? entitySchema.parse(current.data) : null;
         if (!previous || previous.kind !== 'repository' || previous.owner !== value.owner || previous.accessRevision !== value.accessRevision || previous.environment !== value.environment) requirePermission(actor, 'policy', value.scope);
@@ -57,13 +58,18 @@ export class Embermend {
     const parsedFinding = findingSchema.parse(input); const value = { ...parsedFinding, title: redact(parsedFinding.title), rationale: redact(parsedFinding.rationale) }; const occurrence = occurrenceSchema.parse(rawOccurrence); requirePermission(actor, 'ingest', value.scope);
     if (occurrence.findingId !== value.id) throw new DomainError('FINDING_OCCURRENCE_MISMATCH');
     return this.db.$transaction(async tx => {
+      await lock(tx, `finding-id:${value.id}`);
       await lock(tx, `finding:${value.scope.installationId}:${value.identity}`);
+      const named = await tx.finding.findUnique({ where: { id: value.id } });
+      if (named) { requirePermission(actor, 'ingest', findingSchema.parse(named.data).scope); if (named.identity !== value.identity || named.installationId !== value.scope.installationId) throw new DomainError('FINDING_IDENTITY_CONFLICT'); }
       for (const evidenceId of value.evidenceIds) {
         const evidence = await tx.evidence.findUnique({ where: { id: evidenceId } });
         if (!evidence || !within(value.scope, evidenceSchema.parse(evidence.data).scope)) throw new DomainError('FINDING_EVIDENCE_UNAVAILABLE');
       }
       const existing = await tx.finding.findUnique({ where: { installationId_identity: { installationId: value.scope.installationId, identity: value.identity } } });
-      if (existing && !within(actor.scope, findingSchema.parse(existing.data).scope)) throw new DomainError('EXISTING_FINDING_OUTSIDE_SCOPE', 403);
+      const oldFinding = existing ? findingSchema.parse(existing.data) : null;
+      if (oldFinding && !within(actor.scope, oldFinding.scope)) throw new DomainError('EXISTING_FINDING_OUTSIDE_SCOPE', 403);
+      if (oldFinding && (oldFinding.component !== value.component || oldFinding.kind !== value.kind || oldFinding.weakness !== value.weakness)) throw new DomainError('FINDING_MATCH_REQUIRES_REVIEW');
       const id = existing?.id ?? value.id;
       let occurrenceId = occurrence.id;
       let recurrenceOf = occurrence.recurrenceOf;
@@ -79,7 +85,6 @@ export class Embermend {
         if (generation === 99) throw new DomainError('RECURRENCE_HISTORY_REQUIRES_REVIEW');
       }
       const next = { ...occurrence, id: occurrenceId, findingId: id, recurrenceOf };
-      const oldFinding = existing ? findingSchema.parse(existing.data) : null;
       const applications = (await tx.entity.findMany({ where: { id: { in: value.scope.applicationIds }, kind: 'application', installationId: value.scope.installationId } })).map(row => entitySchema.parse(row.data));
       const importance = applications.some(app => app.kind === 'application' && app.importance === 'critical') ? 'critical' : applications.some(app => app.kind === 'application' && app.importance === 'high') ? 'high' : applications.some(app => app.kind === 'application' && app.importance === 'normal') ? 'normal' : applications.some(app => app.kind === 'application' && app.importance === 'low') ? 'low' : 'unknown';
       const selectedRisk = value.risk ?? oldFinding?.risk;
@@ -105,11 +110,13 @@ export class Embermend {
     return this.db.$transaction(async tx => {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `campaign:${plan.campaignId}`); await lock(tx, `plan:${plan.id}`);
       const current = await tx.plan.findUnique({ where: { id: plan.id } });
+      if (current) { const previous = await this.planIn(tx, actor, plan.id); requirePermission(actor, 'propose', previous.scope); }
       if (plan.revision !== (current?.currentRevision ?? 0) + 1 || (current && (current.installationId !== plan.scope.installationId || current.campaignId !== plan.campaignId))) throw new DomainError('PLAN_REVISION_CONFLICT');
       for (const findingId of plan.findingIds) { const row = await tx.finding.findUnique({ where: { id: findingId } }); if (!row || !within(plan.scope, findingSchema.parse(row.data).scope)) throw new DomainError('FINDING_OUTSIDE_PLAN_SCOPE'); }
       for (const evidenceId of plan.evidenceIds) { const row = await tx.evidence.findUnique({ where: { id: evidenceId } }); if (!row || !within(plan.scope, evidenceSchema.parse(row.data).scope)) throw new DomainError('EVIDENCE_OUTSIDE_PLAN_SCOPE'); }
       const campaign = await tx.campaign.findUnique({ where: { id: plan.campaignId } });
       if (campaign && campaign.installationId !== plan.scope.installationId) throw new DomainError('CAMPAIGN_SCOPE_MISMATCH');
+      if (campaign) for (const member of await tx.plan.findMany({ where: { campaignId: campaign.id } })) requirePermission(actor, 'propose', (await this.planIn(tx, actor, member.id)).scope);
       if (!campaign) await tx.campaign.create({ data: { id: plan.campaignId, installationId: plan.scope.installationId } });
       await tx.plan.upsert({ where: { id: plan.id }, create: { id: plan.id, installationId: plan.scope.installationId, campaignId: plan.campaignId, currentRevision: plan.revision }, update: { currentRevision: plan.revision, status: 'draft' } });
       const hash = digest(plan);
@@ -138,6 +145,7 @@ export class Embermend {
     const policy = policySchema.parse(input); requirePermission(actor, 'policy', policy.scope);
     await this.db.$transaction(async tx => {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `policy:${policy.id}`); const existing = await tx.policy.findUnique({ where: { id: policy.id } });
+      if (existing) requirePermission(actor, 'policy', policySchema.parse(existing.data).scope);
       if (policy.revision !== (existing?.revision ?? 0) + 1 || (existing && existing.installationId !== policy.scope.installationId)) throw new DomainError('POLICY_REVISION_CONFLICT');
       await tx.policy.upsert({ where: { id: policy.id }, create: { id: policy.id, installationId: policy.scope.installationId, revision: policy.revision, data: json(policy) }, update: { revision: policy.revision, data: json(policy) } });
       await tx.authorization.updateMany({ where: { policyId: policy.id }, data: { revoked: true } }); await audit(tx, actor, 'policy.revised', policy.id, { revision: policy.revision });
