@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "scope": "One disposable Ubuntu host; real Oathweave, Registry, ingress and HiveXUI; native Magnus mutation and independent managed inventory. Manually connected candidates, not a signed combined Hive installation.",
+  "sources": {
+    "runtime": "2ed5b57c0335978aaadf8611a0f8994c72e0a221",
+    "ardentPlugin": "85a0a73881c25f913c0ec2e122b68fc05c5fcde1",
+    "hivexui": "ed5ba5fb7ace79533e19213115fc65847c97fcbe",
+    "oathweave": "82fdb297b08ac87ff31e7ea74912b19cabe42f6b",
+    "hiveIngressContract": "4a6040c7f85860d97559d3ee482a60c714a57419",
+    "magnus": "775c81277d40c58d3746a1ff8f486de45ed2336b"
+  },
+  "identity": {
+    "actualBrowserSignIn": true,
+    "resourceAudience": "embermend",
+    "operatorPermissions": [
+      "read",
+      "evidence",
+      "approve",
+      "execute"
+    ],
+    "coordinatorPermissions": [
+      "read",
+      "evidence",
+      "assess",
+      "prepare",
+      "propose",
+      "publish-explanation",
+      "execute"
+    ],
+    "coordinatorTargetCount": 1,
+    "coordinatorCannotApprove": true,
+    "coordinatorCannotEditPolicy": true,
+    "roleAloneDoesNotGrantProductAccess": true,
+    "existingGitHubAuthenticationUnchanged": true,
+    "productionIdentityChanged": false,
+    "logoutRevocation": {
+      "observedAt": "2026-11-10T22:13:19.649Z",
+      "status": 401,
+      "error": "IDENTITY_OR_PRODUCT_ACCESS_DENIED",
+      "tokenStillUnexpired": true,
+      "secondsUntilExpiry": 45
+    }
+  },
+  "journey": {
+    "actualBrowserDecisionAndStart": true,
+    "explanationPublishedAt": "2026-11-10T21:57:25.574Z",
+    "operatorApprovedAt": "2026-11-10T21:57:44.109Z",
+    "operationReservedAt": "2026-11-10T21:57:58.655Z",
+    "approvedWhilePausedWithZeroExecutions": true,
+    "pausedStartDisabled": true,
+    "evidenceOpenedBeforeMutation": true,
+    "firstRevision": {
+      "status": "unknown",
+      "reason": "TARGET_NOT_ELIGIBLE",
+      "hostDispatches": 0,
+      "retained": true
+    },
+    "secondRevision": {
+      "freshOperatorApproval": true,
+      "executions": 1,
+      "state": "completed",
+      "ownershipReleased": true,
+      "receiptSha256": "61d0fef5afc58a08f8b480c4f11683eb2b349f2ee9429d13aae33b68f3339859",
+      "beforeMode": "0644",
+      "independentEffectiveMode": "0600",
+      "verification": "pass",
+      "sourceOutcome": "not-applicable",
+      "runtimeOutcome": "verified-resolved",
+      "healthScope": "Fresh Magnus host-agent heartbeat only; fixture has no application consumer"
+    },
+    "browserScreenshotSha256": "9ca0138426d128233d63571a284b244ff22accab18e0f508b3eb405b41d2628f",
+    "reportSha256": "0f4bcd7aa859713cdbfa60b3daddc628ef20ec626a97106265061ebfbecd4ec1"
+  },
+  "coordinatorRuntime": {
+    "version": "3.0.0",
+    "model": "qwen3.8-27b",
+    "endpointConfigurationReference": "approved-local-qwen",
+    "taskContext": "preview",
+    "resourceScopes": [
+      "embermend:read",
+      "embermend:evidence"
+    ],
+    "state": "completed",
+    "tools": [
+      {
+        "name": "embermend_findings",
+        "ok": true
+      },
+      {
+        "name": "embermend_evidence",
+        "ok": true
+      },
+      {
+        "name": "embermend_evidence",
+        "ok": true
+      }
+    ],
+    "writeToolCalls": 0,
+    "modelOutputIsVerificationAuthority": false,
+    "initialArrayResultFailureRetained": true
+  },
+  "restore": {
+    "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required",
+    "tables": 26,
+    "dumpSha256": "17eeec2ecb7f650202db5fe72b88260e0fa9afc7691f48754689c84f9b84460c",
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true
+  },
+  "limits": [
+    "No production host or mutation policy change",
+    "No signed combined Hive installation, release or suite restore claim",
+    "No application-consumer health, package update, reboot, native-agent crash or deployment acceptance claim",
+    "Ardent model summary is supporting context; independent technical evidence establishes verification",
+    "Full AC-01 through AC-24 acceptance remains incomplete"
+  ]
+}

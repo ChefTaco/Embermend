@@ -13,21 +13,21 @@ until all required journeys and failure cases have retained proof.
 | AC-05 | Real model analysis through durable product jobs and a Magnus-enrolled rootless worker; three provider routes | Partial managed controlled-corpus proof; full journey pending |
 | AC-06 | Real candidates; isolated SQLite and ownership probes; two validated findings and a disputed abstract-store finding; partial-scan regressions | Partial controlled-corpus proof |
 | AC-07 | Application/source bindings and semantic anchors | Pending |
-| AC-08 | Durable explanation before actual PR writing; coordinator self-approval refusal, separate operator decisions and standing-policy regressions | Partial; authenticated operator journey pending |
-| AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial; broader revocation acceptance pending |
+| AC-08 | Durable explanation before actual PR writing; coordinator self-approval refusal, separate operator decisions and standing-policy regressions | Partial authenticated host workflow; broader source/provider journey pending |
+| AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial stale-head and actual browser-session revocation proof; broader authority revocation pending |
 | AC-10 | Actual Magnus preparation, linked GitHub PR, lost-reply adoption, required checks and separate non-bypass merge | Partial controlled source workflow proof; full authenticated journey pending |
 | AC-11 | Independent immutable maintained-branch readback/probes for a source-only application; other branch occurrences remain open | Partial source-only branch proof; deployed-artifact cases pending |
 | AC-12 | Artifact/deployment entities and runtime digest verification | Pending |
-| AC-13 | Campaign dependency, canary, disruption and pause boundaries | Pending |
-| AC-14 | Independent security/health verification checks | Pending |
+| AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
+| AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
 | AC-15 | Actual worker SIGKILL and control restart; original native receipt observed after natural lease/deadline expiry without dispatch | Partial crash proof; native agent/reboot cases pending |
-| AC-16 | Authoritative pause regression; recovery capability work remains | Pending |
+| AC-16 | Actual browser pause, disabled dispatch and separate resume; authorized fixture recovery proof | Partial; broader in-flight and recovery cases pending |
 | AC-17 | Separate container/workload/artifact identities | Pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
 | AC-19 | Scoped expiring exceptions and durable expiry events | Pending |
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
 | AC-21 | Durable jobs, duplicate native delivery, real worker/control restart recovery, exact PostgreSQL restore and restored history guards | Partial; coordinator/native restart and hostile-work acceptance pending |
-| AC-22 | Compact HiveXUI recommendations, decisions, pause and outcome view | Pending |
+| AC-22 | Real Oathweave sign-in, scoped recommendation, evidence access, decision, pause, native execution and independently verified outcome | Partial authenticated fixture proof; wider operator journeys pending |
 | AC-23 | Scoped exports and retained actual source-campaign report; completion/reporting work remains | Partial controlled report proof |
 | AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
 
@@ -96,3 +96,34 @@ source-only. No artifact publication, deployment, production exposure or runtime
 closure is claimed. The direct-service harness does not replace the authenticated
 browser/Oathweave/coordinator-runtime journey. A fresh PostgreSQL-only restore
 retains the resulting plans, phase identities, verification and append-only guards.
+
+
+The [authenticated browser evidence](acceptance/2026-11-10-authenticated-browser.json)
+retains a real Oathweave/HiveXUI journey through the reviewed Hive ingress contract,
+using explicitly connected disposable product candidates and the actual Registry.
+The coordinator published before mutation and was refused approval and policy
+changes. The browser operator approved while paused, inspected evidence, resumed,
+and started one native permission change. Independent managed inventory and a
+technical reviewer established the effective mode and host-agent health. A fresh
+26-table PostgreSQL restore preserved the data and append-only guards.
+
+This test found and fixed three integration issues: navigation depending on an
+unneeded Magnus browser client, old cached heartbeats blocking operator-reviewed
+work despite fresh Magnus eligibility, and missing durable job blockers in the
+operator timeline. Exact target identity and fresh eligibility remain mandatory.
+The original refused attempt remains retained; a separately approved revision
+performed the change. Current-revision reports exclude older executions and
+publications; original receipt access checks its original revision's scope.
+
+An actual Ardent 3 runtime then used the approved Qwen model and the Embermend
+plugin over authenticated ingress to inspect findings and evidence. Its read-only
+preview used only read/evidence scopes and made no write calls. This found and
+fixed ingress prefix handling and list-result envelopes required by Ardent's
+evidence recorder. The model summary is supporting context, never verification
+authority. This is not a signed combined installation or a combined suite restore;
+application-consumer health and the remaining acceptance matrix are pending.
+
+Browser sign-out was also checked against a captured resource token: the same
+operator token returned HTTP 200 before sign-out and HTTP 401 afterward while
+still unexpired. This proves request-time browser session revocation, not
+revocation of credentials already captured by a queued worker job.

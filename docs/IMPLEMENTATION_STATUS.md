@@ -18,9 +18,10 @@ the forthcoming compatible Magnus release; no existing signed release is edited.
 Fresh initialization grants no target access or mutation authority by default.
 
 Component verification includes strict compiler checks, security/scanner/provider
-unit tests, PostgreSQL integration checks, focused Magnus tests, six HiveXUI
-interaction tests, and a labeled synthetic browser inspection. These are not
-substitutes for authenticated integrated journeys. The dated evidence record
+unit tests, PostgreSQL integration checks, focused Magnus tests, eleven HiveXUI
+interaction tests, real scoped Oathweave/browser operation and outcome inspection,
+and an actual Ardent/Qwen read-only plugin task. These establish the bounded
+disposable journey recorded in the acceptance ledger. The dated evidence record
 now retains narrow live fixture mutations on three enrolled Ubuntu guests,
 independent readback, duplicate delivery, response-loss recovery, recurrence,
 a real OpenSCAP assessment and an exact database-only restore rehearsal.
@@ -29,7 +30,7 @@ Outstanding work includes complete coordinator event delivery, native reboot
 continuation and integrated crash fault injection, complete build/publication tracking, graph reconciliation and
 independent deployment verification, comprehensive cancellation/recovery, live authority revocation,
 acceptance fault injection, combined suite restore proof, release artifacts and signatures, and
-real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; managed worker and full model acceptance remain pending. Production mutation policies stay disabled.
+real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; the managed worker and authenticated browser fixture have retained proof. Broader model and campaign acceptance remains pending. Production mutation policies stay disabled.
 
 Inference now includes an Embermend-owned broker for approved network llama.cpp,
 Codex local CLI and Claude local CLI, with no tool access or automatic fallback.
@@ -65,4 +66,20 @@ adopted through reads; separate merge authority and rule enforcement were tested
 Independent immutable readback and isolated probes source-verified the two
 conditional SQL/owner findings on that branch. Other maintained-branch occurrences
 remain open, and the path finding remains disputed. This does not establish
-artifact publication, deployment closure or the full authenticated operator journey.
+artifact publication, deployment closure or the full operator acceptance matrix.
+
+
+Authenticated browser acceptance now includes a separately published/approved host
+change, pause and resume, evidence access, durable job status, and independently
+verified runtime outcome. Scope-limited coordinator credentials cannot approve or
+edit standing policy. Current Magnus eligibility is checked independently of the
+age of cached inventory, while execution identity and scope changes fail closed.
+An older plan revision cannot expose wider historical execution data through a
+newer narrower revision. Existing GitHub operator authentication remains usable;
+no production runtime identity or mutation policy was changed.
+
+The approved Oathweave integration worktree supplies the Embermend audience in
+fresh bootstrap and strict TypeScript 6.0.3 throughout its affected workspaces.
+The real browser fixture uses that candidate with actual Registry and ingress
+images. It is an explicit manual candidate connection, not an installed signed
+Hive release. Shared Hive and Ardent checkouts remain isolated from this work.
