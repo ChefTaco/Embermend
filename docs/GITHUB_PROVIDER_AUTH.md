@@ -9,6 +9,9 @@ Embermend uses an exact repository-ID/owner/name grant, permitted base branches
 and workflow IDs, and separate product permissions for repository writing,
 merge, build dispatch and deployment. Credentials stay in the provider broker.
 They never enter repository containers or model context.
+Automation commits use an explicit generic product author and committer; the
+provider does not infer an operator's private profile email. The scoped actor
+and approval remain in Embermend's audit history.
 
 | Operation | GitHub App repository permission |
 |---|---|

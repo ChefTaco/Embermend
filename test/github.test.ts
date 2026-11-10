@@ -128,3 +128,12 @@ test('lost pull-request replies reconcile only exact original branch, commit and
     assert.ok(methods.every(method => method === 'GET'));
   }
 });
+test('public automation commits never infer an operator profile identity', async () => {
+  const writes: unknown[] = [];
+  const request: typeof fetch = async (url, init) => {
+    if (new URL(String(url)).pathname.startsWith('/repositories/')) return Response.json(repoReply);
+    assert.equal(init?.method, 'POST'); writes.push(JSON.parse(String(init?.body)) as unknown); return Response.json({ sha: 'b'.repeat(40) });
+  };
+  await new GitHubClient('fixture-provider-token', grants, request).createCommit('123', commit, 'c'.repeat(40), 'fixture-operation');
+  assert.deepEqual(writes, [{ message: 'fix: remediate verified security finding\n\nEmbermend operation: fixture-operation', tree: 'c'.repeat(40), parents: [commit], author: { name: 'Embermend', email: 'automation@example.com' }, committer: { name: 'Embermend', email: 'automation@example.com' } }]);
+});

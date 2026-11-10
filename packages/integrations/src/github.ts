@@ -47,7 +47,11 @@ export class GitHubClient {
     return objectSchema.parse(await this.call(`${path}/git/trees`, 'POST', { base_tree: base.commit.tree.sha, tree })).sha;
   }
   async createCommit(providerId: string, baseCommit: string, tree: string, operationId: string): Promise<string> {
-    const { path } = await this.repository(providerId); return objectSchema.parse(await this.call(`${path}/git/commits`, 'POST', { message: `fix: remediate verified security finding\n\nEmbermend operation: ${operationId}`, tree, parents: [revision.parse(baseCommit)] })).sha;
+    const { path } = await this.repository(providerId);
+    // Do not let a provider infer an operator's private profile email for a
+    // public automation commit. Authorization is retained in the product audit.
+    const identity = { name: 'Embermend', email: 'automation@example.com' };
+    return objectSchema.parse(await this.call(`${path}/git/commits`, 'POST', { message: `fix: remediate verified security finding\n\nEmbermend operation: ${operationId}`, tree, parents: [revision.parse(baseCommit)], author: identity, committer: identity })).sha;
   }
   async createBranch(providerId: string, branch: string, commit: string): Promise<string> {
     const { path } = await this.repository(providerId);

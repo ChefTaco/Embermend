@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Use an explicit public automation identity for provider-created commits instead of inheriting an operator profile email.
+
 - Reconcile a lost PR-creation reply through exact branch/head/operation evidence without another write; permit separately authorized no-effect recovery when no provider mutation was reserved, with concurrent admission guards.
 
 - Retain complete managed assessment identities and observe original receipts after worker loss or execution deadlines, without redispatch or clearing cancellation; preserve verified history on duplicate evidence ingestion.
