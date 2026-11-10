@@ -91,3 +91,5 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
   return scanResultSchema.parse({ scannerVersion: '0.1.0', profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
     coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [candidate.fingerprint, candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
 }
+
+export { readScanSources } from './source-reader.js';
