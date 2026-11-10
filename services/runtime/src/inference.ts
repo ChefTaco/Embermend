@@ -3,6 +3,8 @@ import { bodyLimit } from 'hono/body-limit';
 import { timingSafeEqual, createHash, randomUUID } from 'node:crypto';
 import { inferenceConfigSchema, inferenceRequestSchema, inferenceModel, candidateOutputSchema } from '@hivemagnus/embermend-integrations';
 export function createInferenceBroker(raw: unknown, token: string, env: NodeJS.ProcessEnv = process.env, shutdown: AbortSignal = new AbortController().signal): Hono {
+  const forbidden = ['DATABASE_URL', 'MAGNUS_EMBERMEND_TOKEN', 'NODE_MANAGER_SECRET', 'RESULT_SIGNING_SECRET', 'API_SECRET', 'EMBERMEND_GITHUB_TOKEN', 'GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_APP_PRIVATE_KEY', 'OATHWEAVE_CLIENT_SECRET', 'SSH_AUTH_SOCK', 'DOCKER_HOST', 'CONTAINER_HOST'];
+  if (forbidden.some(name => env[name])) throw new Error('INFERENCE_BROKER_REQUIRES_ENVIRONMENT_WITHOUT_MANAGEMENT_AUTHORITY');
   if (token.length < 32) throw new Error('DEDICATED_INFERENCE_TOKEN_REQUIRED');
   const config = inferenceConfigSchema.parse(raw); const models = new Map(config.providers.map(provider => [provider.ref, { provider, model: inferenceModel(provider, env) }]));
   const expected = createHash('sha256').update(token).digest(); let active = 0;

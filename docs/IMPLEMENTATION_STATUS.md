@@ -26,7 +26,7 @@ independent readback, duplicate delivery, response-loss recovery, recurrence,
 a real OpenSCAP assessment and an exact database-only restore rehearsal.
 
 Outstanding work includes complete coordinator event delivery, native reboot
-continuation, complete build/publication tracking, graph reconciliation and
+continuation and integrated crash fault injection, complete build/publication tracking, graph reconciliation and
 independent deployment verification, comprehensive cancellation/recovery, live authority revocation,
 acceptance fault injection, combined suite restore proof, release artifacts and signatures, and
 real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; managed worker and full model acceptance remain pending. Production mutation policies stay disabled.
@@ -35,3 +35,10 @@ Inference now includes an Embermend-owned broker for approved network llama.cpp,
 Codex local CLI and Claude local CLI, with no tool access or automatic fallback.
 Cloud-backed CLI routes require remote-source permission. See
 [provider configuration](INFERENCE.md) and the dated inference evidence.
+
+Managed source proof now includes a real Qwen scan through Magnus and rootless
+Docker, same-harness original/draft security probes, two validated fixture
+findings and one disputed finding, and actual stale GitHub head refusal before
+provider writes. Source remediation and deployment closure remain open. Magnus
+now retains inner supervisor identities for read-only original receipt adoption;
+that implementation passes regression tests but still needs live crash proof.

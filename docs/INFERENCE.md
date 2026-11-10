@@ -19,7 +19,10 @@ worker isolation and execution receipts; it does not embed another CLI runtime.
 Build with `npm run build`, provision a protected provider configuration, and
 supply `EMBERMEND_INFERENCE_CONFIG` and a dedicated random
 `EMBERMEND_INFERENCE_TOKEN` of at least 32 characters. Run `npm run inference`.
-This process does not require the product database or management credentials.
+This process refuses inherited product database, provider-write, identity-client
+and management credentials or host-control socket environment variables. Supply
+a dedicated environment containing only inference configuration and necessary
+model credentials; API/worker environment files are unsuitable.
 It binds only to loopback, at port 4181 by default. A remote Magnus worker must
 use an independently configured, authenticated, verified HTTPS ingress to it.
 Do not expose the loopback HTTP listener directly to a network.
@@ -104,7 +107,10 @@ In the root-controlled Magnus worker configuration, set `model.embermendBroker`
 to `true`, `model.baseUrl` to the broker's `/v1` base, and both `model.model` and
 `model.ref` to the approved provider reference, such as `approved-codex`.
 `model.local` describes the **backend source policy**, independently of whether
-the broker transport is loopback. The protected `model.tokenFile` contains only
+the broker transport is loopback. The protected `model.caFile` can name a canonical root-controlled CA file for private HTTPS.
+`worker.nodeExecutable` must match the immutable image (the suite image uses
+`/usr/bin/node`), and validation profiles name that reviewed path.
+`model.tokenFile` contains only
 the dedicated broker token. Transport to a remote broker requires HTTPS;
 loopback HTTP is permitted without treating the backend as local.
 

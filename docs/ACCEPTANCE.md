@@ -10,12 +10,12 @@ until all required journeys and failure cases have retained proof.
 | AC-02 | Scoped entities, immutable identities, provenance, repository rename regression | Pending |
 | AC-03 | Versioned profiles; actual fixture hardening, recovery and recurrence on disposable guests | Partial fixture proof; broader hardening pending |
 | AC-04 | Actual Canonical OVAL/OpenSCAP assessment; supervised security update handlers | Assessment proof only; update/activation acceptance pending |
-| AC-05 | Actual syntax index; real Qwen, Codex CLI and Claude CLI controlled-corpus analysis; managed rootless broker | Partial provider/scanner proof; full managed journey pending |
-| AC-06 | Candidate state and independent verification boundaries; partial-scan regressions | Pending |
+| AC-05 | Real model analysis through durable product jobs and a Magnus-enrolled rootless worker; three provider routes | Partial managed controlled-corpus proof; full journey pending |
+| AC-06 | Real candidates; isolated SQLite and ownership probes; two validated findings and a disputed abstract-store finding; partial-scan regressions | Partial controlled-corpus proof |
 | AC-07 | Application/source bindings and semantic anchors | Pending |
-| AC-08 | Durable publication, explicit decision and standing-policy tests | Pending |
-| AC-09 | Immutable plan revisions and policy revocation tests | Pending |
-| AC-10 | Isolated preparation and bounded GitHub provider phases | Pending |
+| AC-08 | Durable publication and explicit decision before real stale-source refusal; standing-policy regressions | Partial; authenticated operator journey pending |
+| AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial; broader revocation acceptance pending |
+| AC-10 | Actual isolated original/draft probes through Magnus; bounded provider phases | Partial preparation proof; linked PR/checks pending |
 | AC-11 | Separate source/runtime state; source verification regression | Pending |
 | AC-12 | Artifact/deployment entities and runtime digest verification | Pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries | Pending |
@@ -62,3 +62,11 @@ model/CLI identifiers and controlled corpus result digests for all three routes.
 Findings remain candidates; repetition by different models does not validate
 them. The out-of-scope application was excluded. No external repository or
 production source was sent to a cloud model.
+
+The [managed source evidence](acceptance/2026-11-10-managed-source.json) covers
+a real durable scan on an enrolled rootless worker and original/draft executable
+probes on a separately prepared guest. The same probes ran in both revisions.
+SQLite injection and owner filtering received technical validation; the abstract
+store finding remains disputed. A separately published and explicitly approved
+plan was refused against the actual changed GitHub head before provider writes.
+Prepared edits have not changed a maintained branch, built artifact or deployment.

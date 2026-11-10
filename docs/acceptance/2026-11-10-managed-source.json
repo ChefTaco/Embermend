@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "corpus": "Public inert controlled monorepo, catalog source and its owned test harness",
+  "sourceRevision": "3f4006e8141222ab54f521e635a89a6a9fb8e530",
+  "model": "qwen3.8-27b",
+  "managedScan": {
+    "status": "completed",
+    "coverageStatus": "complete",
+    "candidateClasses": [
+      "authorization",
+      "injection",
+      "path-handling"
+    ],
+    "isolation": {
+      "runtime": "Rootless Docker on a dedicated account in an enrolled Ubuntu 24.04.5 KVM guest",
+      "network": "Repository container network disabled; credentialed model broker outside container",
+      "resources": "One CPU, 1 GiB container memory, 64 PIDs, bounded disposable tmpfs checkout",
+      "source": "Explicit application paths at immutable Git revision; other monorepo application excluded",
+      "transport": "Verified private-CA HTTPS to the inference broker; exact approved backend model",
+      "completion": "Signed original Magnus receipt, released ownership and independent rootless container/mount cleanup"
+    },
+    "scannerImage": "sha256:1e5a452366ecea3938c133d6eaae25fadd78c5a224cc8e2c4796df130bebec9c",
+    "agentPackageSha256": "28663b89e37261eda35d3611d0de1dec7ab065f553cce508aaed914636eecf7c",
+    "privateRecordSha256": "68f12e210b935172a0f26a29e5b739027dce686c0a139380342363c397c20a81"
+  },
+  "isolatedPreparation": {
+    "beforeStatus": "completed",
+    "afterStatus": "completed",
+    "identicalProbeSource": true,
+    "before": {
+      "injectionRows": 2,
+      "traversalRead": true,
+      "crossOwner": true
+    },
+    "after": {
+      "injectionRows": 0,
+      "traversalRead": false,
+      "crossOwner": false
+    },
+    "validationProfile": "Reviewed fixed Node test command, no model or provider-write credentials",
+    "scannerImage": "sha256:dcdcb5c4daa5dd63c0912c22587ab99e17e7e6eba36b7a1ef9136e62f2da277b",
+    "agentPackageSha256": "aab4af437d0af64912af33f3c26b7e55f7d7f1d2a3fc82524c110c2ea55b5c7b",
+    "draftPatchDigest": "371bcd27d9ab51cdbb9cfe6f48936d3b27b3d284d55ceabe397a2546f8d7271c",
+    "privateRecordsSha256": [
+      "3719f13c5e0cb7803955d9d7298e71bd1c10a787afb131fc283662ce99096151",
+      "b72e2b73980a40446a3e9b5734072da63e5543b703c528e33942c32bdcd306f8",
+      "5f5d19bf332bd7dd50ef8cf07ba5304400d34c890e12744a6c2d1c587b9d83bc"
+    ],
+    "reviewedValidity": [
+      {
+        "weakness": "authorization",
+        "validity": "validated"
+      },
+      {
+        "weakness": "path-handling",
+        "validity": "disputed"
+      },
+      {
+        "weakness": "injection",
+        "validity": "validated"
+      }
+    ]
+  },
+  "staleAuthorization": {
+    "refusal": "SOURCE_BASE_CHANGED",
+    "providerEffects": 0,
+    "durablePublicationBeforeExplicitDecision": true,
+    "onlyProviderReads": true,
+    "privateRecordSha256": "1b480b22e47141e9d5a32f8c0494b96b3299cd952c749f0452f08d15972ec9e9"
+  },
+  "retainedFailure": {
+    "stage": "First preparation attempt",
+    "outcome": "Confirmed failed native operation with released ownership",
+    "cause": "Image Node path differed from the original preparation entry command",
+    "resolution": "Reviewed runtime path contract and container CI check, exercised on a fresh guest prepared before enrollment"
+  },
+  "limitations": [
+    "Controlled fixture proof, not arbitrary repository or production exposure acceptance",
+    "SQL input exercised against actual in-memory SQLite; no production database affected",
+    "Owner helper exercised with another owner account; external call-site reachability remains unknown",
+    "Path forwarding remains disputed because the abstract DocumentStore may enforce its own boundary; no filesystem escape demonstrated",
+    "Only isolated draft edits exist; maintained source, protected branches, artifacts and deployments are not remediated",
+    "Authenticated browser/coordinator flow, provider writes/merge/build/deployment, hostile repository and crash/reboot acceptance remain pending",
+    "No production automation policy or release enabled"
+  ]
+}

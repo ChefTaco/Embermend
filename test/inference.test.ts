@@ -82,3 +82,8 @@ test('readable CLI credential material is rejected before the executable starts'
     await assert.rejects(inferenceModel(provider('claude-cli', home)).analyze('system', 'source', signal()), /PRIVATE_CLI_CREDENTIAL_REQUIRED/);
   } finally { await rm(home, { recursive: true, force: true }); }
 });
+
+test('inference service refuses inherited product, provider-write and management authority', () => {
+  const config = { providers: [provider('claude-cli', '/nonexistent-fixture-credentials')] };
+  for (const name of ['DATABASE_URL', 'MAGNUS_EMBERMEND_TOKEN', 'EMBERMEND_GITHUB_TOKEN', 'NODE_MANAGER_SECRET', 'SSH_AUTH_SOCK', 'DOCKER_HOST']) assert.throws(() => createInferenceBroker(config, 'fixture-token-not-real-000000000000', { [name]: 'fixture-value' }), /WITHOUT_MANAGEMENT_AUTHORITY/);
+});
