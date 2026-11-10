@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
-import { audit, digest, enqueue, json, lock, within, type Database, type Transaction } from '@hivemagnus/embermend-store';
+import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
+import { audit, digest, enqueue, json, lock, within, Prisma, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { redactObject, redact, IntegrationError, githubMergeOperationSchema, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
 import { matchesPath, safePath } from '@hivemagnus/embermend-scanner';
 import { DomainError, requirePermission, requireActionPermission, validateAction, policyCovers, assertTarget } from './authorization.js';
@@ -71,6 +71,13 @@ export class Embermend {
       if (oldFinding && !within(actor.scope, oldFinding.scope)) throw new DomainError('EXISTING_FINDING_OUTSIDE_SCOPE', 403);
       if (oldFinding && (oldFinding.component !== value.component || oldFinding.kind !== value.kind || oldFinding.weakness !== value.weakness)) throw new DomainError('FINDING_MATCH_REQUIRES_REVIEW');
       const id = existing?.id ?? value.id;
+      // Replaying an already ingested observation cannot reopen a later
+      // verification. A genuinely new observation carries new evidence IDs.
+      const delivered = await tx.occurrence.findUnique({ where: { id: occurrence.id } });
+      if (delivered && delivered.findingId === id && occurrence.evidenceIds.length) {
+        const previous = occurrenceSchema.parse(delivered.data);
+        if (occurrence.evidenceIds.every(evidenceId => previous.evidenceIds.includes(evidenceId))) return id;
+      }
       let occurrenceId = occurrence.id;
       let recurrenceOf = occurrence.recurrenceOf;
       let recurrence = false;
@@ -398,20 +405,31 @@ export class Embermend {
   async job(actor: Actor, id: string) {
     const row = await this.db.job.findUnique({ where: { id } }); if (!row) throw new DomainError('NOT_FOUND', 404);
     const scope = z.object({ scope: z.object({ installationId: z.string(), applicationIds: z.array(z.string()), targetIds: z.array(z.string()) }) }).parse(row.actor).scope; requirePermission(actor, 'read', scope);
-    if (row.result !== null && ['source', 'preparation', 'scan'].includes(row.kind)) requirePermission(actor, 'evidence', scope);
+    if (row.result !== null && ['source', 'preparation', 'scan', 'reconciliation'].includes(row.kind)) requirePermission(actor, 'evidence', scope);
     return { id: row.id, kind: row.kind, status: row.status, progress: row.progress, deadline: row.deadline.toISOString(), cancelRequested: row.cancelRequested, result: row.result, error: row.error };
   }
   async reconcileJob(actor: Actor, id: string): Promise<string> {
-    await this.job(actor, id); requirePermission(actor, 'recover', actor.scope);
-    const row = await this.db.job.findUnique({ where: { id } });
-    if (!row || row.status !== 'unknown' || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source'].includes(row.kind) || row.deadline <= new Date()) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
-    // runAssessment derives or restores the exact original managed operation.
-    // Magnus observes a repeated identity and never launches it a second time.
-    await this.db.$transaction(async tx => { await tx.job.updateMany({ where: { id, status: 'unknown' }, data: { status: 'queued', cancelRequested: false, availableAt: new Date(), error: null } }); await audit(tx, actor, 'job.reconciliation-requested', id); }); return id;
+    await this.job(actor, id);
+    return this.db.$transaction(async tx => {
+      await lock(tx, `job-observation:${id}`);
+      const row = await tx.job.findUnique({ where: { id } });
+      if (!row || row.status !== 'unknown' || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source'].includes(row.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
+      const scope = z.object({ scope: scopeSchema }).parse(row.actor).scope; requirePermission(actor, 'recover', scope); requirePermission(actor, 'evidence', scope);
+      const prior = await tx.job.findFirst({ where: { kind: 'reconciliation', installationId: scope.installationId, payload: { path: ['originalJobId'], equals: id } }, orderBy: { createdAt: 'desc' } });
+      if (prior && ['queued', 'running'].includes(prior.status)) return prior.id;
+      // Observation has its own bounded deadline and never renews the original
+      // execution grant, clears cancellation, or requeues original work.
+      const observationId = await enqueue(tx, actor, 'reconciliation', `${id}:${prior?.id ?? 'initial'}`, { originalJobId: id, scope }, new Date(Date.now() + 300000));
+      await audit(tx, actor, 'job.reconciliation-requested', id, { observationJobId: observationId }); return observationId;
+    });
   }
   async cancelJob(actor: Actor, id: string): Promise<void> {
     await this.job(actor, id); requirePermission(actor, 'assess', actor.scope);
-    await this.db.$transaction(async tx => { await tx.job.updateMany({ where: { id, status: 'queued' }, data: { status: 'canceled', cancelRequested: true } }); await tx.job.update({ where: { id }, data: { cancelRequested: true } }); await audit(tx, actor, 'job.cancellation-requested', id); });
+    await this.db.$transaction(async tx => {
+      const changed = await tx.job.updateMany({ where: { id, status: 'queued', result: { equals: Prisma.DbNull } }, data: { status: 'canceled', cancelRequested: true } });
+      if (!changed.count) await tx.job.updateMany({ where: { id, status: 'queued' }, data: { status: 'unknown', cancelRequested: true } });
+      await tx.job.update({ where: { id }, data: { cancelRequested: true } }); await audit(tx, actor, 'job.cancellation-requested', id);
+    });
   }
   async prepare(actor: Actor, input: unknown): Promise<string> {
     const preparation = preparationSchema.parse(input);

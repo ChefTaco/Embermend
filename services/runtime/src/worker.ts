@@ -13,11 +13,31 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
   const parsed = actorSchema.parse(job.actor); const actor: Actor = { ...parsed, permissions: new Set(parsed.permissions) };
   const controller = new AbortController(); const combined = AbortSignal.any([signal, controller.signal, AbortSignal.timeout(Math.max(1, job.deadline.getTime() - Date.now()))]);
   const heartbeat = setInterval(() => {
-    void service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner }, data: { leaseUntil: new Date(Date.now() + 60000) } }).then(async result => { const state = await service.db.job.findUnique({ where: { id } }); if (!result.count || state?.cancelRequested) controller.abort(); }).catch(() => controller.abort());
+    void service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { leaseUntil: new Date(Date.now() + 60000) } }).then(async result => { const state = await service.db.job.findUnique({ where: { id } }); if (!result.count || state?.cancelRequested) controller.abort(); }).catch(() => controller.abort());
   }, 10000);
   let result: unknown = { completed: true };
   try {
-    if (job.kind === 'campaign') {
+    if (job.kind === 'reconciliation') {
+      const payload = z.object({ originalJobId: z.string(), scope: scopeSchema }).strict().parse(job.payload);
+      const original = await service.db.job.findUnique({ where: { id: payload.originalJobId } });
+      if (!original || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source'].includes(original.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
+      await service.job(actor, original.id);
+      if (original.status !== 'unknown') { if (!['completed', 'failed'].includes(original.status)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE'); result = { originalJobId: original.id, status: original.status }; }
+      else {
+        try {
+          const observed = await runAssessment(service, actor, original, combined, { jobId: id, owner, observeOnly: true });
+          result = { originalJobId: original.id, observation: observed };
+          await service.db.$transaction(async tx => {
+            const lease = await tx.job.findUnique({ where: { id } }); if (lease?.status !== 'running' || lease.leaseOwner !== owner || !lease.leaseUntil || lease.leaseUntil <= new Date()) throw new DomainError('WORKER_LEASE_LOST');
+            await tx.job.updateMany({ where: { id: original.id, status: 'unknown' }, data: { status: 'completed', progress: 1, error: null } });
+            await audit(tx, actor, 'job.original-observed', original.id, { observationJobId: id, status: 'completed' });
+          });
+        } catch (error) {
+          if (error instanceof DomainError && error.code === 'ASSESSMENT_FAILED_CONFIRMED') await service.db.job.updateMany({ where: { id: original.id, status: 'unknown' }, data: { status: 'failed', error: error.code } });
+          throw error;
+        }
+      }
+    } else if (job.kind === 'campaign') {
       const payload = z.object({ planId: z.string(), revision: z.number(), scope: scopeSchema }).strict().parse(job.payload); const plan = planSchema.parse(await service.plan(actor, payload.planId));
       if (plan.revision !== payload.revision) throw new DomainError('PLAN_CHANGED');
       const done = new Set<string>(); const remaining = [...plan.actions].sort((a, b) => Number(b.targetId === plan.canaryTargetId) - Number(a.targetId === plan.canaryTargetId));
@@ -34,15 +54,15 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
         await service.db.job.update({ where: { id }, data: { progress: done.size / plan.actions.length } });
       }
     } else if (['assessment', 'vulnerabilities', 'scan', 'preparation', 'source'].includes(job.kind)) {
-      result = await runAssessment(service, actor, job, combined);
+      result = await runAssessment(service, actor, job, combined, { jobId: id, owner, observeOnly: false });
     } else {
       throw new DomainError('UNSUPPORTED_JOB_KIND');
     }
-    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner }, data: { status: 'completed', progress: 1, result: json(result) } });
+    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: 'completed', progress: 1, result: json(result) } });
   } catch (error) {
     const code = error instanceof DomainError ? error.code : 'WORKER_FAILED_INSPECT_RETAINED_STATE';
     const retained = await service.db.job.findUnique({ where: { id } });
-    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner }, data: { status: code === 'ASSESSMENT_FAILED_CONFIRMED' ? 'failed' : job.kind === 'campaign' || retained?.result !== null ? 'unknown' : 'failed', error: code } });
+    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: code === 'ASSESSMENT_FAILED_CONFIRMED' ? 'failed' : ['campaign', 'reconciliation'].includes(job.kind) || retained?.result !== null ? 'unknown' : 'failed', error: code } });
   } finally { clearInterval(heartbeat); }
   return true;
 }

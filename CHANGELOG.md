@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Retain complete managed assessment identities and observe original receipts after worker loss or execution deadlines, without redispatch or clearing cancellation; preserve verified history on duplicate evidence ingestion.
+
 - Evaluate GitHub operations by permission and live merge readiness instead of rejecting repository administrators; explicitly disable rule bypass and retain asynchronous merge identities for read-only reconciliation.
 
 - Preserve explicit partial scanner coverage on model-broker failures; exercise source reading, preparation and broker errors inside the built container in CI.

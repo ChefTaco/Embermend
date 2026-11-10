@@ -6,20 +6,21 @@ import { IntegrationError, GitHubClient, type Magnus } from '@hivemagnus/emberme
 import { type OperationRequest, type Receipt, type Plan } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
+import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
 import { createApi } from '../../services/runtime/dist/api.js';
 
 const url = process.env['DATABASE_URL'];
 if (!url || !new URL(url).pathname.startsWith('/embermend_test') || !['127.0.0.1', 'localhost'].includes(new URL(url).hostname)) throw new Error('Explicit loopback embermend_test PostgreSQL database required');
 const db = database(url);
 class FixtureMagnus implements Magnus {
-  requests: OperationRequest[] = []; loseReply = false; receipts = new Map<string, Receipt>();
-  async capabilities() { return { protocol: 1 as const, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['file-mode.v1', 'inventory.v1'], targets: [target()], observedAt: now() }; }
+  requests: OperationRequest[] = []; loseReply = false; receipts = new Map<string, Receipt>(); capabilitiesAvailable = true; observations = 0;
+  async capabilities() { if (!this.capabilitiesAvailable) throw new Error('Fixture inventory outage'); return { protocol: 1 as const, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['file-mode.v1', 'inventory.v1'], targets: [target()], observedAt: now() }; }
   async dispatch(request: OperationRequest): Promise<Receipt> {
     this.requests.push(request);
     const receipt: Receipt = { operationId: request.operationId, requestDigest: digest(request), targetId: request.action.targetId, state: 'completed', evidenceIds: [], result: { exitCode: 0 }, ownershipReleased: true, observedAt: now() };
     this.receipts.set(request.operationId, receipt); if (this.loseReply) throw new IntegrationError('LOST_REPLY', true); return receipt;
   }
-  async receipt(id: string): Promise<Receipt> { const receipt = this.receipts.get(id); if (!receipt) throw new IntegrationError('MISSING_RECEIPT', false); return receipt; }
+  async receipt(id: string): Promise<Receipt> { this.observations++; const receipt = this.receipts.get(id); if (!receipt) throw new IntegrationError('MISSING_RECEIPT', false); return receipt; }
   async scanResult(): Promise<never> { throw new Error('UNSUPPORTED'); }
 }
 test('PostgreSQL-backed security and execution invariants', async t => {
@@ -73,7 +74,10 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const { service } = await reset();
     const proof = { ...evidence(), id: 'effective-proof', content: { findingIdentity: finding().identity, securityCheckPassed: true, runningStateVerified: true } }; await service.evidence(operator, proof);
     await service.verify(operator, { id: 'effective-verification', occurrenceId: occurrence().id, dimension: 'runtime', result: 'pass', method: proof.method, evidenceIds: [proof.id], coverage: occurrence().coverage, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: true, observedAt: proof.observedAt, independent: true, consumerMigrationVerified: false });
-    await service.finding(operator, { ...finding(), validity: 'candidate' }, occurrence()); await service.finding(operator, { ...finding(), validity: 'candidate' }, occurrence());
+    await service.finding(operator, { ...finding(), validity: 'candidate' }, occurrence());
+    assert.equal(await db.occurrence.count(), 1, 'replaying original evidence preserves later verification');
+    const fresh = { ...evidence(), id: 'new-assessment-evidence', observedAt: now() }; await service.evidence(operator, fresh);
+    await service.finding(operator, { ...finding(), validity: 'candidate', evidenceIds: [fresh.id] }, { ...occurrence(), evidenceIds: [fresh.id] }); await service.finding(operator, { ...finding(), validity: 'candidate', evidenceIds: [fresh.id] }, { ...occurrence(), evidenceIds: [fresh.id] });
     const [row] = await service.findings(operator); assert.ok(row); assert.equal(row.finding.validity, 'validated'); assert.equal(row.occurrences.length, 2); assert.equal(row.occurrences.filter(item => item.runtimeState === 'verified-resolved').length, 1); assert.equal(await db.verification.count(), 1);
   });
   await t.test('failed verification pauses the campaign before any further action', async () => {
@@ -162,6 +166,71 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const outcomes = await Promise.allSettled(['b', 'c'].map(marker => service.finding(operator, { ...finding(), id: 'shared-finding-id', identity: marker.repeat(64) }, { ...occurrence(), id: 'concurrent-' + marker, findingId: 'shared-finding-id' })));
     assert.equal(outcomes.filter(result => result.status === 'fulfilled').length, 1);
     const retained = await db.finding.findUniqueOrThrow({ where: { id: 'shared-finding-id' } }); assert.equal(retained.identity, retained.data && typeof retained.data === 'object' && !Array.isArray(retained.data) ? retained.data['identity'] : null);
+  });
+
+  const interruptedAssessment = async () => {
+    const setup = await reset();
+    await setup.service.profile(operator, { id: 'fixture-inventory', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Retain original inventory', capability: 'inventory.v1', field: 'exitCode', expected: 1, actionVersion: null }] });
+    const id = await setup.service.assess(operator, { id: 'fixture-interrupted-assessment', scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });
+    setup.magnus.loseReply = true; await tick(setup.service, 'fixture-first-worker', AbortSignal.timeout(5000));
+    assert.equal((await setup.service.job(operator, id)).status, 'unknown'); assert.equal(setup.magnus.requests.length, 1);
+    return { ...setup, id };
+  };
+  await t.test('expired canceled assessment observes its original receipt without dispatch or fresh inventory', async () => {
+    const { service, magnus, id } = await interruptedAssessment();
+    const deadline = new Date(Date.now() - 1000); await db.job.update({ where: { id }, data: { deadline } }); await service.cancelJob(operator, id);
+    const observer = { ...operator, id: 'fixture-recovery-reader', permissions: new Set(['read', 'recover', 'evidence'] as const) };
+    magnus.capabilitiesAvailable = false;
+    const observationId = await service.reconcileJob(observer, id); assert.notEqual(observationId, id); assert.equal(await service.reconcileJob(observer, id), observationId);
+    assert.equal((await service.job(operator, id)).status, 'unknown'); await tick(service, 'fixture-observer', AbortSignal.timeout(5000));
+    const original = await service.job(operator, id); assert.equal(original.status, 'completed'); assert.equal(original.cancelRequested, true); assert.equal(original.deadline, deadline.toISOString());
+    assert.equal((await service.job(observer, observationId)).status, 'completed'); assert.equal(magnus.requests.length, 1); assert.equal(magnus.observations, 1);
+    await assert.rejects(service.job({ ...observer, permissions: new Set(['read']) }, observationId), /SCOPE_OR_PERMISSION_DENIED/);
+    await assert.rejects(service.reconcileJob(observer, id), /NOT_ELIGIBLE/);
+    const rows = await db.evidence.findMany({ where: { subjectId: 'fixture-node' } }); assert.equal(rows.length, 2);
+  });
+  await t.test('observation with no retained operation cannot dispatch an unstarted target', async () => {
+    const { service, magnus } = await reset(); const id = await service.assess(operator, { id: 'fixture-never-admitted', scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });
+    await db.job.update({ where: { id }, data: { status: 'unknown', deadline: new Date(0) } });
+    const observed = await service.reconcileJob(operator, id); await tick(service, 'fixture-read-only', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, observed)).error, 'ORIGINAL_OPERATION_NOT_RETAINED'); assert.equal((await service.job(operator, id)).status, 'unknown'); assert.equal(magnus.requests.length, 0); assert.equal(magnus.observations, 0);
+  });
+  await t.test('receipt binding mismatch preserves unknown ownership and the original request', async () => {
+    const { service, magnus, id } = await interruptedAssessment(); const receipt = [...magnus.receipts.values()][0]; assert.ok(receipt);
+    magnus.receipts.set(receipt.operationId, { ...receipt, requestDigest: 'f'.repeat(64) }); const retained = (await service.job(operator, id)).result;
+    const observed = await service.reconcileJob(operator, id); await tick(service, 'fixture-binding-check', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, observed)).error, 'ASSESSMENT_RECEIPT_BINDING'); assert.equal((await service.job(operator, id)).status, 'unknown'); assert.deepEqual((await service.job(operator, id)).result, retained); assert.equal(magnus.requests.length, 1);
+  });
+  await t.test('failed work remains unknown until original ownership is released', async () => {
+    const { service, magnus, id } = await interruptedAssessment(); const receipt = [...magnus.receipts.values()][0]; assert.ok(receipt);
+    magnus.receipts.set(receipt.operationId, { ...receipt, state: 'failed', ownershipReleased: false });
+    const first = await service.reconcileJob(operator, id); await tick(service, 'fixture-held-failure', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, first)).status, 'unknown'); assert.equal((await service.job(operator, id)).status, 'unknown');
+    magnus.receipts.set(receipt.operationId, { ...receipt, state: 'failed', ownershipReleased: true });
+    const second = await service.reconcileJob(operator, id); assert.notEqual(first, second); await tick(service, 'fixture-released-failure', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, id)).status, 'failed'); assert.equal(magnus.requests.length, 1);
+  });
+  await t.test('a stale worker cannot persist a receipt after lease expiry', async () => {
+    const { service, magnus, id } = await interruptedAssessment(); const request = magnus.requests[0]; assert.ok(request);
+    await db.job.update({ where: { id }, data: { status: 'running', leaseOwner: 'fixture-stale-worker', leaseUntil: new Date(0) } });
+    const ledger = await AssessmentLedger.open(db, id, id, 'fixture-stale-worker'); const entry = ledger.get(request.operationId); assert.ok(entry);
+    const original = (await service.job(operator, id)).result; const receipt = magnus.receipts.get(request.operationId); assert.ok(receipt);
+    await assert.rejects(ledger.receipt(entry, request.action.targetId, receipt), /WORKER_LEASE_LOST/);
+    assert.deepEqual((await service.job(operator, id)).result, original);
+  });
+  await t.test('cancellation only confirms queued work with no retained effect', async () => {
+    const { service } = await reset();
+    for (const retained of [false, true]) {
+      const id = await db.$transaction(tx => enqueue(tx, operator, 'assessment', 'fixture-cancel-' + retained, { scope }, new Date(later())));
+      if (retained) await db.job.update({ where: { id }, data: { result: { operations: [{ operationId: 'fixture-possible-effect' }] } } });
+      await service.cancelJob(operator, id); const job = await service.job(operator, id); assert.equal(job.cancelRequested, true); assert.equal(job.status, retained ? 'unknown' : 'canceled');
+    }
+    assert.equal(await claim(db, 'fixture-after-cancel'), null);
+  });
+  await t.test('expired queued jobs with retained effects stay unknown', async () => {
+    await reset(); const id = await db.$transaction(tx => enqueue(tx, operator, 'assessment', 'retained-expired', { scope }, new Date(0)));
+    await db.job.update({ where: { id }, data: { result: { operations: [{ operationId: 'fixture-held-effect' }] } } }); assert.equal(await claim(db, 'fixture-expiry'), null);
+    assert.equal((await db.job.findUniqueOrThrow({ where: { id } })).status, 'unknown');
   });
 
   await t.test('merge request UUID survives queueing and read-only reconciliation without another provider mutation', async () => {
