@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accept the reviewed Node executable path used by the suite runtime for isolated validation, and verify that image path in CI.
+
 - Apply monorepo application scope before reading scanner files or spending source budgets; retain excluded, unsupported and unsafe filesystem entries as explicit coverage.
 
 - Add isolated Codex and Claude CLI inference brokers and approved network llama.cpp support, with exact model/version checks, source-disclosure permissions and bounded cancellation.

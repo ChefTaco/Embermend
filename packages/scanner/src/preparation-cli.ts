@@ -29,9 +29,9 @@ for (const edit of request.edits) {
   const fd = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o644);
   try { await fd.writeFile(edit.content); await fd.sync(); } finally { await fd.close(); }
 }
-const binary = input.validationArgv[0]; if (!binary || !['/usr/local/bin/node', '/usr/local/bin/npm'].includes(binary)) throw new Error('Reviewed validation executable required');
+const binary = input.validationArgv[0]; if (!binary || !['/usr/bin/node', '/usr/bin/npm', '/usr/local/bin/node', '/usr/local/bin/npm'].includes(binary)) throw new Error('Reviewed validation executable required');
 let validated = false; let output = ''; let error = '';
-try { const result = await exec(binary, input.validationArgv.slice(1), { cwd: '/source', env: { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/tmp', LANG: 'C.UTF-8' }, timeout: Math.max(1, Math.min(300000, Date.parse(request.deadline) - Date.now())), maxBuffer: 65536 }); output = redact(result.stdout); error = redact(result.stderr); validated = true; }
+try { const result = await exec(binary, input.validationArgv.slice(1), { cwd: '/source', env: { PATH: '/usr/bin:/usr/local/bin:/bin', HOME: '/tmp', LANG: 'C.UTF-8' }, timeout: Math.max(1, Math.min(300000, Date.parse(request.deadline) - Date.now())), maxBuffer: 65536 }); output = redact(result.stdout); error = redact(result.stderr); validated = true; }
 catch { error = 'Approved isolated validation failed or exceeded its resource budget'; }
 for (const edit of request.edits) {
   const actual = await readFile(join('/source', edit.path), 'utf8').catch(() => null);

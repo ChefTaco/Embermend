@@ -50,4 +50,4 @@ jobs:
       - run: docker run --rm embermend-runtime:ci --version
       - run: docker build --target scanner -t embermend-scanner:ci .
       - name: Verify scanner compiler and isolation-compatible runtime
-        run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint node embermend-scanner:ci --input-type=module -e "import ts from 'typescript'; if (ts.version !== '6.0.3') process.exit(1); await import('@hivemagnus/embermend-scanner');"
+        run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint node embermend-scanner:ci --input-type=module -e "import ts from 'typescript'; if (ts.version !== '6.0.3') process.exit(1); await import('@hivemagnus/embermend-scanner'); if (process.execPath !== '/usr/bin/node') throw new Error('Reviewed worker Node path changed');"
