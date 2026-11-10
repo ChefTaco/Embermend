@@ -72,13 +72,13 @@ export class Embermend {
       if (oldFinding && !within(actor.scope, oldFinding.scope)) throw new DomainError('EXISTING_FINDING_OUTSIDE_SCOPE', 403);
       if (oldFinding && (oldFinding.component !== value.component || oldFinding.kind !== value.kind || oldFinding.weakness !== value.weakness)) throw new DomainError('FINDING_MATCH_REQUIRES_REVIEW');
       const id = existing?.id ?? value.id;
+      const delivered = await tx.occurrence.findUnique({ where: { id: occurrence.id } });
+      const previousDelivery = delivered ? occurrenceSchema.parse(delivered.data) : null;
+      if (delivered && (delivered.findingId !== id || digest([previousDelivery?.subjectId, previousDelivery?.branch, previousDelivery?.revision, previousDelivery?.artifactDigest]) !== digest([occurrence.subjectId, occurrence.branch, occurrence.revision, occurrence.artifactDigest]))) throw new DomainError('OCCURRENCE_IDENTITY_CONFLICT');
+      if (occurrence.sourceState === 'verified-fixed' && previousDelivery?.sourceState !== occurrence.sourceState || ['verified-resolved', 'verified-mitigated'].includes(occurrence.runtimeState) && previousDelivery?.runtimeState !== occurrence.runtimeState) throw new DomainError('VERIFICATION_OPERATION_REQUIRED');
       // Replaying an already ingested observation cannot reopen a later
       // verification. A genuinely new observation carries new evidence IDs.
-      const delivered = await tx.occurrence.findUnique({ where: { id: occurrence.id } });
-      if (delivered && delivered.findingId === id && occurrence.evidenceIds.length) {
-        const previous = occurrenceSchema.parse(delivered.data);
-        if (occurrence.evidenceIds.every(evidenceId => previous.evidenceIds.includes(evidenceId))) return id;
-      }
+      if (previousDelivery && occurrence.evidenceIds.length && occurrence.evidenceIds.every(evidenceId => previousDelivery.evidenceIds.includes(evidenceId))) return id;
       let occurrenceId = occurrence.id;
       let recurrenceOf = occurrence.recurrenceOf;
       let recurrence = false;

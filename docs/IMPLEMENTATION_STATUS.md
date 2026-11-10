@@ -39,7 +39,8 @@ Cloud-backed CLI routes require remote-source permission. See
 Managed source proof now includes a real Qwen scan through Magnus and rootless
 Docker, same-harness original/draft security probes, two validated fixture
 findings and one disputed finding, and actual stale GitHub head refusal before
-provider writes. Source remediation and deployment closure remain open. Magnus
+provider writes. That initial preparation did not establish source remediation
+or deployment closure. Magnus
 now retains inner supervisor identities for read-only original receipt adoption;
 that implementation passes regression tests; native agent-process crash proof
 remains pending.
@@ -58,4 +59,10 @@ asynchronous API. Durable request identities and pending/queue/merged distinctio
 have unit and PostgreSQL regression coverage. Existing operator authentication
 can be used when its actual scope and repository access suffice; an optional
 unattended App proposal is documented in [provider authorization](GITHUB_PROVIDER_AUTH.md).
-This does not establish a live provider merge or the complete build/deploy journey.
+Actual controlled GitHub creation and merge now have retained proof on a dedicated
+protected acceptance branch. The creation reply was lost and the original PR was
+adopted through reads; separate merge authority and rule enforcement were tested.
+Independent immutable readback and isolated probes source-verified the two
+conditional SQL/owner findings on that branch. Other maintained-branch occurrences
+remain open, and the path finding remains disputed. This does not establish
+artifact publication, deployment closure or the full authenticated operator journey.

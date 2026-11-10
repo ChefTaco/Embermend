@@ -32,7 +32,7 @@
     "cancelRequested": true,
     "preparationValidated": true
   },
-  "receiptSha256": "5e4b1e453b5be561e5c9c46b7ccec29cce917a583c27e8d015923bdd65c0b72e",
+  "receiptSha256": "8509531db1cf7ee4c6c58d10b0bd6e80d3b9da0bf8d6027c7c48fbf79580ebbd",
   "patchDigest": "9732d136e282b056aa3040e92293e5f671f286c43043a1bffb5589b9ca0321bd",
   "scannerImage": "sha256:dcdcb5c4daa5dd63c0912c22587ab99e17e7e6eba36b7a1ef9136e62f2da277b",
   "agentPackageSha256": "aab4af437d0af64912af33f3c26b7e55f7d7f1d2a3fc82524c110c2ea55b5c7b",

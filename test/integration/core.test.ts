@@ -80,6 +80,15 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.finding(operator, { ...finding(), validity: 'candidate', evidenceIds: [fresh.id] }, { ...occurrence(), evidenceIds: [fresh.id] }); await service.finding(operator, { ...finding(), validity: 'candidate', evidenceIds: [fresh.id] }, { ...occurrence(), evidenceIds: [fresh.id] });
     const [row] = await service.findings(operator); assert.ok(row); assert.equal(row.finding.validity, 'validated'); assert.equal(row.occurrences.length, 2); assert.equal(row.occurrences.filter(item => item.runtimeState === 'verified-resolved').length, 1); assert.equal(await db.verification.count(), 1);
   });
+  await t.test('finding ingestion cannot invent verified closure or change immutable occurrence identity', async () => {
+    const { service } = await reset();
+    for (const states of [{ sourceState: 'verified-fixed' }, { runtimeState: 'verified-resolved' }, { runtimeState: 'verified-mitigated' }]) {
+      await assert.rejects(service.finding(operator, finding(), { ...occurrence(), ...states }), /VERIFICATION_OPERATION_REQUIRED/);
+      await assert.rejects(service.finding(operator, finding(), { ...occurrence(), id: 'fixture-forged-closed', ...states }), /VERIFICATION_OPERATION_REQUIRED/);
+    }
+    for (const identity of [{ subjectId: 'another-target' }, { branch: 'another-branch' }, { revision: 'b'.repeat(40) }, { artifactDigest: 'c'.repeat(64) }]) await assert.rejects(service.finding(operator, finding(), { ...occurrence(), ...identity }), /OCCURRENCE_IDENTITY_CONFLICT/);
+    assert.equal(await db.verification.count(), 0); const retained = await db.occurrence.findUniqueOrThrow({ where: { id: occurrence().id } }); assert.equal(typeof retained.data === 'object' && retained.data !== null && !Array.isArray(retained.data) ? retained.data['runtimeState'] : null, 'affected');
+  });
   await t.test('failed verification pauses the campaign before any further action', async () => {
     const { service } = await reset(); await service.propose(coordinator, plan());
     await service.verify(operator, { id: 'failed-verification', occurrenceId: occurrence().id, dimension: 'runtime', result: 'fail', method: evidence().method, evidenceIds: [evidence().id], coverage: occurrence().coverage, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: false, observedAt: now(), independent: true, consumerMigrationVerified: false });

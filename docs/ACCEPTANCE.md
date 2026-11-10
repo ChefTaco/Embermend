@@ -13,10 +13,10 @@ until all required journeys and failure cases have retained proof.
 | AC-05 | Real model analysis through durable product jobs and a Magnus-enrolled rootless worker; three provider routes | Partial managed controlled-corpus proof; full journey pending |
 | AC-06 | Real candidates; isolated SQLite and ownership probes; two validated findings and a disputed abstract-store finding; partial-scan regressions | Partial controlled-corpus proof |
 | AC-07 | Application/source bindings and semantic anchors | Pending |
-| AC-08 | Durable publication and explicit decision before real stale-source refusal; standing-policy regressions | Partial; authenticated operator journey pending |
+| AC-08 | Durable explanation before actual PR writing; coordinator self-approval refusal, separate operator decisions and standing-policy regressions | Partial; authenticated operator journey pending |
 | AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial; broader revocation acceptance pending |
-| AC-10 | Actual isolated original/draft probes through Magnus; bounded provider phases | Partial preparation proof; linked PR/checks pending |
-| AC-11 | Separate source/runtime state; source verification regression | Pending |
+| AC-10 | Actual Magnus preparation, linked GitHub PR, lost-reply adoption, required checks and separate non-bypass merge | Partial controlled source workflow proof; full authenticated journey pending |
+| AC-11 | Independent immutable maintained-branch readback/probes for a source-only application; other branch occurrences remain open | Partial source-only branch proof; deployed-artifact cases pending |
 | AC-12 | Artifact/deployment entities and runtime digest verification | Pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries | Pending |
 | AC-14 | Independent security/health verification checks | Pending |
@@ -28,7 +28,7 @@ until all required journeys and failure cases have retained proof.
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
 | AC-21 | Durable jobs, duplicate native delivery, real worker/control restart recovery, exact PostgreSQL restore and restored history guards | Partial; coordinator/native restart and hostile-work acceptance pending |
 | AC-22 | Compact HiveXUI recommendations, decisions, pause and outcome view | Pending |
-| AC-23 | Scoped exports; reporting and campaign completion work remains | Pending |
+| AC-23 | Scoped exports and retained actual source-campaign report; completion/reporting work remains | Partial controlled report proof |
 | AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
 
 ## Retained development evidence
@@ -69,7 +69,8 @@ probes on a separately prepared guest. The same probes ran in both revisions.
 SQLite injection and owner filtering received technical validation; the abstract
 store finding remains disputed. A separately published and explicitly approved
 plan was refused against the actual changed GitHub head before provider writes.
-Prepared edits have not changed a maintained branch, built artifact or deployment.
+These initial preparation edits did not change a maintained branch, built
+artifact or deployment; the subsequent source workflow below has its own proof.
 
 The [worker recovery evidence](acceptance/2026-11-10-worker-recovery.json) covers
 actual product worker loss and a disposable control-service restart during an
@@ -78,3 +79,20 @@ separate read/evidence/recover principal observed the original native receipt,
 preserved cancellation intent, and confirmed released ownership with one receipt
 GET and no dispatch. Native agent crashes, reboot continuation, and the remaining
 dispatch/persistence fault points are not established by this combined case.
+
+The [source workflow evidence](acceptance/2026-11-10-source-workflow.json) covers
+actual [PR creation and merge](https://github.com/ChefTaco/Embermend/pull/2) into
+a dedicated protected acceptance branch. The product published its exact plan
+before writing and refused coordinator self-approval. A deliberately lost
+creation reply was reconciled to the original PR without another mutation.
+Required checks passed; a writer without merge permission was refused, and a
+separate decision authorized one asynchronous merge with rule bypass disabled.
+
+Independent Magnus jobs then read and tested the resulting immutable commit.
+The two conditional SQL/owner findings were source-verified on that branch;
+three occurrences on the other maintained branch remained open. The abstract
+path-handling finding remains disputed and open. The application is explicitly
+source-only. No artifact publication, deployment, production exposure or runtime
+closure is claimed. The direct-service harness does not replace the authenticated
+browser/Oathweave/coordinator-runtime journey. A fresh PostgreSQL-only restore
+retains the resulting plans, phase identities, verification and append-only guards.

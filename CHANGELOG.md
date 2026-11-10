@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require the verification operation for verified closure; finding ingestion preserves immutable occurrence identities and cannot invent source/runtime verification.
+
 - Use an explicit public automation identity for provider-created commits instead of inheriting an operator profile email.
 
 - Reconcile a lost PR-creation reply through exact branch/head/operation evidence without another write; permit separately authorized no-effect recovery when no provider mutation was reserved, with concurrent admission guards.
