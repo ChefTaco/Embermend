@@ -1,4 +1,4 @@
-#!/usr/bin/node
+#!/usr/bin/env node
 // A fake CLI protocol peer. No external calls, credentials, or repository execution.
 import { createInterface } from 'node:readline';
 import { existsSync, writeFileSync } from 'node:fs';
