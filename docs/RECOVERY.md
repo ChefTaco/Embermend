@@ -51,3 +51,9 @@ heartbeat and action availability. It still requires the stored and current
 execution identity, scope, environment, platform, managing agent, namespace and
 container instance bindings to match. Changed bindings require inventory review;
 a stale capability response or current offline target cannot authorize dispatch.
+
+Historical operation reconciliation authorizes against the operation's original
+plan revision and scope. A later, narrower revision cannot make an older wider
+receipt readable. Recommendation and campaign-report execution/publication lists
+refer to their current revision; earlier rows remain retained in authoritative
+history and available only through access to their original scope.

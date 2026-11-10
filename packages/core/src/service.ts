@@ -315,7 +315,9 @@ export class Embermend {
   }
   async reconcile(actor: Actor, operationId: string): Promise<Receipt> {
     const execution = await this.db.execution.findUnique({ where: { id: operationId } }); if (!execution) throw new DomainError('NOT_FOUND', 404);
-    const plan = await this.plan(actor, execution.planId); requirePermission(actor, 'read', plan.scope);
+    const revision = await this.db.planRevision.findUnique({ where: { planId_revision: { planId: execution.planId, revision: execution.revision } } });
+    if (!revision) throw new DomainError('ORIGINAL_PLAN_REVISION_MISSING');
+    const plan = planSchema.parse(revision.data); requirePermission(actor, 'read', plan.scope);
     const request = z.object({ action: z.object({ targetKind: z.string() }).passthrough() }).passthrough().parse(execution.request);
     if (request.action.targetKind === 'repository') {
       const retained = execution.receipt ? receiptSchema.parse(execution.receipt) : null;
@@ -414,7 +416,7 @@ export class Embermend {
   async timeline(actor: Actor) {
     requirePermission(actor, 'read', actor.scope);
     const plans = await this.db.plan.findMany({ where: { installationId: actor.scope.installationId }, take: 200 }); const result = [];
-    for (const row of plans) { const plan = await this.plan(actor, row.id).catch((error: unknown) => { if (error instanceof DomainError && error.status === 403) return null; throw error; }); if (plan && within(actor.scope, plan.scope)) result.push({ plan, digest: digest(plan), status: row.status, jobs: await Promise.all((await this.db.job.findMany({ where: { kind: 'campaign', payload: { path: ['planId'], equals: plan.id } }, orderBy: { createdAt: 'desc' }, take: 100 })).filter(job => z.object({ revision: z.number() }).parse(job.payload).revision === plan.revision).map(job => this.job(actor, job.id))), publications: await this.db.publication.findMany({ where: { planId: row.id, revision: row.currentRevision } }), executions: (await this.db.execution.findMany({ where: { planId: row.id } })).map(({ id, state, actionId, targetId, receipt }) => ({ id, state, actionId, targetId, receipt })), campaign: await this.db.campaign.findUnique({ where: { id: row.campaignId } }) }); }
+    for (const row of plans) { const plan = await this.plan(actor, row.id).catch((error: unknown) => { if (error instanceof DomainError && error.status === 403) return null; throw error; }); if (plan && within(actor.scope, plan.scope)) result.push({ plan, digest: digest(plan), status: row.status, jobs: await Promise.all((await this.db.job.findMany({ where: { kind: 'campaign', payload: { path: ['planId'], equals: plan.id } }, orderBy: { createdAt: 'desc' }, take: 100 })).filter(job => z.object({ revision: z.number() }).parse(job.payload).revision === plan.revision).map(job => this.job(actor, job.id))), publications: await this.db.publication.findMany({ where: { planId: row.id, revision: row.currentRevision } }), executions: (await this.db.execution.findMany({ where: { planId: row.id, revision: plan.revision } })).map(({ id, state, actionId, targetId, receipt }) => ({ id, state, actionId, targetId, receipt })), campaign: await this.db.campaign.findUnique({ where: { id: row.campaignId } }) }); }
     return result;
   }
   async job(actor: Actor, id: string) {

@@ -145,6 +145,23 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.deepEqual((await restarted.timeline(coordinator))[0]?.jobs, []);
     assert.equal(await db.execution.count(), 0);
   });
+  await t.test('a narrower current revision cannot expose historical execution or publication from a wider scope', async () => {
+    const { service } = await reset();
+    const broadScope = { ...scope, targetIds: [...scope.targetIds, 'another-target'] };
+    const broadOperator = { ...operator, scope: broadScope };
+    const proposed = await service.propose(broadOperator, { ...plan(), scope: broadScope });
+    await service.publish(broadOperator, proposed.id, 1);
+    await service.decide(broadOperator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(broadOperator, proposed.id)).expiresAt });
+    const receipt = await service.dispatch(broadOperator, proposed.id, 'fixture-action');
+    await service.propose(broadOperator, { ...plan(), revision: 2 });
+    assert.equal((await service.plan(coordinator, proposed.id)).revision, 2);
+    assert.deepEqual((await service.timeline(coordinator))[0]?.executions, []);
+    const report = await service.records.campaignReport(coordinator, plan().campaignId);
+    assert.deepEqual(report.plans[0]?.executions, []); assert.deepEqual(report.plans[0]?.publications, []);
+    await assert.rejects(service.reconcile(coordinator, receipt.operationId), /SCOPE_OR_PERMISSION_DENIED/);
+    assert.equal((await service.reconcile(broadOperator, receipt.operationId)).operationId, receipt.operationId);
+    assert.equal(await db.execution.count(), 1); assert.equal(await db.publication.count(), 1);
+  });
   await t.test('API denies anonymous and coordinator approval requests', async () => {
     const { service } = await reset(); const app = createApi(service, async token => { if (token !== 'fixture-coordinator-token') throw new Error('invalid'); return coordinator; });
     assert.equal((await app.request('/api/v1/findings')).status, 401);

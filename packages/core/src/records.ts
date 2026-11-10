@@ -86,8 +86,8 @@ export class Records {
         const verifications = (await this.db.verification.findMany({ where: { occurrenceId: { in: occurrences.map(item => item.id) } } })).map(item => verificationSchema.parse(item.data));
         findings.push({ finding, occurrences, verifications });
       }
-      const executions = (await this.db.execution.findMany({ where: { planId: row.id } })).map(item => ({ id: item.id, revision: item.revision, actionId: item.actionId, state: item.state, receipt: item.receipt }));
-      plans.push({ plan, digest: revision.digest, status: row.status, publications: await this.db.publication.findMany({ where: { planId: row.id } }), executions, findings });
+      const executions = (await this.db.execution.findMany({ where: { planId: row.id, revision: plan.revision } })).map(item => ({ id: item.id, revision: item.revision, actionId: item.actionId, state: item.state, receipt: item.receipt }));
+      plans.push({ plan, digest: revision.digest, status: row.status, publications: await this.db.publication.findMany({ where: { planId: row.id, revision: plan.revision } }), executions, findings });
     }
     return { reportId: randomUUID(), generatedAt: new Date().toISOString(), campaign, plans, exceptions: (await this.exceptions(actor)).filter(item => item.findingIds.some(id => reportedFindingIds.has(id))) };
   }
