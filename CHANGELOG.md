@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add isolated Codex and Claude CLI inference brokers and approved network llama.cpp support, with exact model/version checks, source-disclosure permissions and bounded cancellation.
+
 - Preserve resource scope across identity reconciliation, policy/plan revisions and campaign membership; serialize finding IDs and require review when a match changes component or classification.
 
 - Consume the suite's released Ardent 3.0.0 plugin API and pinned Node 26.13.0 runtime image.

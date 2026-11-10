@@ -10,7 +10,7 @@ until all required journeys and failure cases have retained proof.
 | AC-02 | Scoped entities, immutable identities, provenance, repository rename regression | Pending |
 | AC-03 | Versioned profiles; actual fixture hardening, recovery and recurrence on disposable guests | Partial fixture proof; broader hardening pending |
 | AC-04 | Actual Canonical OVAL/OpenSCAP assessment; supervised security update handlers | Assessment proof only; update/activation acceptance pending |
-| AC-05 | Actual syntax index and model-driven scanner; managed rootless broker | Pending |
+| AC-05 | Actual syntax index; real Qwen, Codex CLI and Claude CLI controlled-corpus analysis; managed rootless broker | Partial provider/scanner proof; full managed journey pending |
 | AC-06 | Candidate state and independent verification boundaries; partial-scan regressions | Pending |
 | AC-07 | Application/source bindings and semantic anchors | Pending |
 | AC-08 | Durable publication, explicit decision and standing-policy tests | Pending |
@@ -42,7 +42,7 @@ PostgreSQL-only restore rehearsal. No integrated criterion is complete.
 
 The fixture has no application consumer. Fresh host heartbeats establish only
 host-agent health. A later recurrence was secured again and remains open until
-its own new independent security verification is recorded. The real model,
+its own new independent security verification is recorded. The complete managed model,
 GitHub/Compose journey, native crash/reboot continuation, combined suite restore
 and production assessment remain unproven.
 
@@ -56,3 +56,9 @@ Before a release, require complete integrated acceptance, fresh restore rehearsa
 privacy and secret scans, image checks, and the owning repositories' gates.
 Only then install for authorized real-fleet inventory and assessment. Production
 mutation policies remain disabled until explicitly granted.
+
+The [inference evidence](acceptance/2026-11-10-inference.json) retains real
+model/CLI identifiers and controlled corpus result digests for all three routes.
+Findings remain candidates; repetition by different models does not validate
+them. The out-of-scope application was excluded. No external repository or
+production source was sent to a cloud model.

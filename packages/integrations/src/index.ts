@@ -116,3 +116,4 @@ export class OpenAICompatibleModel implements Model {
 export { GitHubClient, type GitHubRepositoryGrant } from './github.js';
 
 export * from './threat-feeds.js';
+export * from './inference/index.js';

@@ -77,3 +77,5 @@ Use the owning system's credential-invalidation evidence before closing an
 exposed-secret occurrence; deleting the literal is insufficient.
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Inference setup and CLI isolation are described in [the provider guide](docs/INFERENCE.md).

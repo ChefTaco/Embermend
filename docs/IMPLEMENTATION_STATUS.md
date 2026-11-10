@@ -29,5 +29,9 @@ Outstanding work includes complete coordinator event delivery, native reboot
 continuation, complete build/publication tracking, graph reconciliation and
 independent deployment verification, comprehensive cancellation/recovery, live authority revocation,
 acceptance fault injection, combined suite restore proof, release artifacts and signatures, and
-real-fleet assessment. The approved local model configuration must be identified
-before real model acceptance. Production mutation policies stay disabled.
+real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; managed worker and full model acceptance remain pending. Production mutation policies stay disabled.
+
+Inference now includes an Embermend-owned broker for approved network llama.cpp,
+Codex local CLI and Claude local CLI, with no tool access or automatic fallback.
+Cloud-backed CLI routes require remote-source permission. See
+[provider configuration](INFERENCE.md) and the dated inference evidence.

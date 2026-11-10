@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "corpus": "Public inert controlled monorepo catalog application",
+  "execution": "Real scanner and model adapters, followed by the authenticated loopback inference service",
+  "sourceFiles": {
+    "apps/catalog/src/catalog.ts": "b123dad6995847b402808f4966c5f8cc00e7dc2983b7d3d96a7e50742d31a774",
+    "apps/worker/src/jobs.ts": "3caff841ef4691c7e0620e6ac0627e91b003f8df0b18d65b3f77d2dbc5ffa9f7"
+  },
+  "providers": [
+    {
+      "providerKind": "llamacpp",
+      "model": "qwen3.8-27b",
+      "cliVersion": null,
+      "sourceRevision": "8cda21c63868b8a57a606526d35bf5abb54c1798",
+      "sourcePolicy": {
+        "allowRemoteModel": false,
+        "allowRepositoryExecution": false
+      },
+      "coverage": {
+        "status": "complete",
+        "requested": [
+          "apps/catalog/src/catalog.ts"
+        ],
+        "examined": [
+          "apps/catalog/src/catalog.ts"
+        ],
+        "excluded": [
+          {
+            "path": "apps/worker/src/jobs.ts",
+            "reason": "outside-application-scope"
+          }
+        ],
+        "failures": [],
+        "mode": "full",
+        "observedAt": "2026-11-10T18:51:41.447Z"
+      },
+      "candidateClasses": [
+        "authorization",
+        "injection",
+        "path-handling"
+      ],
+      "validation": "candidate",
+      "privateRecordSha256": "bf8650e09310c773b3ba3e4fd789b82c35f741e63ce4a5e48c4adf5ba2b22d8c"
+    },
+    {
+      "providerKind": "codex-cli",
+      "model": "gpt-6.1-sol",
+      "cliVersion": "codex-cli 0.166.0",
+      "sourceRevision": "8cda21c63868b8a57a606526d35bf5abb54c1798",
+      "sourcePolicy": {
+        "allowRemoteModel": true,
+        "allowRepositoryExecution": false
+      },
+      "coverage": {
+        "status": "complete",
+        "requested": [
+          "apps/catalog/src/catalog.ts"
+        ],
+        "examined": [
+          "apps/catalog/src/catalog.ts"
+        ],
+        "excluded": [
+          {
+            "path": "apps/worker/src/jobs.ts",
+            "reason": "outside-application-scope"
+          }
+        ],
+        "failures": [],
+        "mode": "full",
+        "observedAt": "2026-11-10T18:51:57.468Z"
+      },
+      "candidateClasses": [
+        "authorization",
+        "injection",
+        "path-handling"
+      ],
+      "validation": "candidate",
+      "privateRecordSha256": "fc68858c9387c9f0dfd02fc97d9e76732a89228bb25b62d0ed68dcc1ba46ec7a"
+    },
+    {
+      "providerKind": "claude-cli",
+      "model": "claude-opus-5-5",
+      "cliVersion": "2.1.301 (Claude Code)",
+      "sourceRevision": "8cda21c63868b8a57a606526d35bf5abb54c1798",
+      "sourcePolicy": {
+        "allowRemoteModel": true,
+        "allowRepositoryExecution": false
+      },
+      "coverage": {
+        "status": "complete",
+        "requested": [
+          "apps/catalog/src/catalog.ts"
+        ],
+        "examined": [
+          "apps/catalog/src/catalog.ts"
+        ],
+        "excluded": [
+          {
+            "path": "apps/worker/src/jobs.ts",
+            "reason": "outside-application-scope"
+          }
+        ],
+        "failures": [],
+        "mode": "full",
+        "observedAt": "2026-11-10T18:52:05.002Z"
+      },
+      "candidateClasses": [
+        "authorization",
+        "injection",
+        "path-handling"
+      ],
+      "validation": "candidate",
+      "privateRecordSha256": "86a363dd10db8835860310589ce28ff99e98389c21c71eea331178c8f5fe34ba"
+    }
+  ],
+  "broker": {
+    "privateRecordSha256": "6d8d224e179597dc060c4e0f1fdde65bbcd94453cbcc457018dd605b1e23c864",
+    "providerRuns": [
+      {
+        "kind": "llamacpp",
+        "state": "completed",
+        "candidates": 3,
+        "remoteGrantRefusal": false
+      },
+      {
+        "kind": "codex-cli",
+        "state": "completed",
+        "candidates": 3,
+        "remoteGrantRefusal": true
+      },
+      {
+        "kind": "claude-cli",
+        "state": "completed",
+        "candidates": 3,
+        "remoteGrantRefusal": true
+      }
+    ]
+  },
+  "limitations": [
+    "Model results are candidates, not independent validation",
+    "No external private or production source analyzed",
+    "CLI metadata establishes configured model and rejects reported reroutes; it is not independent provider execution attestation",
+    "Native rootless worker, durable product ingestion, PR/build/deployment and failure journeys remain pending",
+    "No release or production mutation policy enabled"
+  ]
+}
