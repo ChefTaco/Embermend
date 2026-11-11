@@ -57,3 +57,16 @@ plan revision and scope. A later, narrower revision cannot make an older wider
 receipt readable. Recommendation and campaign-report execution/publication lists
 refer to their current revision; earlier rows remain retained in authoritative
 history and available only through access to their original scope.
+
+Interrupted campaign jobs can use the same separate observation operation as
+assessment jobs. The observer reads the original plan revision and every already
+reserved action receipt. It cannot dispatch missing actions, query capabilities
+for a new admission, renew authorization, resume a paused campaign or clear
+cancellation. Only completed, ownership-released receipts for every original
+action establish job completion. Application/security verification remains
+independent of execution completion.
+
+Artifact rollout admission requires a registered deployment/configuration binding,
+a digest-qualified established artifact, immutable source revisions and retained
+non-model build evidence matching the source commit, image reference and digest.
+A model candidate or successful build message alone cannot supply this authority.

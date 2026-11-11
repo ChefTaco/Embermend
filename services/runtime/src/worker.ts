@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { permissions, scopeSchema, planSchema, type Actor } from '@hivemagnus/embermend-contracts';
 import { claim, json, audit, lock } from '@hivemagnus/embermend-store';
 import { DomainError, type Embermend } from '@hivemagnus/embermend-core';
+import { observeCampaign } from './campaign-observation.js';
 import { runAssessment } from './assessment.js';
 
 const actorSchema = z.object({ id: z.string(), kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema });
@@ -20,12 +21,12 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
     if (job.kind === 'reconciliation') {
       const payload = z.object({ originalJobId: z.string(), scope: scopeSchema }).strict().parse(job.payload);
       const original = await service.db.job.findUnique({ where: { id: payload.originalJobId } });
-      if (!original || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source'].includes(original.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
+      if (!original || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source', 'campaign'].includes(original.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
       await service.job(actor, original.id);
       if (original.status !== 'unknown') { if (!['completed', 'failed'].includes(original.status)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE'); result = { originalJobId: original.id, status: original.status }; }
       else {
         try {
-          const observed = await runAssessment(service, actor, original, combined, { jobId: id, owner, observeOnly: true });
+          const observed = original.kind === 'campaign' ? await observeCampaign(service, actor, original) : await runAssessment(service, actor, original, combined, { jobId: id, owner, observeOnly: true });
           result = { originalJobId: original.id, observation: observed };
           await service.db.$transaction(async tx => {
             const lease = await tx.job.findUnique({ where: { id } }); if (lease?.status !== 'running' || lease.leaseOwner !== owner || !lease.leaseUntil || lease.leaseUntil <= new Date()) throw new DomainError('WORKER_LEASE_LOST');
@@ -33,7 +34,7 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
             await audit(tx, actor, 'job.original-observed', original.id, { observationJobId: id, status: 'completed' });
           });
         } catch (error) {
-          if (error instanceof DomainError && error.code === 'ASSESSMENT_FAILED_CONFIRMED') await service.db.job.updateMany({ where: { id: original.id, status: 'unknown' }, data: { status: 'failed', error: error.code } });
+          if (error instanceof DomainError && ['ASSESSMENT_FAILED_CONFIRMED', 'CAMPAIGN_FAILED_CONFIRMED'].includes(error.code)) await service.db.job.updateMany({ where: { id: original.id, status: 'unknown' }, data: { status: 'failed', error: error.code } });
           throw error;
         }
       }

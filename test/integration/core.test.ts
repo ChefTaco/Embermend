@@ -162,6 +162,43 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await service.reconcile(broadOperator, receipt.operationId)).operationId, receipt.operationId);
     assert.equal(await db.execution.count(), 1); assert.equal(await db.publication.count(), 1);
   });
+  await t.test('expired interrupted campaign observes only original operations under separate recovery authority', async () => {
+    const { service, magnus } = await reset(); const proposed = await service.propose(coordinator, plan()); await service.publish(coordinator, proposed.id, 1);
+    await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
+    magnus.loseReply = true; const jobId = await service.execute(coordinator, proposed.id, { revision: 1, digest: proposed.digest });
+    await tick(service, 'fixture-interrupted-campaign', AbortSignal.timeout(5000)); assert.equal((await service.job(operator, jobId)).status, 'unknown');
+    await db.job.update({ where: { id: jobId }, data: { deadline: new Date(0), cancelRequested: true } }); await db.authorization.updateMany({ data: { expiresAt: new Date(0) } }); await service.pause(operator, plan().campaignId, true);
+    const observer = { ...operator, permissions: new Set<'read' | 'evidence' | 'recover'>(['read', 'evidence', 'recover']) };
+    const capabilities = magnus.capabilities; magnus.capabilities = async () => { throw new Error('Observation cannot request fresh dispatch capabilities'); };
+    const observation = await service.reconcileJob(observer, jobId); await tick(service, 'fixture-campaign-observer', AbortSignal.timeout(5000));
+    assert.equal((await service.job(observer, observation)).status, 'completed'); const retained = await service.job(observer, jobId); assert.equal(retained.status, 'completed'); assert.equal(retained.cancelRequested, true); assert.equal(retained.deadline, new Date(0).toISOString());
+    assert.equal(magnus.requests.length, 1); assert.equal(magnus.observations, 1); magnus.capabilities = capabilities;
+  });
+  await t.test('campaign observation never starts an action that has no original reservation', async () => {
+    const { service, magnus } = await reset(); const proposed = await service.propose(coordinator, plan()); const id = await service.execute(coordinator, proposed.id, { revision: 1, digest: proposed.digest });
+    await db.job.update({ where: { id }, data: { status: 'unknown' } }); const observed = await service.reconcileJob(operator, id); await tick(service, 'fixture-observer-no-dispatch', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, observed)).error, 'CAMPAIGN_ACTION_NOT_DISPATCHED_OBSERVATION_ONLY'); assert.equal((await service.job(operator, id)).status, 'unknown'); assert.equal(magnus.requests.length, 0);
+  });
+  await t.test('artifact rollout requires exact deployment, immutable source and independently retained build provenance', async () => {
+    const { service, magnus } = await reset(); const current = target(); assert.equal(current.kind, 'target'); if (current.kind !== 'target') throw new Error('Target required');
+    magnus.capabilities = async () => ({ protocol: 1, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['file-mode.v1', 'inventory.v1', 'compose-deploy.v1'], targets: [{ ...current, capabilities: [...current.capabilities, 'embermend:compose-deploy.v1'] }], observedAt: now() });
+    const actor = { ...coordinator, permissions: new Set([...coordinator.permissions, 'deploy' as const]) }; const value = plan(); const original = value.actions[0]; assert.ok(original);
+    const deployPlan = { ...value, actions: [{ ...original, version: 'compose-deploy.v1', class: 'deploy' as const, requiredCapabilities: ['embermend:compose-deploy.v1'], parameters: { deploymentId: 'fixture-deployment', artifactDigest: 'a'.repeat(64), configurationDigest: 'b'.repeat(64), beforeDigest: 'c'.repeat(64) }, disruption: 'outage' as const }] };
+    const proposed = await service.propose(actor, deployPlan); await service.publish(actor, proposed.id, 1); await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: deployPlan.expiresAt });
+    await assert.rejects(service.dispatch(actor, proposed.id, original.id), /DEPLOYMENT_BINDING/);
+    const base = { scope, label: 'Fixture', provenance: { source: 'fixture-review', assurance: 'established', evidenceIds: [], observedAt: now() } };
+    await service.entity(operator, { ...base, id: 'fixture-deployment', kind: 'deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: [], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
+    await assert.rejects(service.dispatch(actor, proposed.id, original.id), /ARTIFACT_PROVENANCE/);
+    const artifact = { ...base, id: 'fixture-artifact', kind: 'artifact', digest: 'a'.repeat(64), sourceRevisionIds: ['fixture-source'], buildRunId: null, image: 'registry.example.com/fixture/app@sha256:' + 'a'.repeat(64) };
+    await service.entity(operator, artifact); await assert.rejects(service.dispatch(actor, proposed.id, original.id), /SOURCE_REVISION/);
+    const source = { ...base, id: 'fixture-source', kind: 'source-revision', repositoryId: 'fixture-repository', commit: 'd'.repeat(40), branch: 'main' };
+    await service.entity(operator, source); await assert.rejects(service.dispatch(actor, proposed.id, original.id), /BUILD_EVIDENCE/);
+    await service.evidence(operator, { ...evidence(), id: 'fixture-build-proof', subjectId: artifact.id, source: 'independent-build-review', content: { artifactDigest: artifact.digest, imageRef: artifact.image, sourceCommit: source.commit, buildVerified: true } });
+    await service.entity(operator, { ...artifact, provenance: { ...base.provenance, evidenceIds: ['fixture-build-proof'] } });
+    await assert.rejects(service.entity(operator, { ...source, commit: 'e'.repeat(40) }), /IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY/);
+    await assert.rejects(service.entity(operator, { ...artifact, sourceRevisionIds: ['replacement-source'] }), /IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY/);
+    assert.equal(magnus.requests.length, 0); await service.dispatch(actor, proposed.id, original.id); assert.equal(magnus.requests.length, 1);
+  });
   await t.test('API denies anonymous and coordinator approval requests', async () => {
     const { service } = await reset(); const app = createApi(service, async token => { if (token !== 'fixture-coordinator-token') throw new Error('invalid'); return coordinator; });
     assert.equal((await app.request('/api/v1/findings')).status, 401);

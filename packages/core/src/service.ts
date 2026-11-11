@@ -8,6 +8,7 @@ import { DomainError, requirePermission, requireActionPermission, validateAction
 import { prioritize } from './priority.js';
 import { verifiedOccurrence } from './verification.js';
 
+import { admitDeployment } from './deployment.js';
 import { Records } from './records.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
@@ -27,6 +28,11 @@ export class Embermend {
       if (value.kind === 'repository') {
         const previous = current ? entitySchema.parse(current.data) : null;
         if (!previous || previous.kind !== 'repository' || previous.owner !== value.owner || previous.accessRevision !== value.accessRevision || previous.environment !== value.environment) requirePermission(actor, 'policy', value.scope);
+      }
+      if (current && ['artifact', 'source-revision'].includes(value.kind)) {
+        const previous = entitySchema.parse(current.data);
+        const immutable = (entity: Entity): string => digest(Object.fromEntries(Object.entries(entity).filter(([key]) => !['label', 'provenance'].includes(key))));
+        if (immutable({ ...value, id: current.id }) !== immutable(previous)) throw new DomainError('IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY');
       }
       const stored = current ? { ...value, id: current.id } : value;
       await tx.entity.upsert({ where: { stableKey }, create: { id: stored.id, kind: stored.kind, stableKey, installationId: stored.scope.installationId, data: json(stored) }, update: { data: json(stored), version: { increment: 1 } } });
@@ -224,6 +230,7 @@ export class Embermend {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `campaign:${plan.campaignId}`); await lock(tx, `plan:${plan.id}`);
       const current = await this.planIn(tx, actor, plan.id); if (digest(current) !== digest(plan)) throw new DomainError('STALE_PLAN');
       await this.requirePublication(tx, plan);
+      await admitDeployment(tx, plan, action);
       const campaign = await tx.campaign.findUnique({ where: { id: plan.campaignId } });
       if (!campaign || campaign.paused) throw new DomainError('CAMPAIGN_PAUSED');
       if (Date.parse(plan.notBefore) > Date.now() || Date.parse(plan.expiresAt) <= Date.now()) throw new DomainError('OUTSIDE_EXECUTION_WINDOW');
@@ -277,6 +284,7 @@ export class Embermend {
         const targets = (await tx.entity.findMany({ where: { id: { in: plan.actions.map(item => item.targetId) } } })).map(item => entitySchema.parse(item.data));
         if (!policy || policy.revision !== authorization.policyRevision || !policyCovers(policy, plan, targets, new Date(), await this.recoveryEvidence(tx, plan))) throw new DomainError('POLICY_CHANGED_BEFORE_DISPATCH');
       }
+      await admitDeployment(tx, plan, action);
       const request = z.object({ operationId: z.string() }).passthrough().parse(execution.request);
       let receipt: Receipt;
       try {
@@ -430,8 +438,8 @@ export class Embermend {
     return this.db.$transaction(async tx => {
       await lock(tx, `job-observation:${id}`);
       const row = await tx.job.findUnique({ where: { id } });
-      if (!row || row.status !== 'unknown' || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source'].includes(row.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
-      const scope = z.object({ scope: scopeSchema }).parse(row.actor).scope; requirePermission(actor, 'recover', scope); requirePermission(actor, 'evidence', scope);
+      if (!row || row.status !== 'unknown' || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source', 'campaign'].includes(row.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
+      const scope = z.object({ scope: scopeSchema }).parse(row.payload).scope; requirePermission(actor, 'recover', scope); requirePermission(actor, 'evidence', scope);
       const prior = await tx.job.findFirst({ where: { kind: 'reconciliation', installationId: scope.installationId, payload: { path: ['originalJobId'], equals: id } }, orderBy: { createdAt: 'desc' } });
       if (prior && ['queued', 'running'].includes(prior.status)) return prior.id;
       // Observation has its own bounded deadline and never renews the original
