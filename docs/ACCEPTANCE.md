@@ -250,3 +250,10 @@ unknown with held ownership even after the cgroup became empty. The host agent
 stayed active, prior findings stayed affected, and no operation was replayed.
 The observation used its own bounded deadline. Rootless worker loss remains
 unproven. A new PostgreSQL-only restore matched all 26 tables and history guards.
+
+The [Hive installer integration](acceptance/2026-11-11-hive-installer.json) is
+merged after all hosted checks. It offers Embermend only in a future compatible
+signed release, defaults to off and requires explicit Magnus bridge metadata.
+Existing signed release bytes remain unchanged. Component installer acceptance
+does not establish full product acceptance, fleet installation or production
+readiness. Portfolio and website updates remain gated on production rollout.

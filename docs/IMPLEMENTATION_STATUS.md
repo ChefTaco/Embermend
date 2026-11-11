@@ -134,8 +134,10 @@ Embermend through `hive.sh`, defaulting to off. Signed release metadata must
 explicitly declare the Magnus bridge protocol; a 2.4.x version alone is
 insufficient. The affected launcher/release workspaces use strict TypeScript
 6.0.3. Installer, initialization, compatibility, full local repository and privacy
-checks pass. Hosted CI and merge are separate from production installation;
-portfolio and website updates follow production rollout.
+checks pass. The [installer integration](acceptance/2026-11-11-hive-installer.json)
+is merged in Hive after the full hosted checks, with existing signed 3.1.1 release
+bytes unchanged. Production installation still requires a future compatible signed
+release; portfolio and website updates follow production rollout.
 
 
 Native reboot continuation now has actual disposable proof after the original
