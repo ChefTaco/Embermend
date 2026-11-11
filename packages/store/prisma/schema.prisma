@@ -194,9 +194,10 @@ model Build {
   repositoryId String
   sourceCommit String
   providerRunId String
+  providerAttempt Int @default(1)
   status String
   data Json
-  @@unique([repositoryId, providerRunId])
+  @@unique([repositoryId, providerRunId, providerAttempt])
 }
 model Job {
   id String @id

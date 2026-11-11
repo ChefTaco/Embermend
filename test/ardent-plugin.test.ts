@@ -26,6 +26,7 @@ test('the actual Ardent runtime preserves ingress prefixes and limits its OAuth 
       const tokenCall = calls.at(-2); assert.ok(tokenCall?.body); assert.equal(new URLSearchParams(tokenCall.body).get('scope'), 'embermend:read embermend:evidence');
       assert.deepEqual(await runtime.tools.call('embermend_inventory', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { entities: [] } });
       assert.deepEqual(await runtime.tools.call('embermend_policies', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { policies: [] } });
+      assert.deepEqual(await runtime.tools.call('embermend_builds', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { builds: [] } });
       assert.ok(runtime.tools.list('direct').every(tool => !/approve|policy_create|recover|exception_accept/.test(tool.name)));
     } finally { runtime.close(); await rm(dir, { recursive: true, force: true }); }
   }

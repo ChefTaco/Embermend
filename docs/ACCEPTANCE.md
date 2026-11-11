@@ -17,7 +17,7 @@ until all required journeys and failure cases have retained proof.
 | AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial stale-head and actual browser-session revocation proof; broader authority revocation pending |
 | AC-10 | Actual Magnus preparation, linked GitHub PR, lost-reply adoption, required checks and separate non-bypass merge | Partial controlled source workflow proof; full authenticated journey pending |
 | AC-11 | Independent immutable maintained-branch readback/probes for a source-only application; other branch occurrences remain open | Partial source-only branch proof; deployed-artifact cases pending |
-| AC-12 | Actual immutable OCI rollout, reviewed local build evidence and independent image/container/application verification | Partial; isolated build/publication and hosted build tracking pending |
+| AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and durable workflow-attempt tracking | Partial; isolated build/publication and hosted tracking acceptance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
 | AC-15 | Actual worker/control crash proof and native reboot continuation after the original deadline; separate read-only observer retains the original operation | Partial; native SIGKILL and complete reboot fault matrix pending |

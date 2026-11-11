@@ -21,12 +21,12 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
     if (job.kind === 'reconciliation') {
       const payload = z.object({ originalJobId: z.string(), scope: scopeSchema }).strict().parse(job.payload);
       const original = await service.db.job.findUnique({ where: { id: payload.originalJobId } });
-      if (!original || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source', 'campaign'].includes(original.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
+      if (!original || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source', 'campaign', 'build-observation'].includes(original.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
       await service.job(actor, original.id);
       if (original.status !== 'unknown') { if (!['completed', 'failed'].includes(original.status)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE'); result = { originalJobId: original.id, status: original.status }; }
       else {
         try {
-          const observed = original.kind === 'campaign' ? await observeCampaign(service, actor, original) : await runAssessment(service, actor, original, combined, { jobId: id, owner, observeOnly: true });
+          const observed = original.kind === 'campaign' ? await observeCampaign(service, actor, original) : original.kind === 'build-observation' ? await service.builds.observe(actor, original.payload, { jobId: id, owner, observeOnly: true }, combined) : await runAssessment(service, actor, original, combined, { jobId: id, owner, observeOnly: true });
           result = { originalJobId: original.id, observation: observed };
           await service.db.$transaction(async tx => {
             const lease = await tx.job.findUnique({ where: { id } }); if (lease?.status !== 'running' || lease.leaseOwner !== owner || !lease.leaseUntil || lease.leaseUntil <= new Date()) throw new DomainError('WORKER_LEASE_LOST');
@@ -38,6 +38,8 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
           throw error;
         }
       }
+    } else if (job.kind === 'build-observation') {
+      result = await service.builds.observe(actor, job.payload, { jobId: id, owner, observeOnly: false }, combined);
     } else if (job.kind === 'campaign') {
       const payload = z.object({ planId: z.string(), revision: z.number(), scope: scopeSchema }).strict().parse(job.payload); const plan = planSchema.parse(await service.plan(actor, payload.planId));
       if (plan.revision !== payload.revision) throw new DomainError('PLAN_CHANGED');

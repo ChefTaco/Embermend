@@ -11,6 +11,12 @@ scanner implementation, isolated preparation/source readers, and bounded GitHub
 provider phases. Profiles cover selected Ubuntu, Docker and HiveMagnus posture;
 Ubuntu OVAL and Trivy adapters retain vendor evidence, with dated threat signals.
 
+[Build tracking](BUILD_TRACKING.md) now reads existing GitHub Actions attempts
+through durable jobs, scoped source/workflow admission and append-only evidence.
+Reruns retain separate identities; stale responses, cancellation and lost worker
+leases cannot replace newer facts. Workflow success leaves artifact provenance
+unestablished. Authorized build dispatch and publication remain outstanding.
+
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
 release and combined acceptance remain pending. Selecting the product requires

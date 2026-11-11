@@ -10,11 +10,13 @@ import { verifiedOccurrence } from './verification.js';
 
 import { admitDeployment } from './deployment.js';
 import { Records } from './records.js';
+import { Builds } from './builds.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 export class Embermend {
   public readonly records: Records;
-  constructor(public readonly db: Database, public readonly magnus: Magnus, public readonly github?: GitHubClient) { this.records = new Records(db); }
+  public readonly builds: Builds;
+  constructor(public readonly db: Database, public readonly magnus: Magnus, public readonly github?: GitHubClient) { this.records = new Records(db); this.builds = new Builds(db, github); }
   async entity(actor: Actor, input: unknown): Promise<Entity> {
     const value = entitySchema.parse(input);
     if (Date.parse(value.provenance.observedAt) > Date.now() + 120000) throw new DomainError('FUTURE_INVENTORY_PROVENANCE');
@@ -441,7 +443,7 @@ export class Embermend {
   async job(actor: Actor, id: string) {
     const row = await this.db.job.findUnique({ where: { id } }); if (!row) throw new DomainError('NOT_FOUND', 404);
     const scope = z.object({ scope: scopeSchema }).parse(row.payload).scope; requirePermission(actor, 'read', scope);
-    if (row.result !== null && ['source', 'preparation', 'scan', 'reconciliation'].includes(row.kind)) requirePermission(actor, 'evidence', scope);
+    if (row.result !== null && ['source', 'preparation', 'scan', 'reconciliation', 'build-observation'].includes(row.kind)) requirePermission(actor, 'evidence', scope);
     return { id: row.id, kind: row.kind, status: row.status, progress: row.progress, deadline: row.deadline.toISOString(), cancelRequested: row.cancelRequested, result: row.result, error: row.error };
   }
   async reconcileJob(actor: Actor, id: string): Promise<string> {
@@ -449,7 +451,7 @@ export class Embermend {
     return this.db.$transaction(async tx => {
       await lock(tx, `job-observation:${id}`);
       const row = await tx.job.findUnique({ where: { id } });
-      if (!row || row.status !== 'unknown' || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source', 'campaign'].includes(row.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
+      if (!row || row.status !== 'unknown' || !['assessment', 'vulnerabilities', 'scan', 'preparation', 'source', 'campaign', 'build-observation'].includes(row.kind)) throw new DomainError('JOB_RECONCILIATION_NOT_ELIGIBLE');
       const scope = z.object({ scope: scopeSchema }).parse(row.payload).scope; requirePermission(actor, 'recover', scope); requirePermission(actor, 'evidence', scope);
       const prior = await tx.job.findFirst({ where: { kind: 'reconciliation', installationId: scope.installationId, payload: { path: ['originalJobId'], equals: id } }, orderBy: { createdAt: 'desc' } });
       if (prior && ['queued', 'running'].includes(prior.status)) return prior.id;

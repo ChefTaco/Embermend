@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { revision, type PreparationResult } from '@hivemagnus/embermend-contracts';
+import { revision, buildSchema, type PreparationResult } from '@hivemagnus/embermend-contracts';
 import { endpoint, responseJson, IntegrationError } from './index.js';
 
 const repositorySchema = z.object({ id: z.number().int().positive(), full_name: z.string(), owner: z.object({ login: z.string() }), name: z.string(), default_branch: z.string() });
@@ -20,6 +20,13 @@ export const githubMergeOperationSchema = z.discriminatedUnion('state', [
   z.object({ ...mergeIdentity, state: z.literal('failed'), requestId: z.uuid().nullable(), commit: z.null() }).strict(),
 ]);
 export type GitHubMergeOperation = z.infer<typeof githubMergeOperationSchema>;
+export const githubBuildRunSchema = z.object({
+  id: z.number().int().positive(), run_attempt: z.number().int().positive(), workflow_id: z.number().int().positive(), path: z.string(),
+  head_sha: revision, head_branch: z.string().nullable(), status: buildSchema.shape.status, conclusion: buildSchema.shape.conclusion,
+  html_url: z.url(), updated_at: z.iso.datetime({ offset: true }),
+  repository: z.object({ id: z.number().int().positive() }), head_repository: z.object({ id: z.number().int().positive() }).nullable(),
+});
+export type GitHubBuildRun = z.infer<typeof githubBuildRunSchema>;
 export class GitHubClient {
   private readonly base: URL;
   constructor(private readonly token: string, private readonly grants: readonly GitHubRepositoryGrant[], private readonly request: typeof fetch = fetch, base = 'https://api.github.com') { this.base = endpoint(base); }
@@ -127,12 +134,14 @@ export class GitHubClient {
     if (pull.state !== 'open' || status?.status === 'merged') throw new Error('MERGE_PROVIDER_COMPLETION_UNCONFIRMED');
     return status?.status === 'enqueued' ? { ...operation, state: 'enqueued', commit: null } : operation;
   }
-  async workflow(providerId: string, workflowId: string, commit: string, branch: string): Promise<unknown> {
-    const { path, grant } = await this.repository(providerId); if (!grant.workflowIds.includes(workflowId) || !grant.allowedBranches.includes(branch)) throw new Error('WORKFLOW_OUTSIDE_PROVIDER_GRANT');
-    if (await this.resolve(providerId, branch) !== commit) throw new Error('WORKFLOW_BRANCH_CHANGED');
-    return this.call(`${path}/actions/workflows/${encodeURIComponent(workflowId)}/dispatches`, 'POST', { ref: branch, inputs: { embermend_commit: commit } });
-  }
-  async run(providerId: string, runId: number) {
-    const { path } = await this.repository(providerId); return z.object({ id: z.number(), head_sha: revision, status: z.string(), conclusion: z.string().nullable(), html_url: z.url() }).parse(await this.call(`${path}/actions/runs/${runId}`));
+  async buildRun(providerId: string, expected: { runId: number; runAttempt: number; workflowId: number; workflowPath: string; sourceCommit: string; branch: string }): Promise<GitHubBuildRun> {
+    const { path, grant } = await this.repository(providerId);
+    if (!grant.allowedBranches.includes(expected.branch) || ![String(expected.workflowId), expected.workflowPath].some(id => grant.workflowIds.includes(id))) throw new Error('WORKFLOW_OUTSIDE_PROVIDER_GRANT');
+    const run = githubBuildRunSchema.parse((await this.exchange(`${path}/actions/runs/${z.number().int().positive().parse(expected.runId)}/attempts/${z.number().int().positive().parse(expected.runAttempt)}`, 'GET', undefined, true, { version: '2026-03-10' })).body);
+    if (String(run.repository.id) !== providerId || String(run.head_repository?.id) !== providerId || run.id !== expected.runId || run.run_attempt !== expected.runAttempt || run.workflow_id !== expected.workflowId || run.path !== expected.workflowPath || run.head_sha !== expected.sourceCommit || run.head_branch !== expected.branch) throw new Error('BUILD_PROVIDER_IDENTITY_CHANGED');
+    const url = new URL(run.html_url);
+    if (url.origin !== 'https://github.com' || url.pathname !== `/${grant.owner}/${grant.name}/actions/runs/${run.id}` || url.search || url.hash || url.username || url.password) throw new Error('BUILD_PROVIDER_URL_CHANGED');
+    if ((run.status === 'completed') !== (run.conclusion !== null) || Date.parse(run.updated_at) > Date.now() + 120000) throw new Error('BUILD_PROVIDER_STATE_INVALID');
+    return run;
   }
 }

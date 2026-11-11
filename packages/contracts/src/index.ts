@@ -145,6 +145,22 @@ export const profileSchema = z.object({ id, version: id, platform: id, descripti
 export type Profile = z.infer<typeof profileSchema>;
 export const assessmentRequestSchema = z.object({ id, scope: scopeSchema, targetIds: z.array(id).min(1), profileId: id, profileVersion: id, deadline: timestamp }).strict();
 export const jobSchema = z.object({ id, kind: id, status: z.enum(['queued', 'running', 'completed', 'failed', 'unknown', 'canceled']), progress: z.number().min(0).max(1), cancelRequested: z.boolean(), deadline: timestamp, error: z.string().nullable(), result: z.json().nullable() }).strict();
+export const buildObservationRequestSchema = z.object({
+  id, scope: scopeSchema, repositoryId: id, applicationId: id, sourceRevisionId: id,
+  providerRunId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), runAttempt: z.number().int().positive(),
+  workflowId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), workflowPath: z.string().regex(/^\.github\/workflows\/[A-Za-z0-9._-]+\.ya?ml$/),
+  deadline: timestamp,
+}).strict();
+export type BuildObservationRequest = z.infer<typeof buildObservationRequestSchema>;
+export const buildSchema = z.object({
+  id, scope: scopeSchema, repositoryId: id, applicationId: id, sourceRevisionId: id, sourceCommit: revision,
+  providerRunId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), runAttempt: z.number().int().positive(), workflowId: z.number().int().positive(), workflowPath: id,
+  status: z.enum(['requested', 'pending', 'queued', 'waiting', 'in_progress', 'completed']),
+  conclusion: z.enum(['success', 'failure', 'action_required', 'cancelled', 'neutral', 'skipped', 'stale', 'startup_failure', 'timed_out']).nullable(),
+  providerUpdatedAt: timestamp, observedAt: timestamp, providerUrl: z.url(), evidenceIds: z.array(id).min(1),
+  artifactProvenance: z.literal('unestablished'),
+}).strict();
+export type Build = z.infer<typeof buildSchema>;
 export const recommendationSchema = z.object({
   plan: planSchema, digest: sha256, status: id,
   jobs: z.array(jobSchema).default([]),
