@@ -17,14 +17,14 @@ until all required journeys and failure cases have retained proof.
 | AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial stale-head and actual browser-session revocation proof; broader authority revocation pending |
 | AC-10 | Actual Magnus preparation, linked GitHub PR, lost-reply adoption, required checks and separate non-bypass merge | Partial controlled source workflow proof; full authenticated journey pending |
 | AC-11 | Independent immutable maintained-branch readback/probes for a source-only application; other branch occurrences remain open | Partial source-only branch proof; deployed-artifact cases pending |
-| AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and durable workflow-attempt tracking | Partial; isolated build/publication and hosted tracking acceptance pending |
+| AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
 | AC-15 | Actual worker/control crash proof and native reboot continuation after the original deadline; separate read-only observer retains the original operation | Partial; native SIGKILL and complete reboot fault matrix pending |
 | AC-16 | Actual browser pause, disabled dispatch and separate resume; authorized fixture recovery proof | Partial; broader in-flight and recovery cases pending |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
-| AC-19 | Scoped expiring exceptions and durable expiry events | Pending |
+| AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
 | AC-21 | Durable jobs, duplicate native delivery, real worker/control restart recovery, exact PostgreSQL restore and restored history guards | Partial; coordinator/native restart and hostile-work acceptance pending |
 | AC-22 | Real Oathweave sign-in, scoped recommendation, evidence access, decision, pause, native execution and independently verified outcome | Partial authenticated fixture proof; wider operator journeys pending |
@@ -157,3 +157,31 @@ signed provenance, real vendor package-update activation, native agent SIGKILL,
 cancelled-schedule faults, combined suite restore and the full acceptance matrix
 remain pending. The final PostgreSQL-only restore matched all 26 tables and
 preserved append-only guards. No production policy or host changed.
+
+The [hosted build-tracking evidence](acceptance/2026-11-10-build-tracking.json)
+retains actual GitHub workflow-attempt reads through the disposable durable
+worker. Source, repository, workflow and attempt identities are checked; repeated
+submission keeps the same job. A real worker SIGKILL after the provider read and
+before database persistence rolled back the uncommitted build facts. After an
+explicit restart, the original job became unknown with its deadline expired and
+cancellation retained. A separate read/evidence/recover observer completed that
+same job through provider reads. No workflow was started or rerun by this path.
+
+Existing browser authentication read the scoped build evidence. An operator
+without assess permission was refused observation creation despite its suite
+administrator role. The existing coordinator saw no out-of-scope application
+builds and was refused an out-of-scope observation. No identity grant expanded.
+Observation creation used an authoritative-core acceptance actor, separately
+from those browser/machine access checks. Successful workflow conclusions retain
+unestablished artifact provenance and do not close source or runtime work.
+A fresh PostgreSQL-only restore again matched 26 tables and append-only guards.
+
+The same record covers an actual scoped exception expiring under the running
+worker: its owner and rationale remained, one durable expiry event appeared,
+and findings and verification stayed unchanged. Coordinator acceptance and
+replaying the expired request were refused. Separately, a paused disposable VM
+produced a visible capability failure before native execution admission.
+Unpausing it restored fresh managed inventory and the fixed application's health;
+the cross-owner request remained HTTP 403. Source work stayed open, and earlier
+runtime verification remained retained. This outage case does not establish
+in-flight offline recovery or native agent crash acceptance.

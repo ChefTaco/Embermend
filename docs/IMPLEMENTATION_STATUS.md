@@ -16,6 +16,8 @@ through durable jobs, scoped source/workflow admission and append-only evidence.
 Reruns retain separate identities; stale responses, cancellation and lost worker
 leases cannot replace newer facts. Workflow success leaves artifact provenance
 unestablished. Authorized build dispatch and publication remain outstanding.
+Real hosted reads, worker SIGKILL/restart recovery, existing authenticated
+operator reads and scoped refusals now have retained development evidence.
 
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
