@@ -70,3 +70,10 @@ Artifact rollout admission requires a registered deployment/configuration bindin
 a digest-qualified established artifact, immutable source revisions and retained
 non-model build evidence matching the source commit, image reference and digest.
 A model candidate or successful build message alone cannot supply this authority.
+
+Fresh managed Compose inventory reconciles known digest-qualified artifacts to
+separate container instances, host and managing-agent relationships. Replacement
+or restart creates a distinct instance identity and preserves prior observations.
+Unknown images, absent resources and changed configuration remain partial or not
+assessed; an older observation cannot replace the newer deployment projection.
+Inventory reconciliation never closes a security finding or verifies a build.

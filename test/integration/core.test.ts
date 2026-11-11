@@ -7,6 +7,7 @@ import { type OperationRequest, type Receipt, type Plan } from '@hivemagnus/embe
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
+import { reconcileDeploymentInventory } from '../../services/runtime/dist/deployment-inventory.js';
 import { createApi } from '../../services/runtime/dist/api.js';
 
 const url = process.env['DATABASE_URL'];
@@ -198,6 +199,27 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await assert.rejects(service.entity(operator, { ...source, commit: 'e'.repeat(40) }), /IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY/);
     await assert.rejects(service.entity(operator, { ...artifact, sourceRevisionIds: ['replacement-source'] }), /IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY/);
     assert.equal(magnus.requests.length, 0); await service.dispatch(actor, proposed.id, original.id); assert.equal(magnus.requests.length, 1);
+  });
+  await t.test('independent Compose inventory preserves replaced instances and unknown coverage without closing security work', async () => {
+    const { service } = await reset(); const observedAt = new Date(Date.now() - 5000).toISOString(); const provenance = { source: 'fixture', assurance: 'established', evidenceIds: [], observedAt };
+    const base = { scope, label: 'Fixture', provenance };
+    await service.entity(operator, { ...base, id: 'fixture-agent', kind: 'management-agent', magnusInstallationId: 'fixture-magnus', magnusAgentId: 'fixture-native-agent', targetIds: ['fixture-node'], capabilities: [], version: 'fixture', lifecycle: 'active' });
+    const image = (value: string) => 'registry.example.com/fixture/app@sha256:' + value.repeat(64);
+    for (const value of ['a', 'd']) await service.entity(operator, { ...base, id: 'fixture-artifact-' + value, kind: 'artifact', digest: value.repeat(64), image: image(value), sourceRevisionIds: [], buildRunId: null });
+    await service.entity(operator, { ...base, id: 'fixture-deployment', kind: 'deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: ['fixture-artifact-a'], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
+    const inventory = async (id: string, value: string, timestamp: string, configurationDigest = 'b'.repeat(64)) => {
+      await service.evidence(operator, { ...evidence(), id, observedAt: timestamp, source: 'magnus', content: { resources: { 'fixture-deployment': { configurationDigest, beforeDigest: 'c'.repeat(64), observedAt: timestamp, instances: [{ id: value.repeat(64), imageId: 'sha256:' + 'e'.repeat(64), imageRef: image(value), status: 'running', running: true, health: 'healthy', startedAt: timestamp, service: 'web', project: 'fixture' }] } } } });
+      return service.readEvidence(operator, id);
+    };
+    const first = await inventory('fixture-before', 'a', now()); await reconcileDeploymentInventory(service, operator, first); await reconcileDeploymentInventory(service, operator, first);
+    assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 1); assert.equal(await db.relationship.count(), 4);
+    const after = await inventory('fixture-after', 'd', new Date(Date.now() + 1000).toISOString()); await reconcileDeploymentInventory(service, operator, after);
+    assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 2); await reconcileDeploymentInventory(service, operator, first);
+    const deployment = (await service.entities(operator)).find(row => row.id === 'fixture-deployment'); assert.equal(deployment?.kind, 'deployment'); if (deployment?.kind === 'deployment') assert.deepEqual(deployment.artifactIds, ['fixture-artifact-d']);
+    const unknown = await inventory('fixture-unknown', 'f', new Date(Date.now() + 2000).toISOString()); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, unknown)), /partial/);
+    const changed = await inventory('fixture-config-changed', 'd', now(), 'f'.repeat(64)); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, changed)), /not-assessed/);
+    await service.evidence(operator, { ...evidence(), id: 'fixture-no-resource', content: {} }); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, await service.readEvidence(operator, 'fixture-no-resource'))), /not-assessed/);
+    assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 2); assert.equal((await service.findings(operator))[0]?.occurrences[0]?.runtimeState, 'affected');
   });
   await t.test('API denies anonymous and coordinator approval requests', async () => {
     const { service } = await reset(); const app = createApi(service, async token => { if (token !== 'fixture-coordinator-token') throw new Error('invalid'); return coordinator; });

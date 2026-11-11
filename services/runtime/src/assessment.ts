@@ -4,6 +4,7 @@ import { assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSche
 import { digest, json } from '@hivemagnus/embermend-store';
 import { ingestVulnerabilities } from './vulnerabilities.js';
 import { DomainError, requirePermission, assertTarget, type Embermend } from '@hivemagnus/embermend-core';
+import { reconcileDeploymentInventory } from './deployment-inventory.js';
 import { AssessmentLedger } from './assessment-ledger.js';
 
 export async function runAssessment(service: Embermend, actor: Actor, job: { id: string; kind: string; payload: unknown; deadline: Date }, signal: AbortSignal, lease: { jobId: string; owner: string; observeOnly: boolean }): Promise<unknown> {
@@ -82,7 +83,8 @@ export async function runAssessment(service: Embermend, actor: Actor, job: { id:
           await service.finding(system, { id: findingId, scope: { ...request.scope, targetIds: [targetId] }, kind: 'hardening', identity: findingId, component: targetId, weakness: rule.id, title: rule.explanation, severity: 'medium', confidence: 1, validity: 'validated', rationale: 'Effective configuration differs from the assigned versioned rule', evidenceIds: [evidenceId], classifications: [profile.id, rule.id], priority: 50 }, { id: digest([findingId, targetId]), findingId, subjectId: targetId, branch: null, revision: null, artifactDigest: null, sourceState: 'not-applicable', runtimeState: 'affected', coverage: { status: 'complete', requested: [targetId], examined: [targetId], excluded: [], failures: [], mode: 'full', observedAt }, evidenceIds: [evidenceId], recurrenceOf: null });
         }
       }
-      assessed = { checks, evidenceId, coverage: checks.some(check => check.state === 'not-assessed') ? 'partial' : 'complete' };
+      const deployments = await reconcileDeploymentInventory(service, system, await service.readEvidence(system, evidenceId));
+      assessed = { checks, evidenceId, deployments, coverage: checks.some(check => check.state === 'not-assessed') ? 'partial' : 'complete' };
     }
     await ledger.result(entry, assessed);
   }
