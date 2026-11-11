@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { z } from 'zod';
 import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
 import { audit, digest, enqueue, json, lock, within, Prisma, type Database, type Transaction } from '@hivemagnus/embermend-store';
@@ -15,6 +16,7 @@ import { retainHostCapture } from './finding-history.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 export class Embermend {
+  private readonly dispatchJob = new AsyncLocalStorage<{ jobId: string; owner: string }>();
   public readonly records: Records;
   public readonly builds: Builds;
   constructor(public readonly db: Database, public readonly magnus: Magnus, public readonly github?: GitHubClient) { this.records = new Records(db); this.builds = new Builds(db, github); }
@@ -236,6 +238,7 @@ export class Embermend {
     assertTarget(action, currentTarget);
     const execution = await this.db.$transaction(async tx => {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `campaign:${plan.campaignId}`); await lock(tx, `plan:${plan.id}`);
+      await this.requireDispatchJob(tx, plan);
       const current = await this.planIn(tx, actor, plan.id); if (digest(current) !== digest(plan)) throw new DomainError('STALE_PLAN');
       await this.requirePublication(tx, plan);
       await admitDeployment(tx, plan, action);
@@ -282,6 +285,7 @@ export class Embermend {
     if (!armed.count) return this.reconcile(actor, execution.id);
     return this.db.$transaction(async tx => {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `campaign:${plan.campaignId}`); await lock(tx, `plan:${plan.id}`);
+      await this.requireDispatchJob(tx, plan);
       const campaign = await tx.campaign.findUnique({ where: { id: plan.campaignId } }); const current = await this.planIn(tx, actor, plan.id);
       const authorization = await tx.authorization.findFirst({ where: { id: z.object({ authorizationRef: z.string() }).parse(execution.request).authorizationRef, revoked: false, expiresAt: { gt: new Date() } } });
       if (!campaign || campaign.paused || campaign.generation !== execution.dispatchGeneration || digest(current) !== digest(plan) || !authorization) throw new DomainError('DISPATCH_REVOKED_RECONCILE_ORIGINAL');
@@ -307,6 +311,19 @@ export class Embermend {
       await tx.execution.update({ where: { id: execution.id }, data: { state: receipt.state, receipt: json(receipt) } });
       await audit(tx, actor, 'execution.receipt', execution.id, { state: receipt.state }); return receipt;
     }, { timeout: 45000 });
+  }
+  dispatchForJob(actor: Actor, planId: string, actionId: string, lease: { jobId: string; owner: string }): Promise<Receipt> {
+    return this.dispatchJob.run(lease, () => this.dispatch(actor, planId, actionId));
+  }
+  private async requireDispatchJob(tx: Transaction, plan: Plan): Promise<void> {
+    const lease = this.dispatchJob.getStore(); if (!lease) return;
+    // Serialize cancellation with reservation and each effect's admission. The
+    // heartbeat is advisory; it cannot authorize a cancelled or displaced job.
+    await lock(tx, `job-dispatch:${lease.jobId}`);
+    const job = await tx.job.findUnique({ where: { id: lease.jobId } }); const now = new Date();
+    if (!job || job.kind !== 'campaign' || job.status !== 'running' || job.cancelRequested || job.leaseOwner !== lease.owner || !job.leaseUntil || job.leaseUntil <= now || job.deadline <= now) throw new DomainError('CAMPAIGN_LEASE_LOST_OR_CANCELED');
+    const payload = z.object({ planId: z.string(), revision: z.number().int(), scope: scopeSchema }).strict().parse(job.payload);
+    if (payload.planId !== plan.id || payload.revision !== plan.revision || digest(payload.scope) !== digest(plan.scope)) throw new DomainError('CAMPAIGN_JOB_BINDING_CHANGED');
   }
   private async requireActionVerifications(tx: Transaction, action: import('@hivemagnus/embermend-contracts').Action, after: Date): Promise<void> {
     for (const id of action.verificationIds) {
@@ -470,6 +487,7 @@ export class Embermend {
   async cancelJob(actor: Actor, id: string): Promise<void> {
     await this.job(actor, id); requirePermission(actor, 'assess', actor.scope);
     await this.db.$transaction(async tx => {
+      await lock(tx, `job-dispatch:${id}`);
       const changed = await tx.job.updateMany({ where: { id, status: 'queued', result: { equals: Prisma.DbNull } }, data: { status: 'canceled', cancelRequested: true } });
       if (!changed.count) await tx.job.updateMany({ where: { id, status: 'queued' }, data: { status: 'unknown', cancelRequested: true } });
       await tx.job.update({ where: { id }, data: { cancelRequested: true } }); await audit(tx, actor, 'job.cancellation-requested', id);
@@ -508,6 +526,7 @@ export class Embermend {
     requirePermission(actor, 'execute', plan.scope); requireActionPermission(actor, action, plan.scope); validateAction(action);
     return this.db.$transaction(async tx => {
       await lock(tx, `authority:${actor.scope.installationId}`); await lock(tx, `campaign:${plan.campaignId}`); await lock(tx, `plan:${plan.id}`);
+      await this.requireDispatchJob(tx, plan);
       const current = await this.planIn(tx, actor, plan.id); if (digest(current) !== digest(plan)) throw new DomainError('PLAN_CHANGED'); await this.requirePublication(tx, plan);
       const campaign = await tx.campaign.findUnique({ where: { id: plan.campaignId } }); if (!campaign || campaign.paused) throw new DomainError('CAMPAIGN_PAUSED');
       if (Date.parse(plan.notBefore) > Date.now() || Date.parse(plan.expiresAt) <= Date.now()) throw new DomainError('OUTSIDE_EXECUTION_WINDOW');

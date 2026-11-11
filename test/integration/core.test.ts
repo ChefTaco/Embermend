@@ -206,6 +206,23 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await service.job(observer, observation)).status, 'completed'); const retained = await service.job(observer, jobId); assert.equal(retained.status, 'completed'); assert.equal(retained.cancelRequested, true); assert.equal(retained.deadline, new Date(0).toISOString());
     assert.equal(magnus.requests.length, 1); assert.equal(magnus.observations, 1); magnus.capabilities = capabilities;
   });
+  await t.test('cancellation after campaign claim but before native admission prevents dispatch', async () => {
+    const { service, magnus } = await reset(); const proposed = await service.propose(coordinator, plan()); await service.publish(coordinator, proposed.id, 1);
+    await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
+    const id = await service.execute(coordinator, proposed.id, { revision: 1, digest: proposed.digest }); const capabilities = magnus.capabilities.bind(magnus);
+    magnus.capabilities = async () => { await service.cancelJob(operator, id); return capabilities(); };
+    await tick(service, 'fixture-cancel-before-native', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, id)).cancelRequested, true); assert.equal(magnus.requests.length, 0); assert.equal(await db.execution.count(), 0);
+  });
+  await t.test('native campaign admission rechecks deadline, lease owner and exact job binding', async () => {
+    for (const mode of ['deadline', 'lease', 'owner', 'binding']) {
+      const { service, magnus } = await reset(); const value = plan(); const proposed = await service.propose(coordinator, value); await service.publish(coordinator, proposed.id, 1);
+      await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
+      const id = await service.execute(coordinator, proposed.id, { revision: 1, digest: proposed.digest }); const capabilities = magnus.capabilities.bind(magnus);
+      magnus.capabilities = async () => { await db.job.update({ where: { id }, data: mode === 'deadline' ? { deadline: new Date(0) } : mode === 'lease' ? { leaseUntil: new Date(0) } : mode === 'owner' ? { leaseOwner: 'another-worker' } : { payload: { planId: 'another-plan', revision: 1, scope } } }); return capabilities(); };
+      await tick(service, 'fixture-displaced-worker', AbortSignal.timeout(5000)); assert.equal(magnus.requests.length, 0, mode); assert.equal(await db.execution.count(), 0, mode);
+    }
+  });
   await t.test('campaign observation never starts an action that has no original reservation', async () => {
     const { service, magnus } = await reset(); const proposed = await service.propose(coordinator, plan()); const id = await service.execute(coordinator, proposed.id, { revision: 1, digest: proposed.digest });
     await db.job.update({ where: { id }, data: { status: 'unknown' } }); const observed = await service.reconcileJob(operator, id); await tick(service, 'fixture-observer-no-dispatch', AbortSignal.timeout(5000));

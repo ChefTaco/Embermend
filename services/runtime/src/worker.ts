@@ -47,7 +47,7 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
       while (remaining.length) {
         if (combined.aborted) throw new DomainError('CAMPAIGN_INTERRUPTED_RECONCILE_IN_FLIGHT');
         const next = remaining.find(action => action.dependsOn.every(id => done.has(id))); if (!next) throw new DomainError('DEPENDENCY_NOT_READY');
-        let receipt = await service.dispatch(actor, plan.id, next.id);
+        let receipt = await service.dispatchForJob(actor, plan.id, next.id, { jobId: id, owner });
         while ((['queued', 'running', 'unknown'].includes(receipt.state) || receipt.state === 'completed' && !receipt.ownershipReleased) && !combined.aborted) {
           await service.db.job.update({ where: { id }, data: { result: json({ operationId: receipt.operationId, actionId: next.id, state: receipt.state }) } });
           await setTimeout(1000, undefined, { signal: combined }); receipt = await service.reconcile(actor, receipt.operationId);
