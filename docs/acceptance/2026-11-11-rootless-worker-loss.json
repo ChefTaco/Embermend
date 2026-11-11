@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "dateTimezone": "America/Chicago",
+  "status": "bounded-live-disposable-proof",
+  "agentSource": "4a96834258d33d8505ae4e716ce5e1d659e9ace2",
+  "productSource": "5553f9b66d0e0200d002328950f246f633118dea",
+  "scannerImage": "sha256:2ebfe0aa6bfe343a1f3742da567e667a88140d581be039e29d88d3ef0da20c7d",
+  "typescript": "6.0.3",
+  "strict": true,
+  "existingAuthentication": true,
+  "configurationBeforeEnrollment": true,
+  "rootlessBoundary": {
+    "dedicatedNonRootWorker": true,
+    "readOnlyRoot": true,
+    "noNetwork": true,
+    "capabilitiesDropped": [
+      "ALL"
+    ],
+    "managementCredentialsInSandbox": false,
+    "soleBindMount": "/source",
+    "sourceReadOnly": true,
+    "modelBrokerOutsideSandbox": true
+  },
+  "realBaseline": {
+    "provider": "llamacpp",
+    "model": "qwen3.8-27b",
+    "coverage": "complete",
+    "candidates": 3,
+    "validity": "candidate",
+    "modelRepetitionIsNotValidation": true
+  },
+  "containerLoss": {
+    "jobId": "3b30b56c-0474-4407-b24c-0ff6c63a313d",
+    "operationId": "rootless13-container-loss-a4f73228-b667-4717-96f8-a8279ecf976e",
+    "status": "failed",
+    "nativeState": "failed",
+    "ownershipReleased": true,
+    "containerAbsent": true,
+    "workspaceUnmounted": true,
+    "agentPidUnchanged": true,
+    "findingsUnchanged": true
+  },
+  "supervisorLoss": {
+    "jobId": "b6ea0836-e2a6-4741-8bd5-800b28f08560",
+    "operationId": "rootless13-owner-loss-630fc6ba-31f8-4f83-9dea-e2c502567cb3",
+    "status": "unknown",
+    "nativeState": "unknown",
+    "ownershipReleased": false,
+    "containerRunningImmediatelyAfterSignal": true,
+    "innerCgroupProcessesImmediatelyAfterSignal": 4,
+    "originalDeadlinePreserved": true,
+    "cancellationUnchanged": true,
+    "agentPidUnchanged": true,
+    "priorCandidateFindingsUnchanged": 3,
+    "containerAbsentLater": true,
+    "privateCleanupRequired": false
+  },
+  "proofDigests": {
+    "containerLoss": "8f631bdf01d5fe96052e24576e0c050047f1718d57942995ff29e5c736e9e010",
+    "supervisorLoss": "83fd3f1a3e28b76a7f718a3d96f22a5fb5f1479d4ff3c4529257482243a91af4",
+    "baseline": "f258026164c8ad032235275ca9cb28c9a701e6fc8d1e9fe00058759acd48929f"
+  },
+  "limits": [
+    "These are live faults on one dedicated disposable enrolled rootless worker, not full native fault or production acceptance.",
+    "A preflight inspected the wrong mount namespace and stopped before fault injection. It was corrected to inspect the exact supervisor process namespace.",
+    "Two preflight scans encountered an absent broker and retained partial coverage. The existing broker and credentials were restored before the retained real-model baseline and live faults.",
+    "The baseline harness initially asserted the wrong terminal-state spelling; its already-retained completed result was checked without repeating that scan.",
+    "The failed container-loss scan started before the real-model baseline. Preservation of three existing candidates is established by the later supervisor-loss case.",
+    "The supervisor-loss operation remains unknown and owned even after container disappearance; no lease was cleared and no operation was redispatched.",
+    "Full dispatch/persistence-cut coverage and separately authorized recovery remain pending."
+  ]
+}

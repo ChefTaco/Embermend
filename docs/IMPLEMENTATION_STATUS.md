@@ -50,8 +50,27 @@ A separate fresh guest now retains actual detached native supervisor SIGKILL
 proof during vendor assessment. Missing owner completion evidence keeps the
 original assessment and its single bounded observation unknown after deadline,
 despite an empty cgroup and healthy host agent. Existing findings remain affected.
-This guest and the cancelled-reboot guest each retain their own held lease;
-rootless worker loss and complete recovery acceptance remain separate.
+This guest and the cancelled-reboot guest each retain their own held lease.
+Later rootless owner loss, power loss and a forward clock step now add three
+more held unknown operations. Complete authorized recovery remains separate.
+
+The [rootless fault proof](acceptance/2026-11-11-rootless-worker-loss.json)
+distinguishes a failed scanner container with confirmed cleanup from lost owner
+completion evidence while its container remains active. Three real-model
+candidates remain unchanged after owner loss. Further
+[native faults](acceptance/2026-11-11-native-fault-continuation.json) cover control
+loss through original expiry, failed first terminal-result persistence, power
+loss before shutdown and a forward clock step. All preserve original identities.
+
+A [combined controller-suite restore](acceptance/2026-11-11-combined-suite-restore.json)
+now restores both PostgreSQL databases, Oathweave and Registry SQLite, both Redis
+stores, existing credentials, TLS, configuration and runtime artifacts into an
+isolated network. All 138 PostgreSQL tables and both SQLite stores match before
+startup. Redis values and absolute expiries are checked before application
+writers start. Existing authentication serves matching findings, recommendations
+and Registry data, with five held leases and the audit history guard preserved.
+Managed guest disks, external inference/CLI sign-ins and a compatible signed
+installation remain separate acceptance boundaries.
 
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
@@ -70,7 +89,7 @@ a real OpenSCAP assessment and an exact database-only restore rehearsal.
 
 Outstanding work includes complete coordinator event delivery, the complete native crash/reboot fault matrix, complete build/publication tracking, broader graph reconciliation and
 deployment verification, comprehensive cancellation/recovery, live authority revocation,
-acceptance fault injection, combined suite restore proof, release artifacts and signatures, and
+remaining acceptance fault injection, signed-installation restore proof, release artifacts and signatures, and
 real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; the managed worker and authenticated browser fixture have retained proof. Broader model and campaign acceptance remains pending. Production mutation policies stay disabled.
 
 Inference now includes an Embermend-owned broker for approved network llama.cpp,
@@ -86,7 +105,8 @@ or deployment closure. Magnus
 now retains inner supervisor identities for read-only original receipt adoption;
 that implementation passes regression tests. Native agent daemon SIGKILL now has
 actual preview-operation proof. Detached native supervisor SIGKILL now also has
-vendor-assessment proof; rootless container worker loss remains pending.
+vendor-assessment proof. Separate live rootless container and supervisor-loss
+proof now distinguishes confirmed failed cleanup from unknown original ownership.
 
 Actual product-worker SIGKILL and disposable control-service restart now have
 retained proof during an isolated preparation. The original lease and deadline
@@ -94,8 +114,9 @@ expired naturally; an observation-only principal obtained the same completed
 native command receipt and ownership release through one GET. It did not renew
 the original grant, clear cancellation or dispatch again. Native agent daemon
 SIGKILL during package preview and detached native supervisor loss are recorded
-separately; rootless worker loss and the complete crash/reboot fault matrix remain
-pending. Actual reboot
+separately. Rootless worker loss, control loss through original expiry, terminal
+receipt-persistence failure, power loss and a forward clock step now have bounded
+live proof. The complete crash/reboot fault matrix remains pending. Actual reboot
 continuation is recorded below. See
 [recovery semantics](RECOVERY.md) and the dated worker recovery evidence.
 

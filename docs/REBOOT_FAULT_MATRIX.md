@@ -17,7 +17,13 @@ bounded disposable run. Full native fault acceptance remains incomplete.
 | Missing, malformed, oversized, ambiguous, forged or mismatched shutdown evidence | Unknown and owned | Focused component cases |
 | Early/late boot, invalid uptime or changed identity/policy | No inferred completion | Focused component cases |
 | Detached native supervisor worker SIGKILL during vendor assessment | Missing owner completion proof stays unknown; host agent and prior findings remain intact | Actual separate enrolled guest, original expired job and one bounded observation |
-| Rootless container worker loss, every dispatch/persistence cut, live clock changes and complete boot-loss recovery | Accurate original ownership and separately authorized recovery | Pending live proof |
+| Rootless scanner container SIGKILL with its owner alive | Failed analysis and release only after confirmed container/mount cleanup | Actual fresh enrolled rootless worker |
+| Detached supervisor SIGKILL with rootless scanner still active | Original operation remains unknown and owned; prior findings remain | Actual immediate container/process evidence and unchanged real-model candidates |
+| Control SIGKILL after schedule acknowledgement, with restart after original expiry | Read-only recovery of the same operation; no extended grant or new dispatch | Actual reboot while control was offline and one completed observation |
+| First terminal inventory-result persistence fails | Unknown until persistence recovers; original job can be observed after expiry | Actual temporary target-scoped database fault and one original operation |
+| Hypervisor power loss before owned shutdown | A subsequent healthy boot cannot establish completion | Actual offline target, expired job and held original operation |
+| Forward guest clock step after schedule acknowledgement | Out-of-bounds trusted shutdown evidence cannot establish completion | Actual clock step, shutdown journal, new boot and restored clock |
+| Every remaining dispatch/persistence cut, backward clock changes and complete authorized recovery | Accurate original ownership and separately authorized recovery | Pending live proof |
 
 The reproduced scheduling defect used timing and a changed boot ID to infer
 completion. That could misattribute an unrelated reboot after cancellation.
@@ -42,7 +48,21 @@ Existing vendor findings remained affected. The first private harness waited too
 briefly for that observation; its continuation reused the same identities and did
 not repeat the fault. The immediate post-signal process count was not retained,
 so this case makes no claim about immediate child survival. Rootless container
-worker loss remains a separate boundary.
+worker loss is now covered separately by the
+[rootless fault evidence](acceptance/2026-11-11-rootless-worker-loss.json).
+
+That rootless run distinguishes a killed scanner container with its owner alive
+from a lost detached owner. The first failed with confirmed cleanup and ownership
+release. In the second, the container was still running immediately after the
+owner died; the original operation stayed unknown even after its container later
+disappeared. Three candidates from a real configured model scan remained unchanged.
+
+The [native continuation evidence](acceptance/2026-11-11-native-fault-continuation.json)
+adds control loss through reboot and original authorization expiry, failed first
+terminal-result persistence, hypervisor power loss before shutdown, and a forward
+clock step. Recovery of known completion used the original identity and deadline.
+Power loss and out-of-bounds shutdown timing retained unknown ownership. These
+cases do not establish all interruption cuts or separately authorized recovery.
 
 The in-flight campaign deliberately remains incomplete: its reboot completed,
 but its later action never dispatched. That action also requires independent
@@ -60,6 +80,9 @@ the enrolled guest was not reconfigured through SSH.
 Hive's optional installer path now requires a signed, explicit Magnus protocol
 declaration and defaults to off. Local installer and initialization tests,
 compatibility and restore fixtures, and privacy checks pass. Hosted checks and
-merge remain separate gates;
-production installation, signed release, combined suite restore and portfolio/web
-updates follow full product acceptance.
+merge have passed for that installer integration. A
+[combined lab controller-suite restore](acceptance/2026-11-11-combined-suite-restore.json)
+also preserves existing authentication, stores, runtime artifacts and all five
+held native leases in isolation. It does not restore managed guest disks or
+establish a signed product installation. Production installation, signed release
+and portfolio/web updates follow full product acceptance.

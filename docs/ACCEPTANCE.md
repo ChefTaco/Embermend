@@ -20,13 +20,13 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Actual worker/control crashes, detached native supervisor and agent SIGKILL, original reboot recovery and cancelled-schedule/unrelated-boot refusal | Partial native fault matrix; rootless worker and remaining persistence/clock/boot-loss cuts pending |
+| AC-15 | Actual worker/control crashes, rootless container/owner loss, original reboot recovery after expiry, terminal-result persistence failure, power loss and forward clock-step refusal | Partial native fault matrix; remaining interruption cuts and authorized recovery pending |
 | AC-16 | Browser pause/resume, queued cancellation, accepted reboot cancellation/pause with original ownership, no later dispatch and unchanged held lease across control restart | Partial; broader in-flight and authorized recovery cases pending |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
 | AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
-| AC-21 | Durable jobs, duplicate native delivery, real worker/control restart recovery, exact PostgreSQL restore and restored history guards | Partial; coordinator/native restart and hostile-work acceptance pending |
+| AC-21 | Durable jobs, duplicate native delivery, worker/control recovery and isolated combined controller-suite restore with existing authentication, exact stores and history guards | Partial; remaining restart/hostile-work cases and signed-installation restore pending |
 | AC-22 | Real Oathweave sign-in, scoped recommendations, evidence access, decisions, pause/resume, native hardening and package-activation reboot with independently verified outcomes | Partial authenticated fixture proof; wider operator journeys pending |
 | AC-23 | Scoped exports and retained actual source-campaign report; completion/reporting work remains | Partial controlled report proof |
 | AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
@@ -44,7 +44,8 @@ The fixture has no application consumer. Fresh host heartbeats establish only
 host-agent health. A later recurrence was secured again and remains open until
 its own new independent security verification is recorded. The complete managed model,
 GitHub/Compose journey, the complete native crash/reboot matrix, combined suite restore
-and production assessment remain unproven.
+and production assessment were unproven at that initial checkpoint. Later dated
+records below supersede individual gaps without completing the full acceptance ledger.
 
 ## Release gate
 
@@ -257,3 +258,30 @@ signed release, defaults to off and requires explicit Magnus bridge metadata.
 Existing signed release bytes remain unchanged. Component installer acceptance
 does not establish full product acceptance, fleet installation or production
 readiness. Portfolio and website updates remain gated on production rollout.
+
+The [rootless worker evidence](acceptance/2026-11-11-rootless-worker-loss.json)
+records a killed scanner container with confirmed cleanup and failure, followed
+by detached owner loss while another rootless scanner remained active. The latter
+retained unknown ownership and preserved three real-model candidates.
+
+The [native continuation evidence](acceptance/2026-11-11-native-fault-continuation.json)
+records original-operation recovery after control loss and authorization expiry,
+failed first terminal-result persistence, hypervisor power loss before shutdown,
+and a forward guest clock step. Healthy boots without valid original evidence
+did not close the uncertain operations or security findings. These newer cases
+supersede the rootless and specific fault gaps noted in earlier dated records;
+the complete interruption matrix and authorized recovery still remain pending.
+
+The [combined controller-suite restore](acceptance/2026-11-11-combined-suite-restore.json)
+now has a cold backup and a fresh isolated restore using existing authentication.
+Both PostgreSQL databases match across 138 tables, both SQLite stores match and
+pass integrity/foreign-key checks, and both Redis stores retain non-expired values
+and absolute expiries. Hash fields use canonical comparison; full stream state
+includes consumer groups. One expired key is accounted for by its captured deadline.
+The restored API serves matching findings/recommendations, Registry data and UI,
+refuses unauthenticated reads, preserves all five unknown held native leases and
+enforces the audit history guard. All mounts use restored files, with no published
+ports or fleet/provider access. Source services recovered with eight fresh enrolled
+fixtures, no active product jobs and no standing mutation policies. This is a lab
+controller-suite rehearsal; managed disks and the future signed installation are
+outside its scope. Failed preliminary rehearsals remain retained separately.
