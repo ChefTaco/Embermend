@@ -82,3 +82,10 @@ Concurrent native observations serialize their retained execution update. An old
 running or unknown response cannot overwrite a completed ownership-released
 receipt. Conflicting terminal facts are refused instead of silently rewriting
 history; observation timestamps alone do not change immutable completion facts.
+
+Deployment ordering uses native resource capture time, rather than the arrival
+of a receipt envelope. Delayed delivery cannot make older inventory current.
+Repeated observations preserve the existing relationship identity and its first
+provenance; new evidence is retained as scoped corroboration observations.
+Relationship reads and corroboration both check the original relationship scope,
+even when its endpoints are visible more broadly.

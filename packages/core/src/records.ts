@@ -11,19 +11,31 @@ export class Records {
   }
   async relationship(actor: Actor, input: unknown): Promise<string> {
     const value = relationshipSchema.parse(input); requirePermission(actor, 'ingest', value.scope);
-    await this.db.$transaction(async tx => {
+    return this.db.$transaction(async tx => {
+      await lock(tx, `relationship-id:${value.id}`); await lock(tx, `relationship-edge:${value.fromId}:${value.toId}:${value.kind}`);
       await this.entitiesIn(tx, { ...actor, scope: value.scope }, [value.fromId, value.toId]);
       for (const id of value.provenance.evidenceIds) { const evidence = await tx.evidence.findUnique({ where: { id } }); if (!evidence || !within(value.scope, evidenceSchema.parse(evidence.data).scope)) throw new DomainError('RELATIONSHIP_EVIDENCE_OUTSIDE_SCOPE'); }
       if (value.provenance.assurance === 'established' && !value.provenance.evidenceIds.length) throw new DomainError('ESTABLISHED_RELATIONSHIP_REQUIRES_EVIDENCE');
-      const prior = await tx.relationship.findUnique({ where: { id: value.id } }); if (prior && digest(prior.provenance) !== digest(value)) throw new DomainError('RELATIONSHIP_PROVENANCE_IMMUTABLE');
-      if (!prior) await tx.relationship.create({ data: { id: value.id, fromId: value.fromId, toId: value.toId, kind: value.kind, provenance: json(value) } });
-      await audit(tx, actor, 'relationship.recorded', value.id);
-    }); return value.id;
+      const named = await tx.relationship.findUnique({ where: { id: value.id } }); if (named && digest(named.provenance) !== digest(value)) throw new DomainError('RELATIONSHIP_PROVENANCE_IMMUTABLE');
+      const prior = await tx.relationship.findUnique({ where: { fromId_toId_kind: { fromId: value.fromId, toId: value.toId, kind: value.kind } } });
+      if (prior) {
+        requirePermission(actor, 'ingest', relationshipSchema.parse(prior.provenance).scope);
+        if (prior.id !== value.id) {
+          const id = digest(['relationship-evidence', prior.id, value.scope, value.provenance]);
+          const observation = { id, scope: value.scope, source: 'relationship-evidence', sourceEventId: id, subjectId: value.fromId, type: 'relationship-evidence', observedAt: value.provenance.observedAt, evidenceIds: value.provenance.evidenceIds, data: { relationshipId: prior.id } };
+          if (!await tx.observation.findUnique({ where: { id } })) await tx.observation.create({ data: { id, installationId: value.scope.installationId, subjectId: value.fromId, source: observation.source, sourceEventId: id, observedAt: new Date(observation.observedAt), data: json(observation) } });
+          await audit(tx, actor, 'relationship.corroborated', prior.id, { observationId: id });
+        }
+        return prior.id;
+      }
+      await tx.relationship.create({ data: { id: value.id, fromId: value.fromId, toId: value.toId, kind: value.kind, provenance: json(value) } });
+      await audit(tx, actor, 'relationship.recorded', value.id); return value.id;
+    });
   }
   async relationships(actor: Actor) {
     requirePermission(actor, 'read', actor.scope);
     const ids = (await this.db.entity.findMany({ where: { installationId: actor.scope.installationId } })).map(row => entitySchema.parse(row.data)).filter(row => within(actor.scope, row.scope)).map(row => row.id);
-    return (await this.db.relationship.findMany({ where: { fromId: { in: ids }, toId: { in: ids } }, take: 2000 })).map(row => relationshipSchema.parse(row.provenance));
+    return (await this.db.relationship.findMany({ where: { fromId: { in: ids }, toId: { in: ids } }, take: 2000 })).map(row => relationshipSchema.parse(row.provenance)).filter(row => within(actor.scope, row.scope));
   }
   async observation(actor: Actor, input: unknown): Promise<string> {
     const value = observationSchema.parse(input); requirePermission(actor, 'ingest', value.scope);

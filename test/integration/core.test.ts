@@ -228,10 +228,28 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const after = await inventory('fixture-after', 'd', new Date(Date.now() + 1000).toISOString()); await reconcileDeploymentInventory(service, operator, after);
     assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 2); await reconcileDeploymentInventory(service, operator, first);
     const deployment = (await service.entities(operator)).find(row => row.id === 'fixture-deployment'); assert.equal(deployment?.kind, 'deployment'); if (deployment?.kind === 'deployment') assert.deepEqual(deployment.artifactIds, ['fixture-artifact-d']);
+    await service.evidence(operator, { ...first, id: 'fixture-delayed-old', observedAt: new Date(Date.now() + 3000).toISOString() });
+    await reconcileDeploymentInventory(service, operator, await service.readEvidence(operator, 'fixture-delayed-old'));
+    const delayed = (await service.entities(operator)).find(row => row.id === 'fixture-deployment'); if (delayed?.kind === 'deployment') assert.deepEqual(delayed.artifactIds, ['fixture-artifact-d']);
+    const links = await service.records.relationships(operator); assert.equal(links.length, 8); assert.ok(links.some(link => link.provenance.evidenceIds.includes('fixture-before'))); assert.ok(links.every(link => !link.provenance.evidenceIds.includes('fixture-delayed-old')));
+    assert.equal(await db.observation.count({ where: { source: 'relationship-evidence' } }), 4);
     const unknown = await inventory('fixture-unknown', 'f', new Date(Date.now() + 2000).toISOString()); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, unknown)), /partial/);
     const changed = await inventory('fixture-config-changed', 'd', now(), 'f'.repeat(64)); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, changed)), /not-assessed/);
     await service.evidence(operator, { ...evidence(), id: 'fixture-no-resource', content: {} }); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, await service.readEvidence(operator, 'fixture-no-resource'))), /not-assessed/);
     assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 2); assert.equal((await service.findings(operator))[0]?.occurrences[0]?.runtimeState, 'affected');
+  });
+  await t.test('globally visible endpoints do not reveal or permit adoption of an out-of-scope relationship', async () => {
+    const { service } = await reset(); const global = { installationId: scope.installationId, applicationIds: [], targetIds: [] };
+    const otherScope = { ...scope, targetIds: ['fixture-other'] }; const broad = { ...operator, scope: { ...scope, targetIds: ['fixture-node', 'fixture-other'] } };
+    for (const [id, marker] of [['global-a', 'a'], ['global-b', 'b']]) {
+      if (!id || !marker) throw new Error('Fixture identity required');
+      await service.entity(broad, { id, kind: 'artifact', scope: global, label: id, provenance: { source: 'fixture', assurance: 'unknown', evidenceIds: [], observedAt: now() }, digest: marker.repeat(64), sourceRevisionIds: [], buildRunId: null, image: null });
+    }
+    await service.evidence(broad, { ...evidence(), id: 'private-edge-proof', scope: otherScope, subjectId: 'global-a' });
+    const edge = { id: 'private-edge', scope: otherScope, fromId: 'global-a', toId: 'global-b', kind: 'built-from', provenance: { source: 'fixture', assurance: 'established', evidenceIds: ['private-edge-proof'], observedAt: now() } };
+    await service.records.relationship(broad, edge); assert.equal((await service.records.relationships(broad)).length, 1); assert.deepEqual(await service.records.relationships(coordinator), []);
+    await assert.rejects(service.records.relationship(operator, { ...edge, id: 'guessed-edge', scope, provenance: { ...edge.provenance, evidenceIds: [evidence().id] } }), /SCOPE_OR_PERMISSION_DENIED/);
+    assert.equal(await db.relationship.count(), 1);
   });
   await t.test('API denies anonymous and coordinator approval requests', async () => {
     const { service } = await reset(); const app = createApi(service, async token => { if (token !== 'fixture-coordinator-token') throw new Error('invalid'); return coordinator; });

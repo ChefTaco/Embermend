@@ -13,12 +13,14 @@ export async function reconcileDeploymentInventory(service: Embermend, actor: Ac
   for (const deployment of entities) {
     if (deployment.kind !== 'deployment' || !deployment.targetIds.includes(target.id)) continue;
     const parsed = resourceSchema.safeParse(resources.success ? resources.data[deployment.id] : undefined); const instances = []; const artifactIds = new Set<string>(); let unknown = 0;
-    if (parsed.success && parsed.data.configurationDigest === deployment.configurationDigest) {
+    const capturedAt = parsed.success ? parsed.data.observedAt : evidence.observedAt;
+    const applicable = parsed.success && parsed.data.configurationDigest === deployment.configurationDigest && Date.parse(capturedAt) <= Date.now() + 120000;
+    if (parsed.success && applicable) {
       for (const instance of parsed.data.instances) {
         const artifact = entities.find(entity => entity.kind === 'artifact' && entity.image === instance.imageRef);
         if (!artifact || artifact.kind !== 'artifact') { unknown++; continue; }
         const id = digest(['container-instance', target.id, deployment.id, instance.id, instance.startedAt]);
-        const provenance = { source: 'magnus-compose-inventory', assurance: 'established' as const, evidenceIds: [evidence.id], observedAt: evidence.observedAt };
+        const provenance = { source: 'magnus-compose-inventory', assurance: 'established' as const, evidenceIds: [evidence.id], observedAt: capturedAt };
         await service.entity(actor, { id, kind: 'container-instance', scope: deployment.scope, label: deployment.label + ' container instance', provenance, runtimeId: instance.id, deploymentId: deployment.id, artifactId: artifact.id, hostId: target.id, agentId: target.agentId, startedAt: instance.startedAt });
         for (const [fromId, toId, kind] of [[deployment.id, id, 'deployed-as'], [id, artifact.id, 'built-from'], [id, target.id, 'runs-on'], [id, target.agentId, 'managed-by']]) {
           if (!fromId || !toId || !kind) throw new Error('Deployment relationship required');
@@ -26,11 +28,11 @@ export async function reconcileDeploymentInventory(service: Embermend, actor: Ac
         }
         artifactIds.add(artifact.id); instances.push({ id, runtimeId: instance.id, artifactId: artifact.id, running: instance.running, health: instance.health });
       }
-      if (Date.parse(evidence.observedAt) >= Date.parse(deployment.provenance.observedAt)) await service.entity(actor, { ...deployment, artifactIds: [...artifactIds], provenance: { source: 'magnus-compose-inventory', assurance: unknown ? 'unknown' : 'established', evidenceIds: [evidence.id], observedAt: evidence.observedAt } });
+      if (Date.parse(capturedAt) >= Date.parse(deployment.provenance.observedAt)) await service.entity(actor, { ...deployment, artifactIds: [...artifactIds], provenance: { source: 'magnus-compose-inventory', assurance: unknown ? 'unknown' : 'established', evidenceIds: [evidence.id], observedAt: capturedAt } });
     }
-    const status = !parsed.success || parsed.data.configurationDigest !== deployment.configurationDigest ? 'not-assessed' : unknown || !instances.length ? 'partial' : 'complete';
+    const status = !applicable ? 'not-assessed' : unknown || !instances.length ? 'partial' : 'complete';
     const id = digest(['deployment-inventory', deployment.id, evidence.id]);
-    await service.records.observation(actor, { id, scope: deployment.scope, source: 'magnus-compose-inventory', sourceEventId: id, subjectId: deployment.id, type: 'deployment-' + status, observedAt: evidence.observedAt, evidenceIds: [evidence.id], data: {} });
+    await service.records.observation(actor, { id, scope: deployment.scope, source: 'magnus-compose-inventory', sourceEventId: id, subjectId: deployment.id, type: 'deployment-' + status, observedAt: capturedAt, evidenceIds: [evidence.id], data: {} });
     snapshots.push({ deploymentId: deployment.id, coverage: status, instances, unknownInstances: unknown, securityVerification: 'outstanding' });
   }
   return snapshots;
