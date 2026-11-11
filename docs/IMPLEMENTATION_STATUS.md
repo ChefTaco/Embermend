@@ -25,6 +25,11 @@ consumer restart. The installed library and loaded process library were observed
 as different facts. Remaining host-consumer coverage keeps the host finding open;
 the complete package and native crash/reboot matrix remains outstanding.
 
+Verified host findings retain matching historical native captures when an older
+snapshot arrives in a fresh envelope. Unfamiliar captures with ambiguous ordering
+require review; genuinely new observations can reopen work while preserving the
+earlier verification. Occurrence writes serialize with verification updates.
+
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
 release and combined acceptance remain pending. Selecting the product requires

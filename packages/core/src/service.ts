@@ -11,6 +11,7 @@ import { verifiedOccurrence } from './verification.js';
 import { admitDeployment } from './deployment.js';
 import { Records } from './records.js';
 import { Builds } from './builds.js';
+import { retainHostCapture } from './finding-history.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 export class Embermend {
@@ -71,15 +72,18 @@ export class Embermend {
       await lock(tx, `finding:${value.scope.installationId}:${value.identity}`);
       const named = await tx.finding.findUnique({ where: { id: value.id } });
       if (named) { requirePermission(actor, 'ingest', findingSchema.parse(named.data).scope); if (named.identity !== value.identity || named.installationId !== value.scope.installationId) throw new DomainError('FINDING_IDENTITY_CONFLICT'); }
-      for (const evidenceId of value.evidenceIds) {
+      const supplied = new Map<string, z.infer<typeof evidenceSchema>>();
+      for (const evidenceId of new Set([...value.evidenceIds, ...occurrence.evidenceIds])) {
         const evidence = await tx.evidence.findUnique({ where: { id: evidenceId } });
         if (!evidence || !within(value.scope, evidenceSchema.parse(evidence.data).scope)) throw new DomainError('FINDING_EVIDENCE_UNAVAILABLE');
+        supplied.set(evidenceId, evidenceSchema.parse(evidence.data));
       }
       const existing = await tx.finding.findUnique({ where: { installationId_identity: { installationId: value.scope.installationId, identity: value.identity } } });
       const oldFinding = existing ? findingSchema.parse(existing.data) : null;
       if (oldFinding && !within(actor.scope, oldFinding.scope)) throw new DomainError('EXISTING_FINDING_OUTSIDE_SCOPE', 403);
       if (oldFinding && (oldFinding.component !== value.component || oldFinding.kind !== value.kind || oldFinding.weakness !== value.weakness)) throw new DomainError('FINDING_MATCH_REQUIRES_REVIEW');
       const id = existing?.id ?? value.id;
+      await lock(tx, `occurrence:${occurrence.id}`);
       const delivered = await tx.occurrence.findUnique({ where: { id: occurrence.id } });
       const previousDelivery = delivered ? occurrenceSchema.parse(delivered.data) : null;
       if (delivered && (delivered.findingId !== id || digest([previousDelivery?.subjectId, previousDelivery?.branch, previousDelivery?.revision, previousDelivery?.artifactDigest]) !== digest([occurrence.subjectId, occurrence.branch, occurrence.revision, occurrence.artifactDigest]))) throw new DomainError('OCCURRENCE_IDENTITY_CONFLICT');
@@ -92,11 +96,13 @@ export class Embermend {
       let recurrence = false;
       const affected = occurrence.sourceState === 'open' || occurrence.runtimeState === 'affected';
       for (let generation = 0; generation < 100; generation++) {
+        if (occurrenceId !== occurrence.id) await lock(tx, `occurrence:${occurrenceId}`);
         const old = await tx.occurrence.findUnique({ where: { id: occurrenceId } });
         if (!old) break;
         if (old.findingId !== id) throw new DomainError('OCCURRENCE_IDENTITY_CONFLICT');
         const previous = occurrenceSchema.parse(old.data);
         if (!affected || previous.sourceState !== 'verified-fixed' && previous.runtimeState !== 'verified-resolved') { recurrenceOf = previous.recurrenceOf; break; }
+        if (await retainHostCapture(tx, actor, value, previous, occurrence, supplied)) return id;
         recurrence = true; recurrenceOf = previous.id; occurrenceId = digest([previous.id, 'recurrence']);
         if (generation === 99) throw new DomainError('RECURRENCE_HISTORY_REQUIRES_REVIEW');
       }

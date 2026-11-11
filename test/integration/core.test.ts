@@ -115,6 +115,24 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.finding(operator, { ...finding(), validity: 'candidate', evidenceIds: [fresh.id] }, { ...occurrence(), evidenceIds: [fresh.id] }); await service.finding(operator, { ...finding(), validity: 'candidate', evidenceIds: [fresh.id] }, { ...occurrence(), evidenceIds: [fresh.id] });
     const [row] = await service.findings(operator); assert.ok(row); assert.equal(row.finding.validity, 'validated'); assert.equal(row.occurrences.length, 2); assert.equal(row.occurrences.filter(item => item.runtimeState === 'verified-resolved').length, 1); assert.equal(await db.verification.count(), 1);
   });
+  await t.test('an old native host capture in a fresh envelope cannot reopen later verification', async () => {
+    const { service } = await reset(); const capturedAt = new Date(Date.now() - 30000).toISOString(); const verifiedAt = new Date(Date.now() - 10000).toISOString();
+    const value = { ...finding(), id: 'timed-finding', identity: 'f'.repeat(64), evidenceIds: ['timed-baseline'] };
+    const initial = { ...occurrence(), id: 'timed-occurrence', findingId: value.id, evidenceIds: ['timed-baseline'], coverage: { ...occurrence().coverage, observedAt: capturedAt } };
+    await service.evidence(operator, { ...evidence(), id: 'timed-baseline', observedAt: capturedAt, content: { observedAt: capturedAt, mode: '0644' } }); await service.finding(operator, value, initial);
+    const proof = { ...evidence(), id: 'timed-proof', observedAt: verifiedAt, content: { findingIdentity: value.identity, securityCheckPassed: true, runningStateVerified: true } }; await service.evidence(operator, proof);
+    await service.verify(operator, { id: 'timed-verification', occurrenceId: initial.id, dimension: 'runtime', result: 'pass', method: proof.method, evidenceIds: [proof.id], coverage: { ...initial.coverage, observedAt: verifiedAt }, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: true, observedAt: verifiedAt, independent: true, consumerMigrationVerified: false });
+    await service.evidence(operator, { ...evidence(), id: 'delayed-native-capture', observedAt: now(), content: { observedAt: capturedAt, mode: '0644' } });
+    await service.finding(operator, { ...value, evidenceIds: ['delayed-native-capture'] }, { ...initial, coverage: { ...initial.coverage, observedAt: now() }, evidenceIds: ['delayed-native-capture'] });
+    assert.equal(await db.occurrence.count({ where: { findingId: value.id } }), 1); assert.equal((await service.findings(operator)).find(row => row.finding.id === value.id)?.occurrences[0]?.runtimeState, 'verified-resolved');
+    const history = await db.observation.findMany({ where: { source: 'finding-history', subjectId: value.id } }); assert.equal(history.length, 1); assert.equal(history[0]?.observedAt.toISOString(), capturedAt);
+    await service.evidence(operator, { ...evidence(), id: 'unfamiliar-old-capture', observedAt: now(), content: { observedAt: capturedAt, mode: '0644', additionalDiagnostic: 'fixture-unrecognized-snapshot' } });
+    await assert.rejects(service.finding(operator, { ...value, evidenceIds: ['unfamiliar-old-capture'] }, { ...initial, coverage: { ...initial.coverage, observedAt: now() }, evidenceIds: ['unfamiliar-old-capture'] }), /HOST_CAPTURE_ORDER_REQUIRES_REVIEW/);
+    assert.equal(await db.occurrence.count({ where: { findingId: value.id } }), 1);
+    const fresh = { ...evidence(), id: 'timed-fresh', observedAt: now(), content: { observedAt: now(), mode: '0644' } }; await service.evidence(operator, fresh);
+    const next = { ...initial, coverage: { ...initial.coverage, observedAt: now() }, evidenceIds: [fresh.id] }; await service.finding(operator, { ...value, evidenceIds: [fresh.id] }, next); await service.finding(operator, { ...value, evidenceIds: [fresh.id] }, next);
+    const occurrences = (await service.findings(operator)).find(row => row.finding.id === value.id)?.occurrences; assert.equal(occurrences?.length, 2); assert.equal(occurrences?.filter(item => item.runtimeState === 'verified-resolved').length, 1);
+  });
   await t.test('finding ingestion cannot invent verified closure or change immutable occurrence identity', async () => {
     const { service } = await reset();
     for (const states of [{ sourceState: 'verified-fixed' }, { runtimeState: 'verified-resolved' }, { runtimeState: 'verified-mitigated' }]) {

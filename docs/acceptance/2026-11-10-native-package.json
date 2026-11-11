@@ -128,6 +128,6 @@
     "Native agent daemon SIGKILL was exercised after a queued receipt. Detached native worker SIGKILL and the complete reboot/cancellation fault matrix remain pending.",
     "A separate bounded package-mapping inventory implementation is under development and was not deployed to this enrolled guest.",
     "The configured private fault-injection channel is outside the product and cannot serve as an execution fallback.",
-    "No production host, policy, identity grant or signed Hive catalog changed; full acceptance and combined suite restore remain pending."
+    "Only the fresh disposable Magnus target was added to its existing bounded integration grant. Production hosts and mutation policies, Oathweave identity grants and the signed Hive catalog were unchanged; full acceptance and combined suite restore remain pending."
   ]
 }
