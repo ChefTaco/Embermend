@@ -96,3 +96,11 @@ The [retained disposable evidence](acceptance/2026-11-10-reboot-artifact.json)
 records one reboot and one rollout, independent consumer checks, historical
 instance preservation and a PostgreSQL-only restore. It establishes no production
 policy, signed suite release, combined restore or complete acceptance matrix.
+
+The separate [package activation evidence](acceptance/2026-11-10-package-activation.json)
+adds an existing-authentication browser approval/pause/resume/start journey and
+independent running-state verification after reboot. The installed update left
+seven stale userspace ELF mappings beforehand. The fresh post-boot inventory,
+vendor assessment and healthy consumer supported technical review of that one
+configured package. Other activation classes, namespace/file-view attribution
+and the complete reboot fault matrix remain unaccepted.

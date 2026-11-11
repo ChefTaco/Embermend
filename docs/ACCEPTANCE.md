@@ -9,7 +9,7 @@ until all required journeys and failure cases have retained proof.
 | AC-01 | Required Magnus adapter, capability gating, degraded inspection | Pending |
 | AC-02 | Scoped entities, immutable identities, provenance, repository rename regression | Pending |
 | AC-03 | Versioned profiles; actual fixture hardening, recovery and recurrence on disposable guests | Partial fixture proof; broader hardening pending |
-| AC-04 | Actual vendor OVAL, security update and separately approved controlled-consumer activation | Partial; complete affected-consumer coverage and package fault cases pending |
+| AC-04 | Actual vendor OVAL/update, controlled-consumer restart and separately approved reboot with independent configured userspace ELF mapping verification | Partial; namespace/file-view attribution, other activation classes and package fault cases pending |
 | AC-05 | Real model analysis through durable product jobs and a Magnus-enrolled rootless worker; three provider routes | Partial managed controlled-corpus proof; full journey pending |
 | AC-06 | Real candidates; isolated SQLite and ownership probes; two validated findings and a disputed abstract-store finding; partial-scan regressions | Partial controlled-corpus proof |
 | AC-07 | Application/source bindings and semantic anchors | Pending |
@@ -27,7 +27,7 @@ until all required journeys and failure cases have retained proof.
 | AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
 | AC-21 | Durable jobs, duplicate native delivery, real worker/control restart recovery, exact PostgreSQL restore and restored history guards | Partial; coordinator/native restart and hostile-work acceptance pending |
-| AC-22 | Real Oathweave sign-in, scoped recommendation, evidence access, decision, pause, native execution and independently verified outcome | Partial authenticated fixture proof; wider operator journeys pending |
+| AC-22 | Real Oathweave sign-in, scoped recommendations, evidence access, decisions, pause/resume, native hardening and package-activation reboot with independently verified outcomes | Partial authenticated fixture proof; wider operator journeys pending |
 | AC-23 | Scoped exports and retained actual source-campaign report; completion/reporting work remains | Partial controlled report proof |
 | AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
 
@@ -152,10 +152,10 @@ native reboot and one native rollout were observed, with released leases.
 This stage exercised product permissions through authoritative core actors and
 existing native service authentication; the earlier browser record is the
 separate Oathweave journey. Builds used trusted local acceptance tooling and a
-disposable registry. Hosted build tracking, complete isolated build/publication,
-signed provenance, real vendor package-update activation, native agent SIGKILL,
-cancelled-schedule faults, combined suite restore and the full acceptance matrix
-remain pending. The final PostgreSQL-only restore matched all 26 tables and
+disposable registry. Subsequent hosted build tracking, native agent SIGKILL and
+vendor package activation have separate evidence below. Complete isolated
+build/publication, signed provenance, cancelled-schedule faults, combined suite
+restore and the full acceptance matrix remain pending. Its PostgreSQL-only restore matched all 26 tables and
 preserved append-only guards. No production policy or host changed.
 
 The [hosted build-tracking evidence](acceptance/2026-11-10-build-tracking.json)
@@ -201,3 +201,30 @@ host occurrence deliberately stays affected. This proves installed-versus-runnin
 separation for the controlled consumer; it does not establish full host activation
 or the package lock, held package, dependency or interrupted-transaction matrix.
 The retained PostgreSQL restore again matches all 26 tables and history guards.
+
+The [package activation evidence](acceptance/2026-11-10-package-activation.json)
+records another fresh enrolled guest using bounded native package mapping
+inventory. A real vendor update left seven processes mapping the old library.
+The existing OAuth coordinator published an exact reboot plan and was refused
+self-approval. The existing browser operator approved, paused, resumed and started
+that plan. Start was disabled while paused, and no execution existed before start.
+The original native reboot operation completed once with released ownership.
+
+Fresh authenticated managed inventory established the subsequent boot and six
+current mappings; a fresh complete vendor assessment no longer reported the
+package advisory. The controlled consumer was healthy and loaded the installed
+library. A separate scoped technical-review core actor recorded verification for
+the configured zlib userspace ELF package on this host without container
+workloads. Browser credentials did not gain verification-ingestion authority.
+Thirteen other OS package occurrences remained affected. Namespace/file-view
+attribution and other activation classes still require their own evidence.
+
+The existing disposable operator and coordinator grants gained only the fresh
+application and target; their operation permission arrays and credentials stayed
+unchanged. Coordinator standing-policy edits remained forbidden. Actual browser
+evidence access and the verified recommendation outcome were retained. Replaying
+the actual old vendor capture in simulated fresh envelopes retained one
+historical observation, one occurrence and the earlier verification, without
+another native action. A coherent campaign report and another exact 26-table
+PostgreSQL restore with append-only guards were retained. All integrated criteria
+remain partial or pending; production mutation policies stay disabled.

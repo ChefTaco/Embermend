@@ -22,8 +22,14 @@ operator reads and scoped refusals now have retained development evidence.
 Native package proof now includes a real Ubuntu security-pocket update, a native
 agent daemon SIGKILL during preview, and a separately authorized controlled
 consumer restart. The installed library and loaded process library were observed
-as different facts. Remaining host-consumer coverage keeps the host finding open;
-the complete package and native crash/reboot matrix remains outstanding.
+as different facts. That guest's host finding stays open because other consumers
+were unexamined. A fresh guest now has bounded configured userspace ELF mapping
+proof: seven stale mappings after installation, then current mappings, fresh
+vendor applicability and consumer health after a separately browser-approved
+reboot. Independent technical review verified only that package occurrence.
+Namespace/file-view attribution, other activation classes and the complete
+package and native crash/reboot matrix remain outstanding. See the
+[package activation evidence](acceptance/2026-11-10-package-activation.json).
 
 Verified host findings retain matching historical native captures when an older
 snapshot arrives in a fresh envelope. Unfamiliar captures with ambiguous ordering
@@ -61,15 +67,17 @@ findings and one disputed finding, and actual stale GitHub head refusal before
 provider writes. That initial preparation did not establish source remediation
 or deployment closure. Magnus
 now retains inner supervisor identities for read-only original receipt adoption;
-that implementation passes regression tests; native agent-process crash proof
-remains pending.
+that implementation passes regression tests. Native agent daemon SIGKILL now has
+actual preview-operation proof; detached native worker SIGKILL remains pending.
 
 Actual product-worker SIGKILL and disposable control-service restart now have
 retained proof during an isolated preparation. The original lease and deadline
 expired naturally; an observation-only principal obtained the same completed
 native command receipt and ownership release through one GET. It did not renew
-the original grant, clear cancellation or dispatch again. Native agent-process
-SIGKILL and the complete crash/reboot fault matrix remain pending; actual reboot continuation is recorded below. See
+the original grant, clear cancellation or dispatch again. Native agent daemon
+SIGKILL during package preview is recorded separately; detached native worker
+loss and the complete crash/reboot fault matrix remain pending. Actual reboot
+continuation is recorded below. See
 [recovery semantics](RECOVERY.md) and the dated worker recovery evidence.
 
 GitHub merge admission now evaluates live rules and checks without a repository
@@ -116,5 +124,6 @@ container/image inventory and live consumer authorization/health probes. Native
 inventory reconciles separate instances and historical artifact/host/agent links;
 unknown images and unsupported resources stay visible and never close findings.
 The controlled runtime outcome is verified while source remediation stays open.
-These locally built fixtures do not establish hosted build tracking, signed
-release provenance or the complete build/publication lifecycle.
+These locally built fixtures do not establish signed release provenance or the
+complete build/publication lifecycle. Read-only hosted build-attempt tracking
+has separate retained proof above.
