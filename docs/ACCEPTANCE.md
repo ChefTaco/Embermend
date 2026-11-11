@@ -20,7 +20,7 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Actual worker/control crashes, agent SIGKILL during preview and acknowledged reboot, original reboot recovery and cancelled-schedule/unrelated-boot refusal | Partial native fault matrix; detached worker and remaining persistence/clock/boot-loss cuts pending |
+| AC-15 | Actual worker/control crashes, detached native supervisor and agent SIGKILL, original reboot recovery and cancelled-schedule/unrelated-boot refusal | Partial native fault matrix; rootless worker and remaining persistence/clock/boot-loss cuts pending |
 | AC-16 | Browser pause/resume, queued cancellation, accepted reboot cancellation/pause with original ownership, no later dispatch and unchanged held lease across control restart | Partial; broader in-flight and authorized recovery cases pending |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
@@ -242,3 +242,11 @@ The current code passes 53 unit and 43 PostgreSQL tests; Magnus passes its full
 repository gate and 37 focused reboot/recovery cases. Another PostgreSQL-only
 restore matched all 26 tables and history guards. The full native matrix and
 combined suite restore remain outstanding.
+
+The [native supervisor crash record](acceptance/2026-11-11-native-worker-crash.json)
+adds a separate enrolled guest with actual main-worker SIGKILL after child
+analysis started. Its expired original job and the same single observation remain
+unknown with held ownership even after the cgroup became empty. The host agent
+stayed active, prior findings stayed affected, and no operation was replayed.
+The observation used its own bounded deadline. Rootless worker loss remains
+unproven. A new PostgreSQL-only restore matched all 26 tables and history guards.

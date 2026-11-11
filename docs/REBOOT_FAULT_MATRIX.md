@@ -16,7 +16,8 @@ bounded disposable run. Full native fault acceptance remains incomplete.
 | Missing/lost acknowledgement or duplicate delivery | Unknown; never reschedule the original operation | Focused component cases |
 | Missing, malformed, oversized, ambiguous, forged or mismatched shutdown evidence | Unknown and owned | Focused component cases |
 | Early/late boot, invalid uptime or changed identity/policy | No inferred completion | Focused component cases |
-| Detached native worker SIGKILL, every dispatch/persistence cut, live clock changes and complete boot-loss recovery | Accurate original ownership and separately authorized recovery | Pending live proof |
+| Detached native supervisor worker SIGKILL during vendor assessment | Missing owner completion proof stays unknown; host agent and prior findings remain intact | Actual separate enrolled guest, original expired job and one bounded observation |
+| Rootless container worker loss, every dispatch/persistence cut, live clock changes and complete boot-loss recovery | Accurate original ownership and separately authorized recovery | Pending live proof |
 
 The reproduced scheduling defect used timing and a changed boot ID to infer
 completion. That could misattribute an unrelated reboot after cancellation.
@@ -32,10 +33,21 @@ authorize a new effect. Read-only reconciliation has a separate bounded job;
 it preserves the original cancellation flag and deadline and cannot start a
 missing action.
 
+The separate [native supervisor crash evidence](acceptance/2026-11-11-native-worker-crash.json)
+records actual SIGKILL of its detached main worker after the vendor-analysis
+child started. The host agent remained active with the same PID. The cgroup was
+empty at later observation, but the owner completion report was missing, so both
+the expired original assessment and its single bounded observation stayed unknown.
+Existing vendor findings remained affected. The first private harness waited too
+briefly for that observation; its continuation reused the same identities and did
+not repeat the fault. The immediate post-signal process count was not retained,
+so this case makes no claim about immediate child survival. Rootless container
+worker loss remains a separate boundary.
+
 The in-flight campaign deliberately remains incomplete: its reboot completed,
 but its later action never dispatched. That action also requires independent
-verification. The cancelled-schedule case deliberately retains one unknown native
-lease. A healthy consumer after an unrelated reboot does not establish completion
+verification. The cancelled-schedule and native-supervisor cases each deliberately
+retain an unknown native lease. A healthy consumer after an unrelated reboot does not establish completion
 of the original operation. The vendor package finding stays affected; these fault
 cases perform no package repair or security verification.
 

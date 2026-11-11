@@ -46,6 +46,13 @@ and immutable binding are rechecked transactionally before native and provider
 effects; a delayed heartbeat cannot authorize new work. The current product
 passes 53 unit and 43 PostgreSQL tests. Complete fault coverage remains pending.
 
+A separate fresh guest now retains actual detached native supervisor SIGKILL
+proof during vendor assessment. Missing owner completion evidence keeps the
+original assessment and its single bounded observation unknown after deadline,
+despite an empty cgroup and healthy host agent. Existing findings remain affected.
+This guest and the cancelled-reboot guest each retain their own held lease;
+rootless worker loss and complete recovery acceptance remain separate.
+
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
 release and combined acceptance remain pending. Selecting the product requires
@@ -78,15 +85,17 @@ provider writes. That initial preparation did not establish source remediation
 or deployment closure. Magnus
 now retains inner supervisor identities for read-only original receipt adoption;
 that implementation passes regression tests. Native agent daemon SIGKILL now has
-actual preview-operation proof; detached native worker SIGKILL remains pending.
+actual preview-operation proof. Detached native supervisor SIGKILL now also has
+vendor-assessment proof; rootless container worker loss remains pending.
 
 Actual product-worker SIGKILL and disposable control-service restart now have
 retained proof during an isolated preparation. The original lease and deadline
 expired naturally; an observation-only principal obtained the same completed
 native command receipt and ownership release through one GET. It did not renew
 the original grant, clear cancellation or dispatch again. Native agent daemon
-SIGKILL during package preview is recorded separately; detached native worker
-loss and the complete crash/reboot fault matrix remain pending. Actual reboot
+SIGKILL during package preview and detached native supervisor loss are recorded
+separately; rootless worker loss and the complete crash/reboot fault matrix remain
+pending. Actual reboot
 continuation is recorded below. See
 [recovery semantics](RECOVERY.md) and the dated worker recovery evidence.
 
