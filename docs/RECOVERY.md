@@ -77,3 +77,8 @@ or restart creates a distinct instance identity and preserves prior observations
 Unknown images, absent resources and changed configuration remain partial or not
 assessed; an older observation cannot replace the newer deployment projection.
 Inventory reconciliation never closes a security finding or verifies a build.
+
+Concurrent native observations serialize their retained execution update. An older
+running or unknown response cannot overwrite a completed ownership-released
+receipt. Conflicting terminal facts are refused instead of silently rewriting
+history; observation timestamps alone do not change immutable completion facts.

@@ -355,7 +355,18 @@ export class Embermend {
       return { operationId, requestDigest: execution.requestDigest, targetId: execution.targetId, state: 'unknown', evidenceIds: [], result: { reason: 'Provider phases retain their original identities; reconcile the original provider operation before further writes' }, ownershipReleased: false, observedAt: new Date().toISOString() };
     }
     const receipt = await this.magnus.receipt(operationId); this.bindReceipt(receipt, execution);
-    await this.db.$transaction(async tx => { await tx.execution.update({ where: { id: operationId }, data: { state: receipt.state, receipt: json(receipt) } }); await audit(tx, actor, 'execution.reconciled', operationId, { state: receipt.state, ownershipReleased: receipt.ownershipReleased }); }); return receipt;
+    return this.db.$transaction(async tx => {
+      await lock(tx, `execution-observation:${operationId}`);
+      const current = await tx.execution.findUnique({ where: { id: operationId } });
+      const prior = current?.receipt ? receiptSchema.parse(current.receipt) : null;
+      if (prior && ['completed', 'failed', 'not-dispatched'].includes(prior.state) && prior.ownershipReleased) {
+        if (receipt.state !== prior.state || !receipt.ownershipReleased) return prior;
+        const facts = (value: Receipt): string => digest({ state: value.state, result: value.result, evidenceIds: value.evidenceIds, ownershipReleased: value.ownershipReleased });
+        if (facts(receipt) !== facts(prior)) throw new DomainError('EXECUTION_TERMINAL_RECEIPT_CONFLICT');
+        return prior;
+      }
+      await tx.execution.update({ where: { id: operationId }, data: { state: receipt.state, receipt: json(receipt) } }); await audit(tx, actor, 'execution.reconciled', operationId, { state: receipt.state, ownershipReleased: receipt.ownershipReleased }); return receipt;
+    });
   }
   async verify(actor: Actor, input: unknown): Promise<string> {
     const verification = verificationSchema.parse(input);

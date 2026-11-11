@@ -82,6 +82,18 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const held = await db.execution.findFirstOrThrow(); assert.equal(held.state, 'unknown');
     const restarted = new Embermend(db, magnus); const reconciled = await restarted.dispatch(coordinator, 'fixture-plan', 'fixture-action'); assert.equal(reconciled.state, 'completed'); assert.equal(magnus.requests.length, 1); assert.equal(reconciled.operationId, held.id);
   });
+  await t.test('an older concurrent native observation cannot overwrite completed ownership release', async () => {
+    const { service, magnus } = await reset(); await service.propose(coordinator, plan()); await service.publish(coordinator, plan().id, 1); await service.policy(operator, policy()); await service.authorizePolicy(coordinator, plan().id, 'fixture-policy'); magnus.loseReply = true;
+    await assert.rejects(service.dispatch(coordinator, plan().id, 'fixture-action'), /UNKNOWN_EXECUTION/);
+    const execution = await db.execution.findFirstOrThrow(); const completed = magnus.receipts.get(execution.id); assert.ok(completed);
+    let release: ((receipt: Receipt) => void) | undefined; let entered: (() => void) | undefined; const waiting = new Promise<void>(resolve => { entered = resolve; }); let count = 0;
+    magnus.receipt = async () => { if (++count === 1) return new Promise<Receipt>(resolve => { release = resolve; entered?.(); }); return completed; };
+    const old = service.reconcile(operator, execution.id); await waiting;
+    assert.equal((await service.reconcile(operator, execution.id)).ownershipReleased, true);
+    if (!release) throw new Error('Pending observation required'); release({ ...completed, state: 'running', ownershipReleased: false, result: {} });
+    assert.equal((await old).state, 'completed'); const retained = await db.execution.findUniqueOrThrow({ where: { id: execution.id } }); assert.equal(retained.state, 'completed');
+    magnus.receipt = async () => ({ ...completed, result: { changed: true } }); await assert.rejects(service.reconcile(operator, execution.id), /TERMINAL_RECEIPT_CONFLICT/); assert.equal(magnus.requests.length, 1);
+  });
   await t.test('job claims serialize consumers and never replay expired running work', async () => {
     await reset(); const id = await db.$transaction(tx => enqueue(tx, operator, 'fixture', 'one', { fixture: true }, new Date(later())));
     const duplicate = await db.$transaction(tx => enqueue(tx, operator, 'fixture', 'one', { fixture: true }, new Date(later()))); assert.equal(duplicate, id);
