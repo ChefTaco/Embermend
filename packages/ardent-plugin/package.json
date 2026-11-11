@@ -17,7 +17,7 @@
     "NOTICE"
   ],
   "engines": {
-    "node": "^24.22.1 || ^26.13.0"
+    "node": "^24.22.3 || ^26.13.1"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
