@@ -104,3 +104,11 @@ seven stale userspace ELF mappings beforehand. The fresh post-boot inventory,
 vendor assessment and healthy consumer supported technical review of that one
 configured package. Other activation classes, namespace/file-view attribution
 and the complete reboot fault matrix remain unaccepted.
+
+The [native fault matrix](REBOOT_FAULT_MATRIX.md) adds actual queued and in-flight
+cancellation, agent restart and cancelled-schedule evidence. A changed boot ID
+inside the old schedule window is insufficient: adoption now also requires the
+original boot's trusted shutdown event naming the exact operation. A cancelled
+schedule followed by an unrelated reboot deliberately retains unknown ownership,
+including across a control-service restart. Product cancellation prevents later
+dispatch and preserves already accepted native work for separate observation.

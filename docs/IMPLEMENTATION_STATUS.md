@@ -36,6 +36,16 @@ snapshot arrives in a fresh envelope. Unfamiliar captures with ambiguous orderin
 require review; genuinely new observations can reopen work while preserving the
 earlier verification. Occurrence writes serialize with verification updates.
 
+The [native reboot/cancellation matrix](REBOOT_FAULT_MATRIX.md) now includes
+actual queued cancellation, an acknowledged reboot surviving product cancellation,
+campaign pause and native agent SIGKILL, and a cancelled schedule followed by an
+unrelated boot. The last case remains unknown with its original lease held,
+including across control restart. Reboot adoption now requires exact trusted
+previous-boot shutdown proof. Campaign-job cancellation, deadlines, lease ownership
+and immutable binding are rechecked transactionally before native and provider
+effects; a delayed heartbeat cannot authorize new work. The current product
+passes 53 unit and 43 PostgreSQL tests. Complete fault coverage remains pending.
+
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
 release and combined acceptance remain pending. Selecting the product requires
@@ -109,6 +119,14 @@ fresh bootstrap and strict TypeScript 6.0.3 throughout its affected workspaces.
 The real browser fixture uses that candidate with actual Registry and ingress
 images. It is an explicit manual candidate connection, not an installed signed
 Hive release. Shared Hive and Ardent checkouts remain isolated from this work.
+
+The isolated Hive integration now incorporates current 3.1.1 changes and offers
+Embermend through `hive.sh`, defaulting to off. Signed release metadata must
+explicitly declare the Magnus bridge protocol; a 2.4.x version alone is
+insufficient. The affected launcher/release workspaces use strict TypeScript
+6.0.3. Installer, initialization, compatibility, full local repository and privacy
+checks pass. Hosted CI and merge are separate from production installation;
+portfolio and website updates follow production rollout.
 
 
 Native reboot continuation now has actual disposable proof after the original

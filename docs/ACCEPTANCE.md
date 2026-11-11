@@ -20,8 +20,8 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Actual worker/control crash proof, native agent SIGKILL during admitted preview and reboot continuation after the original deadline | Partial; detached native worker SIGKILL and complete reboot fault matrix pending |
-| AC-16 | Actual browser pause, disabled dispatch and separate resume; authorized fixture recovery proof | Partial; broader in-flight and recovery cases pending |
+| AC-15 | Actual worker/control crashes, agent SIGKILL during preview and acknowledged reboot, original reboot recovery and cancelled-schedule/unrelated-boot refusal | Partial native fault matrix; detached worker and remaining persistence/clock/boot-loss cuts pending |
+| AC-16 | Browser pause/resume, queued cancellation, accepted reboot cancellation/pause with original ownership, no later dispatch and unchanged held lease across control restart | Partial; broader in-flight and authorized recovery cases pending |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
 | AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
@@ -228,3 +228,17 @@ historical observation, one occurrence and the earlier verification, without
 another native action. A coherent campaign report and another exact 26-table
 PostgreSQL restore with append-only guards were retained. All integrated criteria
 remain partial or pending; production mutation policies stay disabled.
+
+The [native reboot/cancellation matrix](REBOOT_FAULT_MATRIX.md) and its
+[dated evidence](acceptance/2026-11-11-reboot-cancellation.json) retain actual
+queued cancellation, an acknowledged reboot surviving cancellation/pause and
+agent SIGKILL, and a cancelled host schedule followed by an unrelated reboot.
+The last case remains unknown with one held native lease, including after a
+control-service restart. No lease was cleared and no finding was closed.
+Independent inventory and consumer health corroborate only the actual original
+reboot case. Two reproduced admission defects now have regression fixes: exact
+trusted shutdown-event binding and transactional campaign-job admission fencing.
+The current code passes 53 unit and 43 PostgreSQL tests; Magnus passes its full
+repository gate and 37 focused reboot/recovery cases. Another PostgreSQL-only
+restore matched all 26 tables and history guards. The full native matrix and
+combined suite restore remain outstanding.

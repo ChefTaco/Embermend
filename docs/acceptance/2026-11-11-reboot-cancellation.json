@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "dateTimezone": "America/Chicago",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "strict": true,
+  "noUncheckedIndexedAccess": true,
+  "exactOptionalPropertyTypes": true,
+  "sources": {
+    "product": "5553f9b66d0e0200d002328950f246f633118dea",
+    "runtimeImage": "sha256:e1c4a7b7b3748b4707344feee8a490fe46f9bf5bdf200f9685af66bf759deb2b",
+    "magnusAgent": "4a96834258d33d8505ae4e716ce5e1d659e9ace2",
+    "agentArchiveSha256": "d444177d8438c98fe8af079b01514d2d1a8dc95ef3a3dabb26066148c7ac13e4",
+    "contractsArchiveSha256": "d78cd34e18855e5624e791b1ae3f3cfedf8abf9a493bea7df8f4bf6fd7ad1e25",
+    "magnusControl": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa",
+    "hiveIntegration": "af5f15c1134b6b10554fb4ff8c4003cb6c5b9c77"
+  },
+  "scope": "One fresh disposable Ubuntu 24.04 guest configured before enrollment, using existing native service authentication; scoped core actors authorize the fixture plans. This run is not another browser/Oathweave authorization journey.",
+  "authentication": {
+    "existingCredentials": true,
+    "newCredentialRequested": false,
+    "freshDisposableNativeTargetAdded": true,
+    "productBrowserGrantsExpanded": false,
+    "coordinatorSelfApprovalRefused": true,
+    "productionIAMChanged": false,
+    "standingPoliciesCreated": 0
+  },
+  "phases": [
+    {
+      "name": "queued-cancel",
+      "planDigest": "45c61272393863d5be2c8dcfe78151188f31587252615bd7ce3bf8a7aeb59dfc",
+      "revision": 1,
+      "publishedAt": "2026-11-11T21:00:12.619Z",
+      "approvedAt": "2026-11-11T21:00:12.626Z",
+      "executions": [],
+      "jobStatus": "canceled",
+      "cancelRequested": true,
+      "deadlineRetained": true
+    },
+    {
+      "name": "inflight-cancel-agent-restart",
+      "planDigest": "e703b08887e64284212d7f19d5e103e42ca6ee0217983906c531abbb59ee5e6c",
+      "revision": 1,
+      "publishedAt": "2026-11-11T21:00:16.094Z",
+      "approvedAt": "2026-11-11T21:00:16.103Z",
+      "executions": [
+        {
+          "operationId": "fb5f441b-e9aa-4fe6-a313-763a0a45e6e0",
+          "actionId": "reboot",
+          "requestDigest": "f7ded51f539bb868e574ab1a7b51f268592730eaf1ec194b95127b5cfdb3e313",
+          "state": "completed",
+          "dispatchedAt": "2026-11-11T21:00:16.301Z"
+        }
+      ],
+      "jobStatus": "unknown",
+      "cancelRequested": true,
+      "deadlineRetained": true
+    },
+    {
+      "name": "cancelled-schedule-unrelated-reboot",
+      "planDigest": "86e637b91b9402a93c287c22dbc11bcd8b34f36207f26004250edd722608d17f",
+      "revision": 1,
+      "publishedAt": "2026-11-11T21:01:57.014Z",
+      "approvedAt": "2026-11-11T21:01:57.021Z",
+      "executions": [
+        {
+          "operationId": "95f079a3-2e4d-4760-b74f-2eb10ac08e47",
+          "actionId": "reboot",
+          "requestDigest": "3e33187d8f8b13d64e56c779ede83d0d8efe1b8b2242096be045ba53e0f2ecc2",
+          "state": "unknown",
+          "dispatchedAt": "2026-11-11T21:01:57.831Z"
+        }
+      ],
+      "jobStatus": "unknown",
+      "cancelRequested": true,
+      "deadlineRetained": true
+    }
+  ],
+  "queued": {
+    "nativeReservations": 0,
+    "bootUnchanged": true,
+    "workerRestartedWithSameImage": true,
+    "status": "canceled",
+    "cancelRequested": true
+  },
+  "inflight": {
+    "operationId": "fb5f441b-e9aa-4fe6-a313-763a0a45e6e0",
+    "agentDaemonKilled": true,
+    "agentPidChanged": true,
+    "originalReceiptState": "completed",
+    "ownershipReleased": true,
+    "shutdownProofDigest": "821c44ba6bd0eeebd61a84194b53800f858a53afaac419f283cb60417e8addb3",
+    "shutdownInitiatedAt": 1794430877613,
+    "beforeBootSha256": "639b9e591daafbfe25268959142b45b536a4f5c2eb048add212981b77b4f3feb",
+    "afterBootSha256": "a931fccc8d1e8b6c70cade9a0f423f9835ee511de602acbd0a369c4c51e9f2b8",
+    "independentInventoryMatchesBoot": true,
+    "consumerHealth": "healthy",
+    "campaignPaused": true,
+    "originalJobStatus": "unknown",
+    "cancelRequested": true,
+    "laterActionNotDispatched": true,
+    "observationStatus": "unknown",
+    "observationError": "CAMPAIGN_ACTION_NOT_DISPATCHED_OBSERVATION_ONLY",
+    "receiptDigest": "10272c9d8351578c867c378d9ee904d07a8903aaf378783d8cad3dead7837ff2"
+  },
+  "cancelledSchedule": {
+    "operationId": "95f079a3-2e4d-4760-b74f-2eb10ac08e47",
+    "acknowledgedScheduleActuallyCancelled": true,
+    "unrelatedRebootActuallyInitiated": true,
+    "kernelBootChanged": true,
+    "originalState": "unknown",
+    "ownershipReleased": false,
+    "rebootCompletionClaimed": false,
+    "duplicateObservationDeduplicated": true,
+    "observationStatus": "unknown",
+    "observationError": "CAMPAIGN_ORIGINAL_OUTCOME_UNKNOWN",
+    "consumerHealth": "healthy",
+    "originalRequestDigest": "3e33187d8f8b13d64e56c779ede83d0d8efe1b8b2242096be045ba53e0f2ecc2",
+    "receiptDigest": "4df90a3db355b4a65786dddaa2de346c93befed4cb35142dba9e9a0bb3a70739",
+    "faultBoundary": "Preconfigured private hypervisor harness permits exact owned schedule cancellation, fixed unrelated reboot and native agent PID/SIGKILL only. Product code cannot access the channel; it is not a remediation fallback."
+  },
+  "controlRestart": {
+    "sameContainerRestarted": true,
+    "operationAndLeaseRowsUnchanged": true,
+    "heldLeaseCount": 1,
+    "originalState": "unknown",
+    "ownershipReleased": false,
+    "noReplay": true
+  },
+  "security": {
+    "originalFindingState": "affected",
+    "verificationCreated": false,
+    "rebootDoesNotRepairPackage": true,
+    "campaignReportDigest": "89f9e00a24f2a2f45c54b48e2020406cf199db9c4bfbc369e4276d0ba36724c9"
+  },
+  "verification": {
+    "embermendUnitTests": 53,
+    "postgresqlIntegrationTests": 43,
+    "magnusFullVerify": true,
+    "magnusAgentPassed": 661,
+    "magnusAgentExistingSkipped": 8,
+    "focusedRebootAndRecoveryCases": 37,
+    "regressionsReproducedBeforeFix": [
+      "Cancelled schedule plus unrelated same-window boot incorrectly completed",
+      "Campaign cancelled after claim still dispatched before heartbeat"
+    ]
+  },
+  "restore": {
+    "dumpSha256": "f5e182dac7e6b6c5c7752b085edc984b08f85a6ca55ac36cc371f3b1da76f982",
+    "tables": 26,
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true,
+    "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required"
+  },
+  "limits": [
+    "One native lease is deliberately held unknown after the cancelled schedule/unrelated reboot. No lease was cleared, original request replaced, reboot retried or security finding closed.",
+    "Job cancellation prevents further dispatch; it cannot revoke already accepted native work. The in-flight multi-action campaign stays incomplete even though its original reboot completed. Its later action also requires independent verification.",
+    "Focused component cases cover missing/lost acknowledgements, invalid trusted fields, ambiguous/unavailable journal, changed identity/policy, early/late boots, invalid uptime, duplicate delivery and resource ownership. They do not replace live proof for every native fault cut.",
+    "Actual detached native worker SIGKILL and every dispatch/persistence cut, live clock discontinuities, complete boot-loss/cancellation and authorized recovery remain outstanding. Missing persistent journal evidence remains unknown.",
+    "Plans used scoped authoritative-core fixture actors with existing native service authentication. Browser and coordinator operation permissions were not broadened for this fault run.",
+    "Hive installer integration is locally verified and pushed, with signed protocol compatibility, default-off selection and exact TypeScript 6.0.3 in affected workspaces. Hosted checks and the actual merge are separate; production, portfolio/web publication, full acceptance and combined suite restore remain gated."
+  ]
+}
