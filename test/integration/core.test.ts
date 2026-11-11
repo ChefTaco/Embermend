@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { z } from 'zod';
-import { database, digest, claim, enqueue } from '@hivemagnus/embermend-store';
+import { database, digest, claim, enqueue, json } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus } from '@hivemagnus/embermend-integrations';
-import { buildSchema, type OperationRequest, type Receipt, type Plan } from '@hivemagnus/embermend-contracts';
+import { buildSchema, receiptSchema, type OperationRequest, type Receipt, type Plan } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
@@ -373,6 +373,38 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await assert.rejects(service.job({ ...observer, permissions: new Set(['read']) }, observationId), /SCOPE_OR_PERMISSION_DENIED/);
     await assert.rejects(service.reconcileJob(observer, id), /NOT_ELIGIBLE/);
     const rows = await db.evidence.findMany({ where: { subjectId: 'fixture-node' } }); assert.equal(rows.length, 2);
+  });
+  await t.test('post-ingestion result commit failure reuses the retained terminal inventory without rewriting evidence', async child => {
+    const { service, magnus } = await reset();
+    await service.profile(operator, { id: 'fixture-result-cut', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Retain the original inventory evidence', capability: 'inventory.v1', field: 'exitCode', expected: 1, actionVersion: null }] });
+    const id = await service.assess(operator, { id: 'fixture-result-cut', scope, targetIds: ['fixture-node'], profileId: 'fixture-result-cut', profileVersion: '1', deadline: later() });
+    const cut = child.mock.method(AssessmentLedger.prototype, 'result', async () => { throw new Error('Fixture interruption after evidence ingestion'); });
+    await tick(service, 'fixture-result-cut-worker', AbortSignal.timeout(5000)); cut.mock.restore();
+    const interrupted = await service.job(operator, id); assert.equal(interrupted.status, 'unknown');
+    const before = await db.evidence.findMany({ where: { subjectId: 'fixture-node' }, orderBy: { id: 'asc' } }); assert.equal(before.length, 2);
+    const receipt = [...magnus.receipts.values()][0]; assert.ok(receipt);
+    // A later receipt envelope is not a new observation of the managed resource.
+    magnus.receipt = async () => { magnus.observations++; return { ...receipt, observedAt: new Date(Date.parse(receipt.observedAt) + 10000).toISOString() }; };
+    magnus.capabilitiesAvailable = false;
+    const observationId = await service.reconcileJob(operator, id); await tick(service, 'fixture-result-cut-observer', AbortSignal.timeout(5000));
+    const observed = await service.job(operator, observationId); assert.equal(observed.status, 'completed', observed.error ?? undefined);
+    assert.equal((await service.job(operator, id)).status, 'completed'); assert.equal(magnus.requests.length, 1);
+    assert.equal(magnus.observations, 0); assert.deepEqual(await db.evidence.findMany({ where: { subjectId: 'fixture-node' }, orderBy: { id: 'asc' } }), before);
+  });
+  await t.test('cached terminal assessment receipts still require the exact retained request binding', async child => {
+    const { service, magnus } = await reset();
+    await service.profile(operator, { id: 'fixture-cached-binding', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Bind original evidence', capability: 'inventory.v1', field: 'exitCode', expected: 1, actionVersion: null }] });
+    const id = await service.assess(operator, { id: 'fixture-cached-binding', scope, targetIds: ['fixture-node'], profileId: 'fixture-cached-binding', profileVersion: '1', deadline: later() });
+    const cut = child.mock.method(AssessmentLedger.prototype, 'result', async () => { throw new Error('Fixture result checkpoint interrupted'); });
+    await tick(service, 'fixture-binding-cut-worker', AbortSignal.timeout(5000)); cut.mock.restore();
+    const retained = z.object({ operations: z.array(z.object({ receipt: receiptSchema }).passthrough()) }).parse((await service.job(operator, id)).result);
+    const entry = retained.operations[0]; assert.ok(entry); entry.receipt = { ...entry.receipt, requestDigest: 'f'.repeat(64) };
+    await db.job.update({ where: { id }, data: { result: json(retained) } });
+    const before = await db.evidence.findMany({ orderBy: { id: 'asc' } });
+    const observationId = await service.reconcileJob(operator, id); await tick(service, 'fixture-cached-binding-observer', AbortSignal.timeout(5000));
+    assert.equal((await service.job(operator, observationId)).error, 'ASSESSMENT_RECEIPT_BINDING');
+    assert.equal((await service.job(operator, id)).status, 'unknown'); assert.equal(magnus.requests.length, 1); assert.equal(magnus.observations, 0);
+    assert.deepEqual(await db.evidence.findMany({ orderBy: { id: 'asc' } }), before);
   });
   await t.test('observation with no retained operation cannot dispatch an unstarted target', async () => {
     const { service, magnus } = await reset(); const id = await service.assess(operator, { id: 'fixture-never-admitted', scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });

@@ -26,7 +26,13 @@ export async function runAssessment(service: Embermend, actor: Actor, job: { id:
     if (entry) {
       // Observing an admitted identity is always read-only, even on a resumed
       // initial handler. Never reconstruct a request with current capabilities.
-      receipt = await service.magnus.receipt(operationId, signal);
+      // A released terminal receipt is already durable. Replacing its envelope
+      // after ingestion changes the timestamp of immutable evidence if the
+      // result checkpoint was interrupted. Reuse its exact original facts.
+      if (entry.receipt?.state === 'completed' && entry.receipt.ownershipReleased) {
+        ledger.bind(entry, targetId, entry.receipt);
+        receipt = entry.receipt;
+      } else receipt = await service.magnus.receipt(operationId, signal);
     } else {
       if (lease.observeOnly) throw new DomainError('ORIGINAL_OPERATION_NOT_RETAINED');
       if (signal.aborted) throw new DomainError('ASSESSMENT_INTERRUPTED_BEFORE_ADMISSION');

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reuse the exact retained completed assessment receipt after an interrupted result checkpoint, preserving immutable evidence and original request binding without redispatch.
+
 - Require the verification operation for verified closure; finding ingestion preserves immutable occurrence identities and cannot invent source/runtime verification.
 
 - Use an explicit public automation identity for provider-created commits instead of inheriting an operator profile email.

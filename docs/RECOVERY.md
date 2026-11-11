@@ -16,13 +16,20 @@ available at its original ID. Concurrent requests share an active observation
 job; a later explicit request can create another bounded observation attempt.
 Its five-minute deadline does not extend the original execution deadline.
 
-The observer uses receipt reads only. It does not request fresh capabilities,
+The observer uses an already retained completed, ownership-released receipt or
+receipt reads only. It does not request fresh capabilities,
 reconstruct a request, retry dispatch, clear cancellation, or admit previously
 unstarted targets. Receipt identity changes, missing retained operations, offline
 dependencies and uncertain ownership remain visible as unknown outcomes.
 Failure is terminal only when Magnus confirms ownership release. Successful
 completion likewise requires the original completed receipt and released
 ownership, followed by the request-specific result checks and ingestion.
+
+If evidence ingestion completed before the result checkpoint was interrupted,
+the observer reuses the exact retained terminal receipt, including its original
+observation timestamp. It checks that receipt against the original request before
+ingestion resumes. A later receipt envelope must not rewrite immutable evidence;
+missing or unreleased receipts still require observation of the original operation.
 
 Cancellation records intent. Only queued work with no retained external effect
 is confirmed canceled locally. In-flight work remains subject to original
