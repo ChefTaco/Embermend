@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Reuse the exact retained completed assessment receipt after an interrupted result checkpoint, preserving immutable evidence and original request binding without redispatch.
+- Reuse retained completed assessment receipts after interrupted result checkpoints, preserving immutable evidence and original request binding without redispatch. Older interrupted observers also retain the already-ingested evidence timestamp while all other immutable fields must still match.
 
 - Require the verification operation for verified closure; finding ingestion preserves immutable occurrence identities and cannot invent source/runtime verification.
 

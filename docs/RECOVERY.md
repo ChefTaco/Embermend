@@ -30,6 +30,10 @@ the observer reuses the exact retained terminal receipt, including its original
 observation timestamp. It checks that receipt against the original request before
 ingestion resumes. A later receipt envelope must not rewrite immutable evidence;
 missing or unreleased receipts still require observation of the original operation.
+If an older interrupted observer already retained a newer envelope, the original
+evidence timestamp remains authoritative. Resumed ingestion still checks the
+scope, source, method and content through the immutable evidence guard; a different
+result stays unknown instead of replacing the earlier evidence.
 
 Cancellation records intent. Only queued work with no retained external effect
 is confirmed canceled locally. In-flight work remains subject to original

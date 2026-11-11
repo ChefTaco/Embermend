@@ -1,6 +1,6 @@
 import { setTimeout } from 'node:timers/promises';
 import { z } from 'zod';
-import { assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, sourceResultSchema, preparationSchema, preparationResultSchema, profileSchema, entitySchema, scanResultSchema, type Actor, type OperationRequest, type Action, type Receipt } from '@hivemagnus/embermend-contracts';
+import { assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, sourceResultSchema, preparationSchema, preparationResultSchema, profileSchema, entitySchema, evidenceSchema, scanResultSchema, type Actor, type OperationRequest, type Action, type Receipt } from '@hivemagnus/embermend-contracts';
 import { digest, json } from '@hivemagnus/embermend-store';
 import { ingestVulnerabilities } from './vulnerabilities.js';
 import { DomainError, requirePermission, assertTarget, type Embermend } from '@hivemagnus/embermend-core';
@@ -74,7 +74,12 @@ export async function runAssessment(service: Embermend, actor: Actor, job: { id:
       const target = entry.target; if (!target || target.kind !== 'target') throw new DomainError('ASSESSMENT_ORIGINAL_TARGET_MISSING');
       const row = await service.db.profile.findUnique({ where: { id_version: { id: request.profileId, version: request.profileVersion } } });
       if (!row) throw new DomainError('PROFILE_VERSION_UNAVAILABLE'); const profile = profileSchema.parse(row.data);
-      const evidenceId = digest(['inventory-evidence', operationId]); const observedAt = receipt.observedAt;
+      const evidenceId = digest(['inventory-evidence', operationId]);
+      const retainedEvidence = await service.db.evidence.findUnique({ where: { id: evidenceId } });
+      // Older interrupted observers may already have retained a newer receipt
+      // envelope. Keep the original evidence timestamp; evidence() still checks
+      // every immutable field and refuses different content or authority.
+      const observedAt = retainedEvidence ? evidenceSchema.parse(retainedEvidence.data).observedAt : receipt.observedAt;
       await service.evidence(system, { id: evidenceId, scope: { ...request.scope, targetIds: [targetId] }, subjectId: targetId, method: `${profile.id}:${profile.version}`, observedAt, digest: digest(receipt.result), content: receipt.result, sensitivity: 'ordinary', source: 'magnus' });
       const checks = [];
       for (const rule of profile.rules) {

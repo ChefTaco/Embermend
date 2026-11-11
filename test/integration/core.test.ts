@@ -391,6 +391,25 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await service.job(operator, id)).status, 'completed'); assert.equal(magnus.requests.length, 1);
     assert.equal(magnus.observations, 0); assert.deepEqual(await db.evidence.findMany({ where: { subjectId: 'fixture-node' }, orderBy: { id: 'asc' } }), before);
   });
+  for (const changedContent of [false, true]) await t.test(`an interrupted older observer preserves original inventory evidence with changed content ${changedContent}`, async child => {
+    const { service, magnus } = await reset();
+    await service.profile(operator, { id: 'fixture-legacy-result', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Preserve original evidence', capability: 'inventory.v1', field: 'exitCode', expected: 1, actionVersion: null }] });
+    const id = await service.assess(operator, { id: 'fixture-legacy-result', scope, targetIds: ['fixture-node'], profileId: 'fixture-legacy-result', profileVersion: '1', deadline: later() });
+    const cut = child.mock.method(AssessmentLedger.prototype, 'result', async () => { throw new Error('Fixture interruption after ingestion'); });
+    await tick(service, 'fixture-legacy-result-worker', AbortSignal.timeout(5000)); cut.mock.restore();
+    const retained = z.object({ operations: z.array(z.object({ receipt: receiptSchema }).passthrough()) }).parse((await service.job(operator, id)).result);
+    const entry = retained.operations[0]; assert.ok(entry);
+    entry.receipt = { ...entry.receipt, observedAt: new Date(Date.parse(entry.receipt.observedAt) + 10000).toISOString(), ...(changedContent ? { result: { exitCode: 2 } } : {}) };
+    await db.job.update({ where: { id }, data: { result: json(retained) } });
+    const before = await db.evidence.findMany({ orderBy: { id: 'asc' } });
+    const observationId = await service.reconcileJob(operator, id); await tick(service, 'fixture-legacy-result-observer', AbortSignal.timeout(5000));
+    const observed = await service.job(operator, observationId);
+    assert.equal(observed.status, changedContent ? 'unknown' : 'completed', observed.error ?? undefined);
+    if (changedContent) assert.equal(observed.error, 'IMMUTABLE_EVIDENCE_CONFLICT');
+    assert.equal((await service.job(operator, id)).status, changedContent ? 'unknown' : 'completed');
+    assert.equal(magnus.requests.length, 1); assert.equal(magnus.observations, 0);
+    assert.deepEqual(await db.evidence.findMany({ orderBy: { id: 'asc' } }), before);
+  });
   await t.test('cached terminal assessment receipts still require the exact retained request binding', async child => {
     const { service, magnus } = await reset();
     await service.profile(operator, { id: 'fixture-cached-binding', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Bind original evidence', capability: 'inventory.v1', field: 'exitCode', expected: 1, actionVersion: null }] });
