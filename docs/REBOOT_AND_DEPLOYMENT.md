@@ -82,7 +82,7 @@ requirement, beyond the retained normal reboot/deadline continuation proof.
    running state. An execution receipt still leaves security verification open.
 5. A separate managed inventory reconciles the current container instance,
    artifact, host and host-managing agent. Earlier instances remain historical;
-   old evidence cannot overwrite the current deployment. Unknown images and
+   old native capture times cannot overwrite the current deployment, even through a fresh delivery envelope. Repeated inventory retains stable relationships and appends corroborating evidence. Unknown images and
    unavailable resources remain partial/not assessed, never clean by omission.
 6. Run independent application-specific security and consumer-health checks.
    Record the exact deployed digest in verification evidence. Runtime resolution

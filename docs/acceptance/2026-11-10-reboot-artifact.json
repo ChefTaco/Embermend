@@ -7,7 +7,7 @@
   "sources": {
     "rebootProduct": "dd2eb8b27011550b0db89867b492895cd2853381",
     "deploymentProduct": "8ec8dac8b6fd871b90cdaf55cfe4035550a9bebb",
-    "latestProduct": "297483b9fb648a7e75c9c98fb3a5647e075624e0",
+    "latestProduct": "42ee9d8c9a77d7cfcf4597003ee3d2c6d484eb37",
     "magnus": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa",
     "fixtureSource": "3c95682957a5a93b0764ba6d5f345545ad696464",
     "agentArchiveSha256": "0417b45b2f6c642295ea96aa2895f9d1ae16d5dbe1414cdf0b9c015c27c284a1"
@@ -92,6 +92,9 @@
     "retainedContainerInstanceCount": 3,
     "currentArtifactIdSha256": "bb7b352ad6b23d239eff63879a56d829b64e6a4dfe00d5d6776d41a981231ac9",
     "historicalInventoryCannotOverwriteCurrentDeployment": true,
+    "nativeCaptureTimeOrdersProjection": true,
+    "freshEnvelopeWithRetainedOldNativeContentReplayedWithoutRollback": true,
+    "repeatedInventoryCorroboratesStableRelationships": true,
     "allowedOwnerStatus": 200,
     "deniedOwnerStatus": 403,
     "applicationHealth": "healthy with expected fixed mode and source revision",
@@ -104,7 +107,7 @@
   },
   "verification": {
     "embermendUnitTests": 50,
-    "postgresqlTests": 38,
+    "postgresqlTests": 39,
     "magnusFullVerify": true,
     "focusedNativeTests": 28,
     "strict": true,
@@ -114,7 +117,7 @@
   "restore": {
     "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required",
     "tables": 26,
-    "dumpSha256": "1134a1de394b63196b99f8d5db07eb5f7e4f5db9466c0d05e6c3a8aaa21a27a1",
+    "dumpSha256": "81108882672a046ef5f4a3d72f5e05b9342b4101ebefa9c5baa82512030b3c87",
     "restoredExactly": true,
     "appendOnlyGuardVerified": true
   },

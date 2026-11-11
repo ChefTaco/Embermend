@@ -145,7 +145,7 @@ fixture files. Independent managed inventory confirmed the actual image/config
 and replacement container, and live consumer probes allowed the expected owner
 while returning HTTP 403 for cross-owner access. Runtime verification passed;
 source work stayed open. Earlier container instances and observations remain
-retained, and replaying old inventory cannot overwrite the current deployment.
+retained, and replaying old native inventory cannot overwrite the current deployment, including when delivered inside a fresh receipt envelope. Repeated inventory corroborates stable relationships without replacing their original provenance.
 Duplicate job/execution delivery retained the same identities. Exactly one
 native reboot and one native rollout were observed, with released leases.
 
