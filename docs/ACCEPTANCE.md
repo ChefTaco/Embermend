@@ -17,12 +17,12 @@ until all required journeys and failure cases have retained proof.
 | AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial stale-head and actual browser-session revocation proof; broader authority revocation pending |
 | AC-10 | Actual Magnus preparation, linked GitHub PR, lost-reply adoption, required checks and separate non-bypass merge | Partial controlled source workflow proof; full authenticated journey pending |
 | AC-11 | Independent immutable maintained-branch readback/probes for a source-only application; other branch occurrences remain open | Partial source-only branch proof; deployed-artifact cases pending |
-| AC-12 | Artifact/deployment entities and runtime digest verification | Pending |
+| AC-12 | Actual immutable OCI rollout, reviewed local build evidence and independent image/container/application verification | Partial; isolated build/publication and hosted build tracking pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Actual worker SIGKILL and control restart; original native receipt observed after natural lease/deadline expiry without dispatch | Partial crash proof; native agent/reboot cases pending |
+| AC-15 | Actual worker/control crash proof and native reboot continuation after the original deadline; separate read-only observer retains the original operation | Partial; native SIGKILL and complete reboot fault matrix pending |
 | AC-16 | Actual browser pause, disabled dispatch and separate resume; authorized fixture recovery proof | Partial; broader in-flight and recovery cases pending |
-| AC-17 | Separate container/workload/artifact identities | Pending |
+| AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
 | AC-19 | Scoped expiring exceptions and durable expiry events | Pending |
 | AC-20 | Redaction and isolated source/model credential separation | Pending |
@@ -43,7 +43,7 @@ PostgreSQL-only restore rehearsal. No integrated criterion is complete.
 The fixture has no application consumer. Fresh host heartbeats establish only
 host-agent health. A later recurrence was secured again and remains open until
 its own new independent security verification is recorded. The complete managed model,
-GitHub/Compose journey, native crash/reboot continuation, combined suite restore
+GitHub/Compose journey, the complete native crash/reboot matrix, combined suite restore
 and production assessment remain unproven.
 
 ## Release gate
@@ -127,3 +127,33 @@ Browser sign-out was also checked against a captured resource token: the same
 operator token returned HTTP 200 before sign-out and HTTP 401 afterward while
 still unexpired. This proves request-time browser session revocation, not
 revocation of credentials already captured by a queued worker job.
+
+
+The [reboot and artifact evidence](acceptance/2026-11-10-reboot-artifact.json)
+adds an actual, initially configured and Magnus-enrolled Ubuntu guest. The
+published and separately approved reboot scheduled one native operation. Its
+45-second admission window expired before reboot completion; the original job
+became unknown. A separate read/evidence/recover observer used only original
+receipt GETs after the new boot, retained cancellation and the old deadline, and
+completed the original job without renewed authority or another dispatch.
+Independent inventory and consumer health passed while the application finding
+correctly remained affected.
+
+A second separately approved plan replaced one Compose service with a reviewed
+immutable OCI digest. The build context contained only two committed, inert
+fixture files. Independent managed inventory confirmed the actual image/config
+and replacement container, and live consumer probes allowed the expected owner
+while returning HTTP 403 for cross-owner access. Runtime verification passed;
+source work stayed open. Earlier container instances and observations remain
+retained, and replaying old inventory cannot overwrite the current deployment.
+Duplicate job/execution delivery retained the same identities. Exactly one
+native reboot and one native rollout were observed, with released leases.
+
+This stage exercised product permissions through authoritative core actors and
+existing native service authentication; the earlier browser record is the
+separate Oathweave journey. Builds used trusted local acceptance tooling and a
+disposable registry. Hosted build tracking, complete isolated build/publication,
+signed provenance, real vendor package-update activation, native agent SIGKILL,
+cancelled-schedule faults, combined suite restore and the full acceptance matrix
+remain pending. The final PostgreSQL-only restore matched all 26 tables and
+preserved append-only guards. No production policy or host changed.

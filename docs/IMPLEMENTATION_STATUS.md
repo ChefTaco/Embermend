@@ -26,9 +26,8 @@ now retains narrow live fixture mutations on three enrolled Ubuntu guests,
 independent readback, duplicate delivery, response-loss recovery, recurrence,
 a real OpenSCAP assessment and an exact database-only restore rehearsal.
 
-Outstanding work includes complete coordinator event delivery, native reboot
-continuation and integrated crash fault injection, complete build/publication tracking, graph reconciliation and
-independent deployment verification, comprehensive cancellation/recovery, live authority revocation,
+Outstanding work includes complete coordinator event delivery, the complete native crash/reboot fault matrix, complete build/publication tracking, broader graph reconciliation and
+deployment verification, comprehensive cancellation/recovery, live authority revocation,
 acceptance fault injection, combined suite restore proof, release artifacts and signatures, and
 real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; the managed worker and authenticated browser fixture have retained proof. Broader model and campaign acceptance remains pending. Production mutation policies stay disabled.
 
@@ -51,7 +50,7 @@ retained proof during an isolated preparation. The original lease and deadline
 expired naturally; an observation-only principal obtained the same completed
 native command receipt and ownership release through one GET. It did not renew
 the original grant, clear cancellation or dispatch again. Native agent-process
-loss, reboot continuation and the full crash matrix remain pending. See
+SIGKILL and the complete crash/reboot fault matrix remain pending; actual reboot continuation is recorded below. See
 [recovery semantics](RECOVERY.md) and the dated worker recovery evidence.
 
 GitHub merge admission now evaluates live rules and checks without a repository
@@ -83,3 +82,20 @@ fresh bootstrap and strict TypeScript 6.0.3 throughout its affected workspaces.
 The real browser fixture uses that candidate with actual Registry and ingress
 images. It is an explicit manual candidate connection, not an installed signed
 Hive release. Shared Hive and Ardent checkouts remain isolated from this work.
+
+
+Native reboot continuation now has actual disposable proof after the original
+admission deadline, with the same operation, a subsequent kernel boot, preserved
+cancellation, released ownership and a separately bounded observation job. The
+observer cannot dispatch an unstarted campaign action. Concurrent stale native
+observations cannot overwrite terminal completion or ownership release.
+
+Artifact deployment now requires registered deployment/configuration binding,
+immutable artifact/source identity and matching non-model build evidence. A real
+controlled digest rollout completed through Magnus, followed by independent
+container/image inventory and live consumer authorization/health probes. Native
+inventory reconciles separate instances and historical artifact/host/agent links;
+unknown images and unsupported resources stay visible and never close findings.
+The controlled runtime outcome is verified while source remediation stays open.
+These locally built fixtures do not establish hosted build tracking, signed
+release provenance or the complete build/publication lifecycle.
