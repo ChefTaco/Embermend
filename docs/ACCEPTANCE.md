@@ -9,7 +9,7 @@ until all required journeys and failure cases have retained proof.
 | AC-01 | Required Magnus adapter, capability gating, degraded inspection | Pending |
 | AC-02 | Scoped entities, immutable identities, provenance, repository rename regression | Pending |
 | AC-03 | Versioned profiles; actual fixture hardening, recovery and recurrence on disposable guests | Partial fixture proof; broader hardening pending |
-| AC-04 | Actual Canonical OVAL/OpenSCAP assessment; supervised security update handlers | Assessment proof only; update/activation acceptance pending |
+| AC-04 | Actual vendor OVAL, security update and separately approved controlled-consumer activation | Partial; complete affected-consumer coverage and package fault cases pending |
 | AC-05 | Real model analysis through durable product jobs and a Magnus-enrolled rootless worker; three provider routes | Partial managed controlled-corpus proof; full journey pending |
 | AC-06 | Real candidates; isolated SQLite and ownership probes; two validated findings and a disputed abstract-store finding; partial-scan regressions | Partial controlled-corpus proof |
 | AC-07 | Application/source bindings and semantic anchors | Pending |
@@ -20,7 +20,7 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Actual worker/control crash proof and native reboot continuation after the original deadline; separate read-only observer retains the original operation | Partial; native SIGKILL and complete reboot fault matrix pending |
+| AC-15 | Actual worker/control crash proof, native agent SIGKILL during admitted preview and reboot continuation after the original deadline | Partial; detached native worker SIGKILL and complete reboot fault matrix pending |
 | AC-16 | Actual browser pause, disabled dispatch and separate resume; authorized fixture recovery proof | Partial; broader in-flight and recovery cases pending |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
@@ -185,3 +185,19 @@ Unpausing it restored fresh managed inventory and the fixed application's health
 the cross-owner request remained HTTP 403. Source work stayed open, and earlier
 runtime verification remained retained. This outage case does not establish
 in-flight offline recovery or native agent crash acceptance.
+
+The [native package evidence](acceptance/2026-11-10-native-package.json) records
+a fresh enrolled Ubuntu guest with a real vendor OVAL finding for zlib. A
+published and separately approved preview survived SIGKILL of the native agent
+daemon after its queued receipt. The restarted agent retained the original
+operation, which completed with released ownership. Native records retain one
+preview, one package application and one separately authorized consumer restart.
+
+Applying the exact security-pocket version changed the installed library while
+the healthy, unchanged consumer process still held the old copy. Its separate
+restart loaded the patched library. Fresh complete OVAL assessment stopped
+reporting that package advisory. Other host consumers remain unexamined, so the
+host occurrence deliberately stays affected. This proves installed-versus-running
+separation for the controlled consumer; it does not establish full host activation
+or the package lock, held package, dependency or interrupted-transaction matrix.
+The retained PostgreSQL restore again matches all 26 tables and history guards.

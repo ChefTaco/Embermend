@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "dateTimezone": "America/Chicago",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "scope": "One fresh Magnus-enrolled disposable Ubuntu 24.04 guest, configured before enrollment. Existing authentication and native supervision. Product permissions exercised through authoritative core actors; this is not another Oathweave browser authorization journey.",
+  "sources": {
+    "productRuntime": "1e78901d43e8a68ceeb9c795d9e43b34e5834ecd",
+    "magnusAgent": "13353369f62f22b8b16166523fcebf9bd0b2a172",
+    "magnusControl": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa",
+    "agentArchiveSha256": "8d1c4a5fd1892648d759b8b7e79242351bebe2d8dec85dbbdc92691a32e95e5e",
+    "contractsArchiveSha256": "c7a19c96ae18d96fd490e0c2b8f6811fc30b1a1626e0c0ea288ebdca633ec692"
+  },
+  "vendor": {
+    "cve": "CVE-2026-85091",
+    "package": "zlib1g",
+    "installedBefore": "1:1.3.dfsg-3.1ubuntu2.2",
+    "fixedVersion": "1:1.3.dfsg-3.1ubuntu2.3",
+    "references": [
+      "https://ubuntu.com/security/CVE-2026-85091",
+      "https://ubuntu.com/security/notices/USN-8954-1"
+    ],
+    "engine": "OpenSCAP",
+    "engineVersion": "OpenSCAP command line tool (oscap) 1.3.9",
+    "feed": {
+      "url": "https://security-metadata.canonical.com/oval/com.ubuntu.noble.usn.oval.xml.bz2",
+      "sha256": "da8001aa980c5ecc96252cd4887c73fcc969c024011a194a6f5fb2df82fc4d24",
+      "generatedAt": "2026-11-10T00:00:53.000Z"
+    },
+    "baselineCoverage": "complete",
+    "baselineFindingIdentity": "27469f02f20d8d0c7ced42aeb222d56d0d94315d2aee0efd6b7b016b126343cb",
+    "baselineEvidenceDigest": "0a91659253cdeeb9b12b4203b86519ea646bc6d83712cca0b23500eeb94cf897"
+  },
+  "phases": [
+    {
+      "actionVersion": "security-update-preview.v1",
+      "planId": "native9-security-preview-3d42731a-ed10-4b3b-abcb-0ff6eacf55ae",
+      "planRevision": 1,
+      "planDigest": "e32eb8fb1a03f79d0f6c6935ccd3ed259c93a4326081b26a3938bbca89557b9b",
+      "publicationId": "40de72f3-3d7b-4620-8e39-c09a15b4a7ee",
+      "publishedAt": "2026-11-11T03:49:24.467Z",
+      "approvedAt": "2026-11-11T03:49:24.476Z",
+      "operationId": "019e97ad-9d8b-40fb-b028-7e2c1bd87ec7",
+      "dispatchedAt": "2026-11-11T03:49:24.883Z",
+      "terminalState": "completed",
+      "ownershipReleased": true,
+      "receiptDigest": "c06a714d41546a25bbaacc62612bdb10d6d473bdcdab95a7568c45c900ccb8da"
+    },
+    {
+      "actionVersion": "security-update.v1",
+      "planId": "native9-security-apply-c02c7233-9b0b-4229-b406-0ded263ee040",
+      "planRevision": 1,
+      "planDigest": "7f66cdb27eb2634b67edc42b28d6aff54af1f776bdfc4e090ce77cd68b670ce5",
+      "publicationId": "c3ebcb5f-e6b4-4a15-9fba-dc39c4fbd5b7",
+      "publishedAt": "2026-11-11T03:50:19.946Z",
+      "approvedAt": "2026-11-11T03:50:19.954Z",
+      "operationId": "995ec624-071c-4cc2-a452-9a581e98c329",
+      "dispatchedAt": "2026-11-11T03:50:20.359Z",
+      "terminalState": "completed",
+      "ownershipReleased": true,
+      "receiptDigest": "1a1257d28cd306f3784cef31845e270afd4d62ac3a8993aeb6634100df0ecbe0"
+    },
+    {
+      "actionVersion": "restart-service.v1",
+      "planId": "native9-activate-consumer-2215f498-5182-4016-b454-8bdc9ebcbdc4",
+      "planRevision": 1,
+      "planDigest": "f60d8246a213306e0894ea2755fcd781c8d9d393430da63e9f18e37aef4deed4",
+      "publicationId": "ae2ca55a-0573-4510-a9ad-2310afb53b53",
+      "publishedAt": "2026-11-11T03:54:09.730Z",
+      "approvedAt": "2026-11-11T03:54:09.739Z",
+      "operationId": "7d683201-0605-43a7-95c2-bcbc82e16f99",
+      "dispatchedAt": "2026-11-11T03:54:10.499Z",
+      "terminalState": "completed",
+      "ownershipReleased": true,
+      "receiptDigest": "64969f4c0e29e4386d476513d4264e6b5b4d21ef782a0b7b38a7a32bd0cb45f4"
+    }
+  ],
+  "nativeAgentCrash": {
+    "cut": "Native receipt queued/running; SIGKILL only the admitted host agent daemon through private hypervisor test channel",
+    "retainedState": "queued",
+    "pidChanged": true,
+    "originalOperation": "019e97ad-9d8b-40fb-b028-7e2c1bd87ec7",
+    "completedOriginalOperation": true,
+    "ownershipReleased": true,
+    "faultBoundary": "Private hypervisor test channel permitted only exact native-agent PID reads and SIGKILL. Product runtime and repository workers cannot access it."
+  },
+  "packageUpdate": {
+    "previewDigest": "b0231efb9319dd0fa5f6134aa4351cf6bf51cc232eac2889788dc40088476ee6",
+    "onlySelectedPackage": true,
+    "allowDependencyChanges": false,
+    "allowServiceRestarts": true,
+    "installed": "zlib1g:amd64\t1:1.3.dfsg-3.1ubuntu2.3\n",
+    "activationVerification": "outstanding",
+    "rebootRequired": false,
+    "nativeOperationCount": 1
+  },
+  "consumerActivation": {
+    "loadedBefore": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+    "installedAfter": "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242",
+    "loadedAfterInstall": "86200da370f20476a2507e9097a789b5ef97269b4ca8d5e164ad82dab9d99892",
+    "processUnchangedAfterInstall": true,
+    "activationCurrentAfterInstall": false,
+    "separatelyApprovedRestart": true,
+    "loadedAfterRestart": "f61677c7bdb7c2aa2a243ea781bfd16afcb361cede7b4ef76127a9d8eb9a5242",
+    "activationCurrentAfterRestart": true,
+    "processChangedAfterRestart": true,
+    "consumerHealth": "healthy"
+  },
+  "verification": {
+    "freshVendorCoverage": "complete",
+    "updatedPackageAdvisoryAbsent": true,
+    "hostFindingRuntimeState": "affected",
+    "runtimeClosureClaimed": false,
+    "activationCoverage": "Only the approved controlled consumer was checked; other host package consumers remain unexamined",
+    "remainingHeldNativeLeases": 0
+  },
+  "restore": {
+    "dumpSha256": "bbcb9e29ff4ed2bc72eef9f9973f61ea68668cd06a7ddffc48ef91dfb11e926a",
+    "tables": 26,
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true,
+    "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required"
+  },
+  "limits": [
+    "This run proves a real vendor package update and activation of one controlled consumer; other host consumers remain unexamined, so the original host finding stays affected.",
+    "No vulnerability exploit or universal package activation coverage is claimed. Kernel, firmware, interrupted transactions, package locks, held packages and dependency changes need their own retained cases.",
+    "Native agent daemon SIGKILL was exercised after a queued receipt. Detached native worker SIGKILL and the complete reboot/cancellation fault matrix remain pending.",
+    "A separate bounded package-mapping inventory implementation is under development and was not deployed to this enrolled guest.",
+    "The configured private fault-injection channel is outside the product and cannot serve as an execution fallback.",
+    "No production host, policy, identity grant or signed Hive catalog changed; full acceptance and combined suite restore remain pending."
+  ]
+}

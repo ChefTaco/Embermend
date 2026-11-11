@@ -19,6 +19,12 @@ unestablished. Authorized build dispatch and publication remain outstanding.
 Real hosted reads, worker SIGKILL/restart recovery, existing authenticated
 operator reads and scoped refusals now have retained development evidence.
 
+Native package proof now includes a real Ubuntu security-pocket update, a native
+agent daemon SIGKILL during preview, and a separately authorized controlled
+consumer restart. The installed library and loaded process library were observed
+as different facts. Remaining host-consumer coverage keeps the host finding open;
+the complete package and native crash/reboot matrix remains outstanding.
+
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their
 release and combined acceptance remain pending. Selecting the product requires
