@@ -30,7 +30,7 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
           result = { originalJobId: original.id, observation: observed };
           await service.db.$transaction(async tx => {
             const lease = await tx.job.findUnique({ where: { id } }); if (lease?.status !== 'running' || lease.leaseOwner !== owner || !lease.leaseUntil || lease.leaseUntil <= new Date()) throw new DomainError('WORKER_LEASE_LOST');
-            await tx.job.updateMany({ where: { id: original.id, status: 'unknown' }, data: { status: 'completed', progress: 1, error: null } });
+            await tx.job.updateMany({ where: { id: original.id, status: 'unknown' }, data: { status: 'completed', progress: 1, error: null, ...(original.kind === 'build-observation' ? { result: json(observed) } : {}) } });
             await audit(tx, actor, 'job.original-observed', original.id, { observationJobId: id, status: 'completed' });
           });
         } catch (error) {
