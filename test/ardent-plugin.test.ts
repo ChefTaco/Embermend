@@ -11,6 +11,7 @@ test('the actual Ardent runtime preserves ingress prefixes and limits its OAuth 
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = String(input); calls.push({ url, body: typeof init?.body === 'string' ? init.body : init?.body instanceof URLSearchParams ? init.body.toString() : undefined, authorization: new Headers(init?.headers).get('authorization') });
     if (url.endsWith('/oauth/token')) return Response.json({ access_token: 'fixture-short-lived-resource', expires_in: 300, token_type: 'Bearer' });
+    if (url.includes('/campaigns/')) return Response.json({ reportId: 'fixture-report', generatedAt: new Date().toISOString(), campaign: { id: 'fixture-campaign', installationId: 'fixture-installation', paused: false, generation: 0, createdAt: new Date().toISOString() }, plans: [], exceptions: [] });
     return Response.json([]);
   });
   for (const prefix of ['', '/api/embermend', '/api/embermend/']) {
@@ -27,6 +28,8 @@ test('the actual Ardent runtime preserves ingress prefixes and limits its OAuth 
       assert.deepEqual(await runtime.tools.call('embermend_inventory', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { entities: [] } });
       assert.deepEqual(await runtime.tools.call('embermend_policies', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { policies: [] } });
       assert.deepEqual(await runtime.tools.call('embermend_builds', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { builds: [] } });
+      assert.deepEqual(await runtime.tools.call('embermend_exceptions', {}, 'direct', AbortSignal.timeout(5000)), { ok: true, value: { exceptions: [] } });
+      const report = await runtime.tools.call('embermend_campaign_report', { campaignId: 'fixture/campaign' }, 'direct', AbortSignal.timeout(5000)); assert.equal(report.ok, true); assert.equal(calls.at(-1)?.url, 'https://suite.example.com' + prefix.replace(/\/+$/, '') + '/api/v1/campaigns/fixture%2Fcampaign/report');
       assert.ok(runtime.tools.list('direct').every(tool => !/approve|policy_create|recover|exception_accept/.test(tool.name)));
     } finally { runtime.close(); await rm(dir, { recursive: true, force: true }); }
   }

@@ -169,6 +169,8 @@ export const recommendationSchema = z.object({
   campaign: z.object({ id, installationId: id, paused: z.boolean(), generation: z.number().int(), createdAt: timestamp }).nullable(),
 });
 export type Recommendation = z.infer<typeof recommendationSchema>;
+export const campaignReportSchema = z.object({ reportId: id, generatedAt: timestamp, campaign: recommendationSchema.shape.campaign.unwrap(), plans: z.array(z.object({ plan: planSchema, digest: sha256, status: id, publications: recommendationSchema.shape.publications, executions: z.array(z.object({ id, revision: z.number().int(), actionId: id, state: id, receipt: receiptSchema.nullable() })), findings: z.array(z.object({ finding: findingSchema, occurrences: z.array(occurrenceSchema), verifications: z.array(verificationSchema) })) })), exceptions: z.array(exceptionSchema) });
+export type CampaignReport = z.infer<typeof campaignReportSchema>;
 export const accessSchema = z.object({ actorId: id, kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema }).strict();
 export const sourceEditSchema = z.object({ path: id, beforeDigest: sha256.nullable(), content: z.string().max(1000000).nullable() }).strict();
 export const preparationSchema = z.object({

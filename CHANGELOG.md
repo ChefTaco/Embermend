@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Expose typed campaign reports and exception-expiry reads to Ardent without granting exception acceptance or other operator authority.
+
 - Publish independently reviewed OCI artifacts through a separate scoped decision, preserving platform and attestation digests; reconcile lost registry replies through reads without replaying writes.
 
 - Scope source findings and scanner evidence to their application independently of worker hosts, retaining versioned execution references so supported findings survive worker replacement without granting access to host evidence.

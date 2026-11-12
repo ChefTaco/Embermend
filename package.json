@@ -33,7 +33,7 @@
     "inference": "node services/runtime/dist/index.js inference"
   },
   "devDependencies": {
-    "@hivemagnus/ardent": "3.0.0",
+    "@hivemagnus/ardent": "3.1.2",
     "@types/node": "24.19.2",
     "@types/pg": "8.20.0",
     "jose": "6.2.13",
