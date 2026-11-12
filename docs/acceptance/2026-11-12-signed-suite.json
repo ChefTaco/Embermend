@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "release": "3.2.0",
+  "result": "passed",
+  "signedManifestSHA256": "273bed319f50a0c7c638872eb4a88445e4de33f33655b6fa0ae9aa745760a278",
+  "components": [
+    "hive-registry",
+    "oathweave",
+    "oathweave-redis",
+    "hivexui",
+    "ingress",
+    "magnus",
+    "magnus-postgres",
+    "magnus-redis",
+    "embermend",
+    "embermend-worker",
+    "embermend-postgres"
+  ],
+  "emptyScopeMagnusCompatible": true,
+  "noAssessmentTargetInvented": true,
+  "unauthenticatedDenied": true,
+  "scopedFixtureIngested": true,
+  "mutationPoliciesEnabled": 0,
+  "sharedApiWorkerSnapshotGroup": true,
+  "isolatedRehearsalPassed": true,
+  "sameHostRestorePassed": true,
+  "apiEntitiesEqual": true,
+  "existingInitializedMachineCredentialsPreserved": true,
+  "longestPauseSeconds": 0.771,
+  "date": "2026-11-12",
+  "suiteReleaseTag": "https://github.com/ChefTaco/hive/tree/v3.2.0",
+  "suiteSourceRevision": "b0e3545556cc78b1aef7e12d81f32751f22d46cc",
+  "scope": "Signed reference installation and restore; production deployment is recorded separately.",
+  "authenticatedBrowser": {
+    "sameInitializedOperator": true,
+    "recommendationsPageLoadedAfterRestore": true,
+    "adminRoleNotBlanketRejected": true,
+    "absenceOfFindingsNotCoverage": true
+  }
+}

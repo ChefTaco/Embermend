@@ -1,9 +1,10 @@
 # Implementation status
 
-Embermend is a development preview pending the compatible signed-suite installation
-and real-fleet assessment. The [acceptance ledger](ACCEPTANCE.md) records each
-AC-01–AC-24 demonstration and the remaining release gates. Production mutation
-policies remain disabled.
+Embermend 0.1.0 has passed all AC-01–AC-24 acceptance journeys in the supported
+reference environment, the signed-suite installation/restore, and authorized
+production inventory/assessment. The [acceptance ledger](ACCEPTANCE.md) and
+[production evidence](acceptance/2026-11-12-production-assessment.json) distinguish
+those scopes. Production mutation policies remain disabled.
 
 The authoritative core implements strict TypeScript 6.0.3 workspaces, PostgreSQL
 records, additive migrations, append-only audit history, scoped authorization,
@@ -14,8 +15,8 @@ occurrences, coverage, source/runtime verification, mitigation and exceptions re
 independent facts.
 
 Magnus owns enrollment, capabilities, privileged actions, supervised execution,
-resource ownership and signed receipts. The 2.5.0 prerequisite is merged and its
-publication is in progress after passing both supported Node CI/upgrade paths.
+resource ownership and signed receipts. The 2.5.0 prerequisite is published after
+passing both supported Node CI/upgrade paths.
 Actual reboot/cancellation/clock/crash/commit-cut tests preserve original identities.
 All five formerly held owners have separately authorized signed settlement; their
 historical outcomes remain unknown. Reviewed recovery restores original artifact
@@ -66,7 +67,7 @@ and runtime restrictions. All configured health checks pass in an internal
 namespace without published ports or fleet/provider access. Guest disks and
 external provider/CLI sign-ins are outside that controller backup scope.
 
-Oathweave 2.2.0 is published; the HiveXUI 0.3.0 integration is merged. Hive offers
+Oathweave 2.2.0, Magnus 2.5.0, HiveXUI 0.3.0 and Embermend 0.1.0 are published. Hive offers
 Embermend as an explicit optional selection with required Magnus 2.5 bridge
 admission, initialization, identity, ingress, Registry and shared API/worker image
 contracts. Candidate builds include its isolated scanner. Existing signed release
@@ -74,8 +75,23 @@ bytes are unchanged. Embermend's release workflow and [release guide](RELEASING.
 provide native multi-architecture image checks, vulnerability gates, immutable
 version indexes, SBOM/provenance, compatibility metadata and attested package assets.
 
-The next operational gates are prerequisite publication, a tested compatible signed
-Hive combination, installation/restore through that controller and authorized
-real-fleet inventory/assessment. Portfolio and website publication follows actual
-production rollout. Further platforms, broader assessment coverage and unsupported
-actions remain explicit coverage limits rather than implied capabilities.
+The signed Hive 3.2.0 reference combination passed actual installation,
+authentication, coordinated backup, isolated rehearsal and same-host restore.
+The production suite now uses signed Hive 3.2.2, with 13 healthy services and one
+explicit inventory/assessment canary. All three profiles completed again after the upgrade: Magnus posture
+and Compose posture have complete coverage of their declared checks; the Ubuntu
+baseline retains three unassessed checks. No vendor host-vulnerability coverage is
+claimed for that inventory-only grant. All 26 product tables, existing identity
+security fields and original assessment operations survive the upgrade and isolated
+restore. Native-controller and agent recovery archives are verified off host.
+
+A fresh image scan blocked the 3.2.1 release tag. The subsequent signed 3.2.2
+combination selects patched immutable PostgreSQL images and verifies the omitted
+initial datastore registration without rewriting historical release bytes. API and
+worker now load matching `read`, `evidence` and `assess` grants; temporary setup
+policy authority is removed. Operational observations and the optional proposal
+for future unattended token renewal are in [operations](OPERATIONS.md).
+
+Further platforms, broader assessment coverage and unsupported actions remain
+explicit coverage limits. Production automation requires a subsequent explicit
+policy; reference acceptance does not grant fleet-wide remediation authority.

@@ -48,3 +48,9 @@ ingress, Registry records, backup and isolated restore. Previous signed release
 bytes remain immutable. A production installation starts with empty target and
 application grants; inventory/assessment scope is added through reviewed setup.
 Production mutations require a subsequent explicit matching decision or policy.
+
+After profile setup, reduce runtime grants to the intended operating scope.
+Environment-file edits do not change an existing container's effective environment.
+Apply the owning installer's configuration change so it recreates the API and
+worker, then verify both loaded grants and the absence of enabled mutation policies.
+A container or host restart alone does not reload Compose environment-file values.
