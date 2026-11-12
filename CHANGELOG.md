@@ -40,10 +40,11 @@
 - Apply monorepo application scope before reading scanner files or spending source budgets; retain excluded, unsupported and unsafe filesystem entries as explicit coverage.
 
 - Add isolated Codex and Claude CLI inference brokers and approved network llama.cpp support, with exact model/version checks, source-disclosure permissions and bounded cancellation.
+- Require patched Node.js 24.22.3 or 26.13.1, update builder and CI pins, and upgrade Hono to 4.13.18 for bounded memory when requests arrive in tiny transfer chunks (GHSA-39q9-qp46-w8xg).
 
 - Preserve resource scope across identity reconciliation, policy/plan revisions and campaign membership; serialize finding IDs and require review when a match changes component or classification.
 
-- Consume the suite's released Ardent 3.0.0 plugin API and pinned Node 26.13.0 runtime image.
+- Consume the suite's released Ardent 3.0.0 plugin API and shared Node runtime image.
 
 - Establish strict TypeScript 6.0.3 workspaces, product contracts, PostgreSQL
   state, authorization, durable jobs, evidence, and verification boundaries.

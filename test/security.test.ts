@@ -34,6 +34,15 @@ test('offline, stale, unsupported, and container-scoped targets cannot receive h
   assertTarget(action, node);
   for (const modified of [{ ...node, lastSeenAt: '2020-01-01T00:00:00Z' }, { ...node, capabilities: [] }, { ...node, targetKind: 'container' as const }]) assert.throws(() => assertTarget(action, modified));
 });
+test('publication standing policy retains branch and application bounds for shared repository identity', () => {
+  const original = plan(); const first = original.actions[0]; assert.ok(first);
+  const repository = { id: 'fixture-repository', kind: 'repository' as const, scope: { ...scope, applicationIds: [], targetIds: [] }, label: 'Fixture repository', provenance: { source: 'fixture', assurance: 'established' as const, evidenceIds: [], observedAt: now() }, provider: 'github' as const, providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 };
+  const proposed = { ...original, canaryTargetId: repository.id, actions: [{ ...first, targetId: repository.id, targetKind: 'repository' as const, version: 'artifact-publish.v1', class: 'artifact-publish' as const, requiredCapabilities: ['embermend:artifact-publish.v1'], parameters: { artifactId: 'fixture-artifact', digest: hash, destinationId: 'fixture-registry' }, preconditions: { environment: 'lab', branch: 'main' }, expectedRevision: commit }] };
+  const allowed = { ...policy(), actionVersions: ['artifact-publish.v1'], actionClasses: ['artifact-publish' as const], branches: ['main'] };
+  assert.equal(policyCovers(allowed, proposed, [repository]), true);
+  assert.equal(policyCovers({ ...allowed, branches: ['other'] }, proposed, [repository]), false);
+  assert.equal(policyCovers({ ...allowed, scope: { ...scope, applicationIds: ['another-app'] } }, proposed, [repository]), false);
+});
 const verification = (): Verification => ({ id: 'fixture-verification', occurrenceId: 'fixture-occurrence', dimension: 'runtime', result: 'pass', method: 'permissions-check.v1', evidenceIds: ['fixture-evidence'], coverage: coverage(), revision: null, artifactDigest: hash, targetId: 'fixture-node', healthPassed: true, observedAt: now(), independent: true, consumerMigrationVerified: false });
 test('runtime closure requires deployed artifact, independent security reassessment, and health', () => {
   assert.throws(() => verifiedOccurrence({ ...finding(), kind: 'image' }, occurrence(), verification(), [evidence()]), /ARTIFACT_PROOF/);

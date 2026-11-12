@@ -12,7 +12,7 @@ There is no standalone host-management mode or direct SSH execution path.
 
 ## Develop
 
-Use Node.js 24.22.1 or a supported Node.js 26 release, npm, and PostgreSQL.
+Use Node.js 24.22.3+ on the 24.x line or 26.13.1+ on the 26.x line, npm, and PostgreSQL.
 Every workspace pins TypeScript **6.0.3** with strict typing,
 `noUncheckedIndexedAccess`, and `exactOptionalPropertyTypes`.
 

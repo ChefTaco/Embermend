@@ -83,11 +83,11 @@ export function policyCovers(policy: Policy, plan: Plan, targets: readonly Entit
     if (!policy.actionVersions?.includes(action.version) || !policy.actionClasses.includes(action.class) || !policy.disruptions.includes(action.disruption)) return false;
     const environment = action.preconditions['environment'];
     if (typeof environment !== 'string' || environment === 'unknown' || !policy.environments.includes(environment)) return false;
-    if (['repository-write', 'merge', 'prepare', 'build'].includes(action.class)) {
+    if (['repository-write', 'merge', 'prepare', 'build', 'artifact-publish'].includes(action.class)) {
       const branch = action.preconditions['branch']; if (typeof branch !== 'string' || !policy.branches.includes(branch)) return false;
     }
     if (policy.requireVerifiedRecovery && !verifiedRecoveryActions.has(action.id)) return false;
-    return targets.some(target => target.id === action.targetId && (target.kind === 'repository' ? target.scope.installationId === policy.scope.installationId && plan.scope.applicationIds.some(id => target.scope.applicationIds.includes(id)) : within(policy.scope, target.scope)) && (target.kind === 'target' || target.kind === 'repository') && (target.environment ?? 'unknown') === environment);
+    return targets.some(target => target.id === action.targetId && (target.kind === 'repository' ? target.scope.installationId === policy.scope.installationId && (target.scope.applicationIds.length === 0 || plan.scope.applicationIds.some(id => target.scope.applicationIds.includes(id))) : within(policy.scope, target.scope)) && (target.kind === 'target' || target.kind === 'repository') && (target.environment ?? 'unknown') === environment);
   });
 }
 export function assertTarget(action: Action, target: Entity, now = new Date()): void {
