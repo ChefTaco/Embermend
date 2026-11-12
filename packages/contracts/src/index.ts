@@ -222,7 +222,7 @@ export const AUDIT_EXPORT_PATH = '/api/v1/audit/export';
 export const AUDIT_READ_PERMISSION = 'embermend:audit:read';
 const auditScalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 export const hiveAuditRecordSchema = z.object({
-  id: z.string().min(1).max(256),
+  id: z.string().regex(/^(hivemem|hiveskills|ardentstudio|embermend):audit:[A-Za-z0-9._:-]{1,200}$/),
   product: z.enum(['hivemem', 'hiveskills', 'ardentstudio', 'embermend']),
   occurredAt: z.iso.datetime(),
   action: z.string().min(1).max(128).regex(/^[a-z0-9_]+(?:\.[a-z0-9_]+)+$/),

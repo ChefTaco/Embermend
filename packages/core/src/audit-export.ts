@@ -1,9 +1,9 @@
 import type { Page } from '@hivemagnus/hive-common/contracts';
-import { feedPage } from '@hivemagnus/hive-common/events';
 import { redact } from '@hivemagnus/hive-common/log';
 import { hiveAuditRecordSchema, type Actor, type HiveAuditRecord } from '@hivemagnus/embermend-contracts';
 import type { Database } from '@hivemagnus/embermend-store';
 import { DomainError } from './authorization.js';
+import { createHash } from 'node:crypto';
 import { decodeFeedPosition, encodeFeedPosition } from './hive-events.js';
 
 /**
@@ -21,6 +21,8 @@ export interface AuditExportOptions {
 /** Detail keys that carry operator-written text rather than identifiers. */
 const FREE_TEXT_KEYS = new Set(['impact', 'objective', 'reason', 'summary', 'content', 'message', 'prompt']);
 const MAX_DETAIL_STRING = 256;
+/** The native ID part of the shared HiveAuditRecord ID pattern; other IDs use a stable digest. */
+const NATIVE_ID = /^[A-Za-z0-9._:-]{1,200}$/;
 const MAX_DETAILS_BYTES = 4096;
 const SAFE_REASON = /^[A-Z][A-Z0-9_]{0,99}$/;
 const bytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value));
@@ -69,13 +71,14 @@ export function auditDetails(row: Pick<ExportedAuditRow, 'details' | 'installati
 
 export function auditRecord(row: ExportedAuditRow, resolve?: AuditExportOptions['actorKind']): HiveAuditRecord {
   const record = {
-    id: `embermend:audit:${row.id}`,
+    id: `embermend:audit:${NATIVE_ID.test(row.id) ? row.id : `h-${createHash('sha256').update(row.id).digest('hex')}`}`,
     product: 'embermend' as const,
     occurredAt: row.createdAt.toISOString(),
     action: auditAction(row.operation),
     outcome: outcome(row),
     actor: { type: actorType(row, resolve), id: row.actorId.slice(0, 256) },
-    target: { type: targetType(row.operation), id: row.subjectId.slice(0, 256) },
+    // Empty objects are omitted, never sent as {}.
+    target: { type: targetType(row.operation), ...(row.subjectId ? { id: row.subjectId.slice(0, 256) } : {}) },
     details: auditDetails(row),
   };
   return hiveAuditRecordSchema.parse(record);
@@ -98,8 +101,11 @@ export async function auditExport(db: Database, actor: Actor, options: AuditExpo
   const position = after ? new Date(after.occurredAt) : undefined;
   const rows: ExportedAuditRow[] = await db.audit.findMany({
     where: { ...(installationId === null ? {} : { installationId }), ...(after && position ? { OR: [{ createdAt: { gt: position } }, { createdAt: position, id: { gt: after.id } }] } : {}) },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: options.limit + 1,
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: options.limit,
   });
-  const page = feedPage(rows, options.limit, row => encodeFeedPosition({ occurredAt: row.createdAt.toISOString(), id: row.id }));
-  return { data: page.data.map(row => auditRecord(row, options.actorKind)), nextCursor: page.nextCursor };
+  const data = rows.slice(0, options.limit);
+  // The last record's cursor is returned even on the final page, so a collector resumes from it;
+  // null means nothing is newer than the cursor.
+  const last = data.at(-1);
+  return { data: data.map(row => auditRecord(row, options.actorKind)), nextCursor: last ? encodeFeedPosition({ occurredAt: last.createdAt.toISOString(), id: last.id }) : null };
 }

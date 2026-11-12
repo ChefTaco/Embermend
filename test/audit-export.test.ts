@@ -20,6 +20,10 @@ test('an audit row maps to a strict HiveAuditRecord with a stable ID', () => {
   assert.equal(hiveAuditRecordSchema.safeParse({ ...record, extra: true }).success, false);
   assert.equal(hiveAuditRecordSchema.safeParse({ ...record, details: { nested: { a: 1 } } }).success, false);
   assert.equal(hiveAuditPageSchema.safeParse({ data: [record], nextCursor: null }).success, true);
+  for (const id of ['other:audit:x', 'embermend:audit:', 'embermend:audit:has space', `embermend:audit:${'x'.repeat(201)}`]) assert.equal(hiveAuditRecordSchema.safeParse({ ...record, id }).success, false, id);
+  assert.match(auditRecord(row({ id: 'odd id/with spaces' })).id, /^embermend:audit:h-[a-f0-9]{64}$/);
+  assert.equal(hiveAuditRecordSchema.safeParse({ ...record, target: {} }).success, true);
+  assert.equal('subject' in record, false);
 });
 
 test('actions are dotted lowercase and actors, targets and outcomes follow the row', () => {

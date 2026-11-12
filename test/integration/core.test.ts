@@ -338,7 +338,10 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal(own.length, await db.audit.count({ where: { installationId: scope.installationId } })); assert.ok(own.every(record => record.details['installationId'] === scope.installationId));
     const defaults = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export', 'collector')).json()); assert.equal(defaults.data.length, Math.min(100, total));
     const clamped = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export?limit=5000', 'collector')).json()); assert.equal(clamped.data.length, Math.min(200, total));
-    const tail = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export?limit=200', 'collector')).json()); assert.equal(tail.nextCursor, null);
+    const tail = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export?limit=200', 'collector')).json()); assert.equal(tail.data.length, total); assert.ok(tail.nextCursor);
+    const caughtUp = hiveAuditPageSchema.parse(await (await get(`/api/v1/audit/export?after=${tail.nextCursor}`, 'collector')).json()); assert.deepEqual(caughtUp, { data: [], nextCursor: null });
+    await db.audit.create({ data: { id: 'later-row', actorId: 'fixture-operator', actorKind: 'operator', operation: 'campaign.paused', subjectId: 'fixture-campaign', installationId: scope.installationId, details: {}, createdAt: new Date() } });
+    const resumed = hiveAuditPageSchema.parse(await (await get(`/api/v1/audit/export?after=${tail.nextCursor}`, 'collector')).json()); assert.deepEqual(resumed.data.map(record => record.id), ['embermend:audit:later-row']); assert.ok(resumed.nextCursor);
   });
 
   await t.test('a transient unknown receipt is observed under its original operation without another dispatch', async () => {

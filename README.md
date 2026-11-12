@@ -112,6 +112,15 @@ A collector grant looks like
 `{"subject":"<collector client id>","kind":"integration","permissions":["audit:read"],"scope":{"installationId":"<installation>","applicationIds":[],"targetIds":[]}}`
 in `EMBERMEND_IDENTITY_GRANTS`; its Oathweave client needs the
 `embermend:audit:read` permission and the `embermend` audience.
+Each page's `nextCursor` is the cursor of its last record, even on the final
+page; it is `null` only when `data` is empty (caught up), so a collector keeps
+its last non-null cursor and polls it again. `target` and `subject` are omitted
+when empty. Oathweave signs client-credentials tokens with its native issuer by
+default: set the optional comma-separated `OATHWEAVE_NATIVE_ISSUERS` (for
+example Oathweave's `JWT_ISSUER`, such as `hive-iam`) to accept them. A
+native-issuer token is accepted for service grants only, verified with the
+hive-common Oathweave verifier against `OATHWEAVE_JWKS_URL`, and carries no
+permission but `audit:read`, so it can use this route and nothing else.
 
 The Ardent plugin is `@hivemagnus/embermend-ardent-plugin`. Configure
 `EMBERMEND_URL` and a scoped `EMBERMEND_TOKEN` in the managed coordinator's

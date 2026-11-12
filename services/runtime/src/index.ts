@@ -3,6 +3,7 @@ import { createInferenceBroker } from './inference.js';
 import { serve } from '@hono/node-server';
 import { database } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
+import { nativeIssuersFromEnv, withNativeIssuerServiceTokens } from './native-issuer.js';
 import { MagnusClient, oathweaveAuthenticator, grantsSchema, GitHubClient, OciRegistryPublisher } from '@hivemagnus/embermend-integrations';
 import { z } from 'zod';
 import { createApi } from './api.js';
@@ -32,7 +33,7 @@ if (process.argv[1]?.endsWith('/index.js')) {
     const publisher = publicationConfig ? new OciRegistryPublisher(JSON.parse(await readFile(publicationConfig, 'utf8')), process.env) : undefined;
     const service = new Embermend(db, magnus, github, publisher);
     const grants = grantsSchema.parse(JSON.parse(env.EMBERMEND_IDENTITY_GRANTS));
-    const authenticate = oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants });
+    const authenticate = withNativeIssuerServiceTokens(oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants }), { issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, nativeIssuers: nativeIssuersFromEnv(process.env['OATHWEAVE_NATIVE_ISSUERS']), grants });
     const stop = new AbortController();
     if (process.argv[2] === 'worker') {
       process.once('SIGTERM', () => stop.abort()); process.once('SIGINT', () => stop.abort());
