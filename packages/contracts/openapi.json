@@ -1189,6 +1189,11 @@
                                         "minLength": 1,
                                         "maxLength": 200
                                       },
+                                      "magnusResourceId": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                      },
                                       "environment": {
                                         "type": "string",
                                         "minLength": 1,
@@ -2785,6 +2790,11 @@
                             "minLength": 1,
                             "maxLength": 200
                           },
+                          "magnusResourceId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
                           "environment": {
                             "type": "string",
                             "minLength": 1,
@@ -4188,6 +4198,11 @@
                         "minLength": 1,
                         "maxLength": 200
                       },
+                      "magnusResourceId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
                       "environment": {
                         "type": "string",
                         "minLength": 1,
@@ -5565,6 +5580,11 @@
                           "const": "deployment"
                         },
                         "applicationId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "magnusResourceId": {
                           "type": "string",
                           "minLength": 1,
                           "maxLength": 200
@@ -15888,6 +15908,11 @@
                                 "const": "deployment"
                               },
                               "applicationId": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "magnusResourceId": {
                                 "type": "string",
                                 "minLength": 1,
                                 "maxLength": 200

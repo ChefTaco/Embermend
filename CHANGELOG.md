@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bind globally distinct deployment records to Magnus resources within the exact target namespace, preserving native identifiers and refusing ambiguous mappings before rollout.
+
 - Yield deliberate canary-verification waits durably so a single worker can run independent assessments, then resume the same campaign job without extending its deadline or replaying admitted actions.
 
 - Keep staged campaigns waiting for independent canary verification within their original deadline, rechecking authorization and pause before the next action.

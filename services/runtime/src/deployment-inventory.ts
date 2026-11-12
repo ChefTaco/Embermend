@@ -12,7 +12,7 @@ export async function reconcileDeploymentInventory(service: Embermend, actor: Ac
   const snapshots = [];
   for (const deployment of entities) {
     if (deployment.kind !== 'deployment' || !deployment.targetIds.includes(target.id)) continue;
-    const parsed = resourceSchema.safeParse(resources.success ? resources.data[deployment.id] : undefined); const instances = []; const artifactIds = new Set<string>(); let unknown = 0;
+    const parsed = resourceSchema.safeParse(resources.success ? resources.data[deployment.magnusResourceId ?? deployment.id] : undefined); const instances = []; const artifactIds = new Set<string>(); let unknown = 0;
     const capturedAt = parsed.success ? parsed.data.observedAt : evidence.observedAt;
     const applicable = parsed.success && parsed.data.configurationDigest === deployment.configurationDigest && Date.parse(capturedAt) <= Date.now() + 120000;
     if (parsed.success && applicable) {

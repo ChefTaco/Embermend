@@ -236,7 +236,7 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const proposed = await service.propose(actor, deployPlan); await service.publish(actor, proposed.id, 1); await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: deployPlan.expiresAt });
     await assert.rejects(service.dispatch(actor, proposed.id, original.id), /DEPLOYMENT_BINDING/);
     const base = { scope, label: 'Fixture', provenance: { source: 'fixture-review', assurance: 'established', evidenceIds: [], observedAt: now() } };
-    await service.entity(operator, { ...base, id: 'fixture-deployment', kind: 'deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: [], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
+    await service.entity(operator, { ...base, id: 'fixture-product-deployment', kind: 'deployment', magnusResourceId: 'fixture-deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: [], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
     await assert.rejects(service.dispatch(actor, proposed.id, original.id), /ARTIFACT_PROVENANCE/);
     const artifact = { ...base, id: 'fixture-artifact', kind: 'artifact', digest: 'a'.repeat(64), sourceRevisionIds: ['fixture-source'], buildRunId: null, image: 'registry.example.com/fixture/app@sha256:' + 'a'.repeat(64) };
     await service.entity(operator, artifact); await assert.rejects(service.dispatch(actor, proposed.id, original.id), /SOURCE_REVISION/);
@@ -246,7 +246,12 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.entity(operator, { ...artifact, provenance: { ...base.provenance, evidenceIds: ['fixture-build-proof'] } });
     await assert.rejects(service.entity(operator, { ...source, commit: 'e'.repeat(40) }), /IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY/);
     await assert.rejects(service.entity(operator, { ...artifact, sourceRevisionIds: ['replacement-source'] }), /IMMUTABLE_ARTIFACT_OR_SOURCE_IDENTITY/);
+    const otherScope = { ...scope, targetIds: ['fixture-other'] }; const broad = { ...operator, scope: { ...scope, targetIds: ['fixture-node', 'fixture-other'] } };
+    await service.entity(broad, { ...base, scope: otherScope, id: 'fixture-other-deployment', kind: 'deployment', magnusResourceId: 'fixture-deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: [], targetIds: ['fixture-other'], configurationDigest: 'b'.repeat(64) });
     assert.equal(magnus.requests.length, 0); await service.dispatch(actor, proposed.id, original.id); assert.equal(magnus.requests.length, 1);
+    await service.entity(operator, { ...base, id: 'fixture-ambiguous-deployment', kind: 'deployment', magnusResourceId: 'fixture-deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: [], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
+    const next = { ...deployPlan, id: 'ambiguous-deploy-plan', campaignId: 'ambiguous-deploy-campaign' }; const admitted = await service.propose(actor, next); await service.publish(actor, next.id, 1); await service.decide(operator, { planId: next.id, revision: 1, digest: admitted.digest, decision: 'approve', expiresAt: next.expiresAt });
+    await assert.rejects(service.dispatch(actor, next.id, original.id), /DEPLOYMENT_BINDING/); assert.equal(magnus.requests.length, 1);
   });
   await t.test('independent Compose inventory preserves replaced instances and unknown coverage without closing security work', async () => {
     const { service } = await reset(); const observedAt = new Date(Date.now() - 5000).toISOString(); const provenance = { source: 'fixture', assurance: 'established', evidenceIds: [], observedAt };
@@ -254,7 +259,7 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.entity(operator, { ...base, id: 'fixture-agent', kind: 'management-agent', magnusInstallationId: 'fixture-magnus', magnusAgentId: 'fixture-native-agent', targetIds: ['fixture-node'], capabilities: [], version: 'fixture', lifecycle: 'active' });
     const image = (value: string) => 'registry.example.com/fixture/app@sha256:' + value.repeat(64);
     for (const value of ['a', 'd']) await service.entity(operator, { ...base, id: 'fixture-artifact-' + value, kind: 'artifact', digest: value.repeat(64), image: image(value), sourceRevisionIds: [], buildRunId: null });
-    await service.entity(operator, { ...base, id: 'fixture-deployment', kind: 'deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: ['fixture-artifact-a'], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
+    await service.entity(operator, { ...base, id: 'fixture-product-deployment', kind: 'deployment', magnusResourceId: 'fixture-deployment', applicationId: 'fixture-app', environment: 'lab', artifactIds: ['fixture-artifact-a'], targetIds: ['fixture-node'], configurationDigest: 'b'.repeat(64) });
     const inventory = async (id: string, value: string, timestamp: string, configurationDigest = 'b'.repeat(64)) => {
       await service.evidence(operator, { ...evidence(), id, observedAt: timestamp, source: 'magnus', content: { resources: { 'fixture-deployment': { configurationDigest, beforeDigest: 'c'.repeat(64), observedAt: timestamp, instances: [{ id: value.repeat(64), imageId: 'sha256:' + 'e'.repeat(64), imageRef: image(value), status: 'running', running: true, health: 'healthy', startedAt: timestamp, service: 'web', project: 'fixture' }] } } } });
       return service.readEvidence(operator, id);
@@ -263,10 +268,10 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 1); assert.equal(await db.relationship.count(), 4);
     const after = await inventory('fixture-after', 'd', new Date(Date.now() + 1000).toISOString()); await reconcileDeploymentInventory(service, operator, after);
     assert.equal(await db.entity.count({ where: { kind: 'container-instance' } }), 2); await reconcileDeploymentInventory(service, operator, first);
-    const deployment = (await service.entities(operator)).find(row => row.id === 'fixture-deployment'); assert.equal(deployment?.kind, 'deployment'); if (deployment?.kind === 'deployment') assert.deepEqual(deployment.artifactIds, ['fixture-artifact-d']);
+    const deployment = (await service.entities(operator)).find(row => row.id === 'fixture-product-deployment'); assert.equal(deployment?.kind, 'deployment'); if (deployment?.kind === 'deployment') assert.deepEqual(deployment.artifactIds, ['fixture-artifact-d']);
     await service.evidence(operator, { ...first, id: 'fixture-delayed-old', observedAt: new Date(Date.now() + 3000).toISOString() });
     await reconcileDeploymentInventory(service, operator, await service.readEvidence(operator, 'fixture-delayed-old'));
-    const delayed = (await service.entities(operator)).find(row => row.id === 'fixture-deployment'); if (delayed?.kind === 'deployment') assert.deepEqual(delayed.artifactIds, ['fixture-artifact-d']);
+    const delayed = (await service.entities(operator)).find(row => row.id === 'fixture-product-deployment'); if (delayed?.kind === 'deployment') assert.deepEqual(delayed.artifactIds, ['fixture-artifact-d']);
     const links = await service.records.relationships(operator); assert.equal(links.length, 8); assert.ok(links.some(link => link.provenance.evidenceIds.includes('fixture-before'))); assert.ok(links.every(link => !link.provenance.evidenceIds.includes('fixture-delayed-old')));
     assert.equal(await db.observation.count({ where: { source: 'relationship-evidence' } }), 4);
     const unknown = await inventory('fixture-unknown', 'f', new Date(Date.now() + 2000).toISOString()); assert.match(JSON.stringify(await reconcileDeploymentInventory(service, operator, unknown)), /partial/);

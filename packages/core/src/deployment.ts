@@ -7,9 +7,11 @@ export async function admitDeployment(tx: Transaction, plan: Plan, action: Actio
   if (action.version !== 'compose-deploy.v1') return;
   const deploymentId = action.parameters['deploymentId']; const artifactDigest = action.parameters['artifactDigest'];
   if (typeof deploymentId !== 'string' || typeof artifactDigest !== 'string') throw new DomainError('DEPLOYMENT_PARAMETERS_REQUIRED');
-  const row = await tx.entity.findUnique({ where: { id: deploymentId } });
-  const deployment = row ? entitySchema.parse(row.data) : null;
-  if (!deployment || deployment.kind !== 'deployment' || !within(plan.scope, deployment.scope) || !deployment.targetIds.includes(action.targetId) || deployment.configurationDigest !== action.parameters['configurationDigest']) throw new DomainError('DEPLOYMENT_BINDING_OR_CONFIGURATION_CHANGED');
+  // The native resource ID is local to the exact managed target. Product
+  // deployment IDs remain global identities, independent of that locator.
+  const bindings = (await tx.entity.findMany({ where: { kind: 'deployment', installationId: plan.scope.installationId } })).map(row => entitySchema.parse(row.data)).filter(entity => entity.kind === 'deployment' && (entity.magnusResourceId ?? entity.id) === deploymentId && entity.targetIds.includes(action.targetId));
+  const deployment = bindings[0];
+  if (bindings.length !== 1 || !deployment || deployment.kind !== 'deployment' || !within(plan.scope, deployment.scope) || deployment.configurationDigest !== action.parameters['configurationDigest']) throw new DomainError('DEPLOYMENT_BINDING_OR_CONFIGURATION_CHANGED');
   const artifactRow = await tx.entity.findUnique({ where: { stableKey: `artifact:${plan.scope.installationId}:${artifactDigest}` } });
   const artifact = artifactRow ? entitySchema.parse(artifactRow.data) : null;
   if (!artifact || artifact.kind !== 'artifact' || !within(plan.scope, artifact.scope) || artifact.digest !== artifactDigest || !artifact.image?.endsWith('@sha256:' + artifactDigest) || artifact.provenance.assurance !== 'established' || !artifact.sourceRevisionIds.length) throw new DomainError('ESTABLISHED_ARTIFACT_PROVENANCE_REQUIRED');
