@@ -16,6 +16,14 @@ available at its original ID. Concurrent requests share an active observation
 job; a later explicit request can create another bounded observation attempt.
 Its five-minute deadline does not extend the original execution deadline.
 
+Dispatching a recovery change is separate from observation. It requires scoped
+`execute` and `recover` permissions, operator kind, a published exact recovery
+plan and a separate current approval. Approval or ordinary execution permission
+alone cannot dispatch recovery, and a coordinator cannot grant itself operator
+authority. OAuth client ceilings, issued permissions and the application grant
+all constrain access; an administrative role label is not a wildcard. Missing
+permission does not by itself require replacement credentials.
+
 The observer uses an already retained completed, ownership-released receipt or
 receipt reads only. It does not request fresh capabilities,
 reconstruct a request, retry dispatch, clear cancellation, or admit previously
@@ -47,8 +55,8 @@ and can reopen work while preserving historical verification.
 
 Older incomplete ledgers may lack sufficient identity or target metadata.
 They remain unknown rather than receiving invented completion evidence. Any new
-assessment uses normal admission and a fresh operation identity. Native reboot
-continuation and complete remote cancellation remain separate acceptance work.
+assessment uses normal admission and a fresh operation identity. Complete
+cross-action recovery and remote cancellation remain separate acceptance work.
 
 Recommendation responses retain the durable jobs for their current plan revision,
 including queued, running, failed and unknown work. Reading a job uses its request

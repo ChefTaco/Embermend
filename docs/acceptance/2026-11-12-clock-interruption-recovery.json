@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "date": "2026-11-12",
+  "dateTimezone": "Etc/UTC",
+  "status": "bounded-live-disposable-proof",
+  "recordedAt": "2026-11-12T00:07:39.347Z",
+  "agentSource": "4a96834258d33d8505ae4e716ce5e1d659e9ace2",
+  "runtimeSource": "fa8f2b5b338f9552a09c7e24d4f126c975245bcc",
+  "runtimeImage": "sha256:4609af384945e60323437790a79a112cab0b2966c3aad232f95abb9ba27c7954",
+  "typescript": "6.0.3",
+  "strict": true,
+  "existingAuthentication": true,
+  "backwardClock": {
+    "offsetSeconds": -600,
+    "expiredJob": "unknown",
+    "originalDeadline": "2026-11-11T23:48:40.899Z",
+    "finalDeadline": "2026-11-11T23:48:40.899Z",
+    "finalJob": "completed",
+    "originalOperationId": "5fe9ce4a-94f3-44e6-be0a-da2fadfacbff",
+    "executionCount": 1,
+    "clockAndTimeSyncRestored": true,
+    "recoveredByOriginalTrustedShutdownAndBoot": true,
+    "shutdownProofDigest": "be4dbc414ec4aada933d1ccc801905243a3e96d07f7e3e00fea2a06c3be4eaa0",
+    "findingsUnchanged": true
+  },
+  "interruptionCuts": {
+    "productReceiptCommit": {
+      "jobId": "155685bc-53d2-4e2d-a9a1-bd28f5639949",
+      "originalOperationId": "a3889a07901dba6d03f169e27b5c9ce433cb5ed84939bedc7f458c25da562b0a",
+      "expiredOriginal": "unknown",
+      "final": "completed",
+      "faultRemoved": true,
+      "nativeCommands": 1
+    },
+    "postIngestionResultCommit": {
+      "jobId": "6f72170b-c75d-441a-87a1-cbab5e2f4568",
+      "originalOperationId": "90f7f61df05c381b6b48112418088e5d1711edf2f393ad3d55d320cdbfbc93b5",
+      "originalFailure": "IMMUTABLE_EVIDENCE_CONFLICT",
+      "final": "completed",
+      "nativeCommands": 1,
+      "retainedTerminalReceiptReused": true,
+      "originalEvidenceUnchanged": true,
+      "legacyEnvelopeRecovery": true
+    },
+    "queuedClaimCommit": {
+      "jobId": "dc6d03c2-fc9d-48d8-aa8c-96c88663d3c7",
+      "originalOperationId": "ed6ed7269a28a5506864b61597b6f07d675d97f66be42326f3a39733273b4866",
+      "final": "failed",
+      "notDispatched": true,
+      "nativeCommands": 0,
+      "nativeLeases": 0,
+      "operationReservations": 1,
+      "faultRemoved": true
+    }
+  },
+  "authorizedRecovery": {
+    "originalOperationId": "3fd6af24-101a-4f31-9add-0e1df9081a58",
+    "recoveryOperationId": "8e179048-1024-478c-b835-bb2fa4801605",
+    "originalMode": "0600",
+    "temporaryMode": "0640",
+    "finalMode": "0600",
+    "separatePublishedPlansAndDecisions": true,
+    "executeWithoutRecoverRefused": true,
+    "coordinatorRefused": true,
+    "coordinatorClaimingRecoverRefused": true,
+    "missingNewApprovalRefused": true,
+    "approvedStalePreconditionRefused": true,
+    "staleAttemptOwnershipReleased": true,
+    "staleOriginalJob": "failed",
+    "exactOriginalArtifactAndInodeBound": true,
+    "independentInventoryPassed": true,
+    "consumerHealthyWithSameProcess": true,
+    "independentModeVerification": "pass",
+    "verificationBoundToApprovedAction": true,
+    "packageFindingClosed": false
+  },
+  "authentication": {
+    "sameNativeServiceCredential": true,
+    "newIdentityCreated": false,
+    "productionOrBrowserGrantsChanged": false,
+    "coordinatorTokenRequest": "Requested read and recover; issued and verified read only",
+    "positiveRecoverySurface": "Scoped reviewed authoritative-core fixture actors with existing native service authentication",
+    "browserRecoveryJourneyProven": false
+  },
+  "regressions": {
+    "unitTests": 53,
+    "postgresqlIntegrationTests": 47,
+    "immutableEvidenceGuardPreserved": true,
+    "changedCachedRequestRejected": true,
+    "changedLegacyContentRejected": true,
+    "terminalReleasedReceiptRequired": true
+  },
+  "proofDigests": {
+    "clock": "f2ab256e02313a46fab7e62ca3ac3ebdd7b8ceb4dc94e61d733ad058aff58f32",
+    "receiptCut": "d317c584723d120657ef411ad3f87add94caf7c9a5150c5c888162fa9e81eb3d",
+    "resultCut": "f9bf2388ad56971fb475d7abaa5e0cfb24c9ec9585c79048d360019f9073552d",
+    "queueCut": "43de5ca098fb945af8396bd1307013ac79abb85b5ef393cc477f22371c2e6d63",
+    "recovery": "bd4f7a9b82e22b46bea34097744d3be639d0dc77f297caf970ac0fbe1c5815f4",
+    "boundVerification": "b121b816a49cc171fac16dc8642807710e4ddbea8b3bf6222c3c947a7ce16d33",
+    "nativeCounts": "f96281a623b299dedcf85d89cbcdcdd17f4589a113ca3edca1d6c31b73fc38a9"
+  },
+  "limits": [
+    "This tests fresh disposable hosts and bounded controlled faults, not complete AC-01–AC-24 or production acceptance.",
+    "The backward-clock job expired according to the controller clock. After clock correction, its original owned shutdown and bounded boot evidence established completion; no new reboot or extended approval was submitted.",
+    "A second identical disposable worker allowed the independent interruption test to run while the clock job was already claimed. It was stopped and retained before deploying the fix.",
+    "The live post-ingestion cut exposed immutable-evidence conflicts. A first fix prevented new envelope changes; the already-stranded original required recovery using the existing immutable evidence timestamp. Both failed observations remain retained; no native operation or fault was repeated.",
+    "Temporary database triggers rejected specific commits and were removed. No stored receipt, evidence, history, grant or lease was manually rewritten.",
+    "The first positive recovery proof used an unbound verification ID. The same independent evidence was subsequently recorded under the ID already required by the approved action, preserving the earlier record without repeating a native effect.",
+    "The temporary mode exercise is not an OS-package repair. Its package finding remains open; only the separate mode occurrence received independent verification.",
+    "Existing browser client and application grants do not include recover. Positive fixture authority is not a new browser recovery journey. The existing identity can be retained if scoped recovery permissions are separately configured; no new credentials or broader grants were created.",
+    "The five earlier uncertain native operations remain held. Recovery of those unknown owners and other action classes, remaining interruption cuts, and the signed product release still need separate acceptance."
+  ]
+}

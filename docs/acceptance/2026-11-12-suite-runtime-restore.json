@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "date": "2026-11-12",
+  "dateTimezone": "Etc/UTC",
+  "status": "bounded-combined-controller-suite-rehearsal",
+  "recordedAt": "2026-11-12T00:05:05.733Z",
+  "sourceProduct": "fa8f2b5b338f9552a09c7e24d4f126c975245bcc",
+  "runtimeImage": "sha256:4609af384945e60323437790a79a112cab0b2966c3aad232f95abb9ba27c7954",
+  "sourceControl": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa",
+  "typescript": "6.0.3",
+  "strict": true,
+  "existingAuthentication": true,
+  "backup": {
+    "coldWriterQuiescence": true,
+    "sourceServicesRestarted": true,
+    "imagesExportedAndLoaded": 8,
+    "existingCredentialsTlsConfigurationAndRuntimeRetained": true
+  },
+  "restored": {
+    "postgresTablesExactBeforeStartup": {
+      "embermend": 26,
+      "magnus": 112
+    },
+    "sqliteStores": 2,
+    "sqliteBytesIntegrityAndForeignKeysVerified": true,
+    "redis": {
+      "lab-redis": {
+        "captured": 0,
+        "unexpiredValuesAndDeadlinesMatched": 0,
+        "expiredNaturally": 0
+      },
+      "browser-redis": {
+        "captured": 105,
+        "unexpiredValuesAndDeadlinesMatched": 104,
+        "expiredNaturally": 1
+      }
+    },
+    "logicalValuesAndAbsoluteExpiriesVerifiedBeforeWriters": true,
+    "services": 10,
+    "runtimeConstraintsCompared": [
+      "user",
+      "privileged",
+      "readOnlyRoot",
+      "capabilities",
+      "securityOptions",
+      "memoryAndSwap",
+      "cpu",
+      "pids",
+      "sharedMemory",
+      "ulimits",
+      "tmpfs",
+      "restartPolicy",
+      "healthCheckCommandAndTiming"
+    ],
+    "runtimeConstraintsMatch": true,
+    "configuredHealthChecks": 5,
+    "allConfiguredHealthChecksHealthy": true,
+    "allMountsUseRestoredFiles": true,
+    "networkInternal": true,
+    "publishedPorts": false,
+    "sourceStateMounted": false,
+    "existingClientTokenExchange": true,
+    "findingsRecommendationsAndRegistryMatch": true,
+    "uiStatus": 200,
+    "unauthenticatedStatus": 401,
+    "historyGuardVerified": true,
+    "heldUnknownNativeLeases": 5,
+    "queuedOrRunningJobs": 0,
+    "standingMutationPolicies": 0
+  },
+  "sourceAfterRehearsal": {
+    "sameApiWorkerImage": true,
+    "freshEnrolledFixtures": 10,
+    "readiness": "ready",
+    "uiStatus": 200,
+    "queuedOrRunningJobs": 0,
+    "standingMutationPolicies": 0
+  },
+  "correction": {
+    "earlierEvidence": "2026-11-11-combined-suite-restore.json",
+    "earlierStoreAndAuthenticationProofRemainsValid": true,
+    "omittedRuntimeOverrides": "The earlier harness omitted container health-check overrides and runtime constraints. Its ingress used the image default probe rather than the captured port and became unhealthy despite successful HTTP checks.",
+    "fixedBy": "A fresh restore preserves and compares captured runtime constraints and all configured health checks; prior clones are stopped and retained.",
+    "sourceInstallationChangedByHarnessCorrection": false
+  },
+  "proofDigests": {
+    "backupFileManifest": "db7f409bd4e4e702c6b46c5f71e150ee40f124353ffc28cf5c1c91b1973f1025",
+    "postgres": "f8d26563d1066423188ad355342056d2f46039f56e6ee0689b6f772fb8c29a4a",
+    "redis": "87af48b34c32f4b5e201885d686f04c560b056f3dc041c93c75161b1c64ce6a8",
+    "runtimeConstraints": "414fd5b1bbb7a8867686faf95a30d551be5320046c8b495e0cade015ee3c2838",
+    "runtimeEvidence": "3fd9a653348f8e6c71977e7fe520d9e3e908c4d976252a5f5df58f4a3ebe084f"
+  },
+  "limits": [
+    "The configured lab controller suite is restored. Managed guest disks, external provider access and CLI sign-in stores remain outside this isolated rehearsal.",
+    "Network isolation and controller database/Redis listener placement intentionally differ from source; application users, security/resource constraints, health overrides and restored mounts are compared.",
+    "The restored Magnus control runtime remains the retained preview build. This is not acceptance of a signed latest-component release combination.",
+    "All five earlier uncertain native operations remain held. No new recovery authority, standing policy or production mutation grant was configured.",
+    "Remaining interruption points, other recovery classes, browser recovery permission configuration and complete AC-01–AC-24 evidence still gate production."
+  ]
+}

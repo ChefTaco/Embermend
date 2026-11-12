@@ -44,7 +44,7 @@ including across control restart. Reboot adoption now requires exact trusted
 previous-boot shutdown proof. Campaign-job cancellation, deadlines, lease ownership
 and immutable binding are rechecked transactionally before native and provider
 effects; a delayed heartbeat cannot authorize new work. The current product
-passes 53 unit and 43 PostgreSQL tests. Complete fault coverage remains pending.
+passes 53 unit and 47 PostgreSQL tests. Complete fault coverage remains pending.
 
 A separate fresh guest now retains actual detached native supervisor SIGKILL
 proof during vendor assessment. Missing owner completion evidence keeps the
@@ -62,6 +62,20 @@ candidates remain unchanged after owner loss. Further
 loss through original expiry, failed first terminal-result persistence, power
 loss before shutdown and a forward clock step. All preserve original identities.
 
+[Further acceptance](acceptance/2026-11-12-clock-interruption-recovery.json)
+now covers backward clock steps, failed control queue claims, product receipt
+commits and post-ingestion result checkpoints. The latter exposed a recovery bug:
+a new receipt envelope could conflict with already-ingested immutable evidence.
+The deployed fix reuses retained completed receipts and original evidence time,
+while preserving full content, scope and request-binding checks. Live recovery
+completed the same interrupted operation without another dispatch.
+
+A separately approved configuration recovery now restores the exact original
+inode mode, refuses ordinary/coordinator authority and stale preconditions, and
+passes independent mode and consumer-health verification. It uses reviewed scoped
+core actors with existing native service authentication; browser recovery
+permissions and the five earlier uncertain owners remain unchanged.
+
 A [combined controller-suite restore](acceptance/2026-11-11-combined-suite-restore.json)
 now restores both PostgreSQL databases, Oathweave and Registry SQLite, both Redis
 stores, existing credentials, TLS, configuration and runtime artifacts into an
@@ -71,6 +85,11 @@ writers start. Existing authentication serves matching findings, recommendations
 and Registry data, with five held leases and the audit history guard preserved.
 Managed guest disks, external inference/CLI sign-ins and a compatible signed
 installation remain separate acceptance boundaries.
+The [current-runtime restore](acceptance/2026-11-12-suite-runtime-restore.json)
+also checks captured users, read-only roots, capabilities, security/resource
+limits, tmpfs, restart policy and health overrides. The earlier harness omitted
+those overrides; a fresh corrected restore has healthy configured probes and
+matching stores/authentication without mounting source state.
 
 Adjacent changes add the constrained Magnus bridge and reviewed host/worker
 handlers, a compact HiveXUI module, and optional Hive product contracts. Their

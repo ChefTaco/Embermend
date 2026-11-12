@@ -20,8 +20,8 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Actual worker/control crashes, rootless container/owner loss, original reboot recovery after expiry, terminal-result persistence failure, power loss and forward clock-step refusal | Partial native fault matrix; remaining interruption cuts and authorized recovery pending |
-| AC-16 | Browser pause/resume, queued cancellation, accepted reboot cancellation/pause with original ownership, no later dispatch and unchanged held lease across control restart | Partial; broader in-flight and authorized recovery cases pending |
+| AC-15 | Worker/control/rootless loss, reboot recovery after expiry, queue/receipt/result commit cuts, power loss and forward/backward clocks | Partial native fault matrix; remaining interruption cuts and unknown-owner recovery pending |
+| AC-16 | Browser pause/resume, cancellation ownership, held leases across restart and separately approved original-inode recovery with independent verification | Partial; broader in-flight, browser recovery and other recovery classes pending |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
 | AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
 | AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
@@ -285,3 +285,27 @@ ports or fleet/provider access. Source services recovered with eight fresh enrol
 fixtures, no active product jobs and no standing mutation policies. This is a lab
 controller-suite rehearsal; managed disks and the future signed installation are
 outside its scope. Failed preliminary rehearsals remain retained separately.
+
+The [next fault/recovery record](acceptance/2026-11-12-clock-interruption-recovery.json)
+adds backward clock and queue/receipt/result commit cuts. Admission expired under
+the controller clock, and only original trusted evidence later completed the
+reboot. A post-ingestion interruption reproduced an immutable-evidence conflict;
+the deployed fix recovered the same operation while retaining the original
+evidence. Changed cached request bindings and changed legacy result content
+remain refused. All 47 PostgreSQL integration cases and strict repository gates
+pass.
+
+The same record tests separately approved configuration recovery: ordinary and
+coordinator authority fail, a stale precondition fails without mutation, and a
+fresh recovery restores the original inode mode. Independent readback and health
+evidence verify only that fixture mode occurrence. Existing browser permission
+ceilings remain unchanged; the positive test uses scoped core fixture actors and
+existing native service authentication. It neither closes the unrelated package
+finding nor clears any of the five earlier unknown native owners.
+
+The [fresh current-runtime restore](acceptance/2026-11-12-suite-runtime-restore.json)
+adds exact captured runtime restrictions and healthy configured probes. The prior
+restore harness omitted health/security/resource overrides; its store and
+authentication proof remains retained, while the corrected fresh rehearsal
+establishes these additional runtime facts. Complete signed-installation and
+fleet disaster recovery remain separate.
