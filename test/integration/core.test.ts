@@ -597,6 +597,52 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.ok(methods.every(method => method === 'GET'));
   });
 
+  await t.test('durable campaigns wait for independent canary verification within the original deadline', async () => {
+    const { service, magnus } = await reset(); const initial = plan(); const first = initial.actions[0]; assert.ok(first);
+    const value: Plan = { ...initial, actions: [...initial.actions, { ...first, id: 'after-canary', dependsOn: ['fixture-action'] }] };
+    const proposed = await service.propose(coordinator, value); await service.publish(coordinator, value.id, 1); await service.decide(operator, { planId: value.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
+    const jobId = await service.execute(coordinator, value.id, { revision: 1, digest: proposed.digest }); const before = await service.job(operator, jobId);
+    const running = tick(service, 'fixture-verification-waiter', new AbortController().signal);
+    for (let attempt = 0; attempt < 100; attempt++) { if ((await service.job(operator, jobId)).error === 'ACTION_VERIFICATION_REQUIRED') break; await new Promise(resolve => setTimeout(resolve, 20)); }
+    assert.equal((await service.job(operator, jobId)).error, 'ACTION_VERIFICATION_REQUIRED'); assert.equal(magnus.requests.length, 1);
+    const proof = { ...evidence(), id: 'canary-independent-evidence', content: { findingIdentity: finding().identity, securityCheckPassed: true, runningStateVerified: true } }; await service.evidence(operator, proof);
+    await service.verify(operator, { id: 'fixture-verification', occurrenceId: occurrence().id, dimension: 'runtime', result: 'pass', method: proof.method, evidenceIds: [proof.id], coverage: occurrence().coverage, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: true, observedAt: now(), independent: true, consumerMigrationVerified: false });
+    await running; const completed = await service.job(operator, jobId); assert.equal(completed.status, 'completed'); assert.equal(completed.error, null); assert.equal(completed.deadline, before.deadline); assert.equal(magnus.requests.length, 2);
+  });
+
+  await t.test('failed canary verification pauses a waiting campaign before another native dispatch', async () => {
+    const { service, magnus } = await reset(); const initial = plan(); const first = initial.actions[0]; assert.ok(first);
+    const value: Plan = { ...initial, actions: [...initial.actions, { ...first, id: 'after-canary', dependsOn: ['fixture-action'] }] };
+    const proposed = await service.propose(coordinator, value); await service.publish(coordinator, value.id, 1); await service.decide(operator, { planId: value.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
+    const jobId = await service.execute(coordinator, value.id, { revision: 1, digest: proposed.digest }); const running = tick(service, 'fixture-failed-canary-waiter', new AbortController().signal);
+    for (let attempt = 0; attempt < 100; attempt++) { if ((await service.job(operator, jobId)).error === 'ACTION_VERIFICATION_REQUIRED') break; await new Promise(resolve => setTimeout(resolve, 20)); }
+    assert.equal(magnus.requests.length, 1);
+    await service.verify(operator, { id: 'canary-failed', occurrenceId: occurrence().id, dimension: 'runtime', result: 'fail', method: evidence().method, evidenceIds: [evidence().id], coverage: occurrence().coverage, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: false, observedAt: now(), independent: true, consumerMigrationVerified: false });
+    await running; assert.equal((await service.job(operator, jobId)).error, 'CAMPAIGN_PAUSED'); assert.equal(magnus.requests.length, 1); assert.equal((await db.campaign.findUniqueOrThrow({ where: { id: value.campaignId } })).paused, true);
+  });
+
+  await t.test('repeated credential locations retain distinct immutable evidence through scan ingestion', async () => {
+    const { service, magnus } = await reset();
+    const original = target(); if (original.kind !== 'target') throw new Error('Fixture worker required');
+    const worker = { ...original, targetKind: 'worker' as const, capabilities: ['embermend:repository-scan.v1'] };
+    await service.entity(operator, worker);
+    magnus.capabilities = async () => ({ protocol: 1, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['repository-scan.v1'], targets: [worker], observedAt: now() });
+    const provenance = { source: 'fixture', assurance: 'established', evidenceIds: [], observedAt: now() };
+    await service.entity(operator, { id: 'fixture-repository', kind: 'repository', scope, label: 'Fixture repository', provenance, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
+    await service.entity(operator, { id: 'fixture-source-binding', kind: 'source-binding', label: 'Fixture application', scope, provenance, repositoryId: 'fixture-repository', applicationId: 'fixture-app', includedPaths: ['apps/api'], excludedPaths: [], maintainedBranches: ['main'], buildDefinitions: [], modelPolicy: { providerRefs: ['fixture-model'], allowRemote: false, allowExecution: false } });
+    magnus.dispatch = async request => {
+      magnus.requests.push(request);
+      const locations = [{ path: 'apps/api/first.ts', line: 1 }, { path: 'apps/api/first.ts', line: 2 }, { path: 'apps/api/second.ts', line: 1 }];
+      return { operationId: request.operationId, requestDigest: digest(request), targetId: worker.id, state: 'completed', evidenceIds: [], ownershipReleased: true, observedAt: now(), result: { scanResult: { scannerVersion: 'fixture', profile: 'typescript-security.v1', modelRef: 'fixture-model', commit: 'a'.repeat(40), operationId: request.operationId, languages: ['typescript'], assessedClasses: ['secret'], state: 'completed', coverage: { status: 'complete', requested: ['apps/api/first.ts', 'apps/api/second.ts'], examined: ['apps/api/first.ts', 'apps/api/second.ts'], excluded: [], failures: [], mode: 'full', observedAt: now() }, candidates: locations.map(location => ({ ...location, fingerprint: 'd'.repeat(64), component: 'fixture-app', symbol: '<module>', weakness: 'secret', title: 'Credential-shaped literal', evidence: 'Value withheld', assumptions: ['Owner validation required'], severity: 'high', confidence: 0.8, validation: 'candidate' })) } } };
+    };
+    const jobId = await service.scan(coordinator, { repositoryId: 'fixture-repository', providerId: '123', commit: 'a'.repeat(40), applicationId: 'fixture-app', scope, branch: 'main', pullRequest: null, includedPaths: ['apps/api'], excludedPaths: [], profile: 'typescript-security.v1', mode: 'full', workerTargetId: worker.id, operationId: 'fixture-multi-location-scan', deadline: later(), cancellationId: 'fixture-scan-cancel', maxFiles: 10, maxBytes: 10000, sourcePolicy: { providerRef: 'fixture-model', allowRemoteModel: false, allowRepositoryExecution: false } });
+    await tick(service, 'fixture-multi-location-worker', new AbortController().signal);
+    assert.equal((await service.job(operator, jobId)).status, 'completed');
+    const result = (await service.findings(operator)).find(row => row.finding.kind === 'credential-exposure'); assert.ok(result);
+    assert.equal(result.finding.evidenceIds.length, 3); assert.equal(result.occurrences.length, 3);
+    assert.equal(new Set(result.occurrences.flatMap(item => item.evidenceIds)).size, 3);
+  });
+
   await t.test('unknown-owner settlement requires a fresh bound independent review and a separate explicit approval', async () => {
     const { service, magnus } = await reset();
     const host = target(); if (host.kind !== 'target') throw new Error('Fixture host required');

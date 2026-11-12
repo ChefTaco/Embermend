@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep staged campaigns waiting for independent canary verification within their original deadline, rechecking authorization and pause before the next action.
+- Preserve ambiguous code anchors as separate reviewable findings and retain every credential-exposure location with distinct immutable evidence.
+
 - Preserve confirmed campaign failure as a terminal observation, validate future container-agent scope/identity contracts, and let an existing authorized human operator make a separate exact recovery decision without requiring another human identity.
 
 - Add separately approved unknown-owner settlement with fresh independent effect review, exact native request/fence binding and read-only adoption after lost acknowledgement. Ownership release preserves the unknown historical outcome and does not close findings or resume campaigns.

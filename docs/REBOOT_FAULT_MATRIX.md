@@ -108,3 +108,14 @@ The [fresh runtime restore](acceptance/2026-11-12-suite-runtime-restore.json)
 also compares captured container restrictions and health-check overrides. It
 supersedes the earlier harness's omitted runtime overrides while retaining the
 earlier store and authentication evidence.
+
+
+All five owners retained by the cancelled-schedule, detached assessment owner,
+rootless supervisor, power-cut and forward-clock cases now have separately
+published and explicitly approved signed ownership settlement. Independent review
+checks empty execution groups, absent schedules/containers and unmounted worker
+paths. Original requests, commands, fences, deadlines and historical unknown
+outcomes remain retained. No new native command is created and no finding closes.
+The rootless case also demonstrates lost recovery-result persistence and read-only
+adoption of the same signed decision. See the
+[recovery evidence](acceptance/2026-11-12-authorized-owner-recovery.json).

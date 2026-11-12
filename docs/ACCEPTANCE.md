@@ -20,13 +20,13 @@ until all required journeys and failure cases have retained proof.
 | AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
 | AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
 | AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Worker/control/rootless loss, reboot recovery after expiry, queue/receipt/result commit cuts, power loss and forward/backward clocks | Partial native fault matrix; remaining interruption cuts and unknown-owner recovery pending |
-| AC-16 | Browser pause/resume, cancellation ownership, held leases across restart and separately approved original-inode recovery with independent verification | Partial; broader in-flight, browser recovery and other recovery classes pending |
+| AC-15 | Worker/control/rootless loss, reboot recovery after expiry, queue/receipt/result commit cuts, power loss and forward/backward clocks | Original-identity recovery demonstrated, including all five previously held owners; further fault coverage remains tracked |
+| AC-16 | Browser pause/resume, cancellation ownership, held leases across restart and separately approved original-inode recovery with independent verification | Actual browser original-artifact recovery and retained-outcome observation passed; broader recovery classes remain tracked |
 | AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
-| AC-18 | Target-kind capability boundary; contract fixtures remain | Pending |
+| AC-18 | Scoped enrollment, identity, assessment and operation-routing contract fixtures; host actions and replacement identities refused | Passed contract demonstration |
 | AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
-| AC-20 | Redaction and isolated source/model credential separation | Pending |
-| AC-21 | Durable jobs, duplicate native delivery, worker/control recovery and isolated combined controller-suite restore with existing authentication, exact stores and history guards | Partial; remaining restart/hostile-work cases and signed-installation restore pending |
+| AC-20 | Actual hostile repository validation denies credentials, sockets, egress and root writes; model/output redaction retained | Passed bounded isolation demonstration |
+| AC-21 | Durable jobs, duplicate native delivery, worker/control recovery and isolated combined controller-suite restore with existing authentication, exact stores and history guards | Restart, duplicate delivery, hostile work and current controller-suite restore demonstrated; signed-installation restore pending |
 | AC-22 | Real Oathweave sign-in, scoped recommendations, evidence access, decisions, pause/resume, native hardening and package-activation reboot with independently verified outcomes | Partial authenticated fixture proof; wider operator journeys pending |
 | AC-23 | Scoped exports and retained actual source-campaign report; completion/reporting work remains | Partial controlled report proof |
 | AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
@@ -309,3 +309,28 @@ restore harness omitted health/security/resource overrides; its store and
 authentication proof remains retained, while the corrected fresh rehearsal
 establishes these additional runtime facts. Complete signed-installation and
 fleet disaster recovery remain separate.
+
+
+The [authorized-owner recovery record](acceptance/2026-11-12-authorized-owner-recovery.json)
+settles all five formerly held native owners through separately approved, exactly
+bound signed reconciliation. Original outcomes stay unknown, findings stay open,
+and no new native command is created. Fresh inventory succeeds on all five
+recovered targets; actual approved-model scanning succeeds on the recovered
+rootless worker. A rejected terminal persistence checkpoint is recovered through
+read-only adoption of the same retained signed decision.
+
+The same existing human operator now completes a browser journey with separate
+mode-change and original-artifact recovery decisions. The recovery restores the
+original mode and passes fresh managed readback and consumer-health verification.
+Actual scoped permission review permits this existing identity; a role name alone
+neither grants nor denies authority. The coordinator still cannot approve, change
+policy or recover. Hostile repository validation and future container-agent
+contract fixtures have their own bounded proof in the same record.
+
+A [fresh post-recovery combined-suite restore](acceptance/2026-11-12-post-recovery-suite-restore.json)
+checks acknowledged Redis persistence, stable source dependency ports, current
+runtime environments, actual browser build and image-declared state volumes.
+Both PostgreSQL databases, both SQLite stores, Redis values and expiries, existing
+authentication, scoped history and runtime restrictions match in an isolated
+network. Zero held native owners and five unknown historical outcomes survive.
+Signed-installation and complete product acceptance remain separate gates.

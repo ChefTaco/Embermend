@@ -71,7 +71,13 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
         const anchor = anchors.length === 1 ? anchors[0]?.syntaxDigest : sha(JSON.stringify([normalized, candidate.evidence]));
         const assumptions = candidate.assumptions.map(redact);
         if (anchors.length !== 1) assumptions.push('Semantic matching requires review when the evidence anchor changes');
-        candidates.push({ ...candidate, evidence: redact(candidate.evidence), title: redact(candidate.title), assumptions, fingerprint: sha(JSON.stringify([request.providerId, request.applicationId, candidate.weakness, candidate.symbol, symbol?.syntaxDigest ?? sha(normalized), anchor])), component: request.applicationId, validation: 'candidate' });
+        // Identical syntax in separate locations cannot establish a unique move.
+        // Count indexed locations, including ones the model did not flag, so a
+        // model omission cannot silently merge two independently reachable sinks.
+        const matchingLocations = symbol && anchors.length === 1 ? indexed.flatMap(other => other.symbols.filter(otherSymbol => otherSymbol.name === symbol.name && otherSymbol.syntaxDigest === symbol.syntaxDigest).flatMap(otherSymbol => other.hints.filter(hint => hint.syntaxDigest === anchor && hint.weakness === candidate.weakness && hint.line >= otherSymbol.line && hint.line <= otherSymbol.endLine).map(hint => `${other.path}:${hint.line}`))) : [];
+        const ambiguous = new Set(matchingLocations).size > 1;
+        if (ambiguous) assumptions.push('Ambiguous semantic anchor: location retained separately; cross-scan matching requires technical review');
+        candidates.push({ ...candidate, evidence: redact(candidate.evidence), title: redact(candidate.title), assumptions, fingerprint: sha(JSON.stringify([request.providerId, request.applicationId, candidate.weakness, candidate.symbol, symbol?.syntaxDigest ?? sha(normalized), anchor, ...(ambiguous ? [candidate.path, candidate.line] : [])])), component: request.applicationId, validation: 'candidate' });
       }
       examined.push(file.path);
     } catch { failures.push(`analysis-failed:${file.path}`); }
@@ -89,7 +95,7 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
   const incomplete = excluded.some(value => !['outside-application-scope'].includes(value.reason)) || failures.length > 0 || examined.length === 0;
   const canceled = signal.aborted || failures.includes('canceled-or-deadline');
   return scanResultSchema.parse({ scannerVersion: '0.1.0', profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
-    coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [candidate.fingerprint, candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
+    coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [JSON.stringify([candidate.fingerprint, candidate.path, candidate.line]), candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
 }
 
 export { readScanSources } from './source-reader.js';

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import { z } from 'zod';
-import { permissions, scopeSchema, planSchema, type Actor } from '@hivemagnus/embermend-contracts';
+import { permissions, scopeSchema, planSchema, type Actor, type Receipt } from '@hivemagnus/embermend-contracts';
 import { claim, json, audit, lock } from '@hivemagnus/embermend-store';
 import { DomainError, type Embermend } from '@hivemagnus/embermend-core';
 import { observeCampaign } from './campaign-observation.js';
@@ -47,7 +47,22 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
       while (remaining.length) {
         if (combined.aborted) throw new DomainError('CAMPAIGN_INTERRUPTED_RECONCILE_IN_FLIGHT');
         const next = remaining.find(action => action.dependsOn.every(id => done.has(id))); if (!next) throw new DomainError('DEPENDENCY_NOT_READY');
-        let receipt = await service.dispatchForJob(actor, plan.id, next.id, { jobId: id, owner });
+        let receipt: Receipt;
+        for (;;) {
+          if (combined.aborted) throw new DomainError('CAMPAIGN_INTERRUPTED_RECONCILE_IN_FLIGHT');
+          try {
+            receipt = await service.dispatchForJob(actor, plan.id, next.id, { jobId: id, owner });
+            await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { error: null } });
+            break;
+          } catch (error) {
+            // A completed canary still needs independent security and health
+            // evidence. Wait inside the original lease/deadline, then run all
+            // authority and pause checks again before reserving the next action.
+            if (!(error instanceof DomainError) || error.code !== 'ACTION_VERIFICATION_REQUIRED') throw error;
+            await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { error: error.code, result: json({ actionId: next.id, state: 'awaiting-verification' }) } });
+            await setTimeout(1000, undefined, { signal: combined });
+          }
+        }
         while ((['queued', 'running', 'unknown'].includes(receipt.state) || receipt.state === 'completed' && !receipt.ownershipReleased) && !(receipt.state === 'unknown' && receipt.ownershipReleased && receipt.result['ownershipSettled'] === true) && !combined.aborted) {
           await service.db.job.update({ where: { id }, data: { result: json({ operationId: receipt.operationId, actionId: next.id, state: receipt.state }) } });
           await setTimeout(1000, undefined, { signal: combined }); receipt = await service.reconcile(actor, receipt.operationId);

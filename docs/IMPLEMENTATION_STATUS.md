@@ -44,7 +44,7 @@ including across control restart. Reboot adoption now requires exact trusted
 previous-boot shutdown proof. Campaign-job cancellation, deadlines, lease ownership
 and immutable binding are rechecked transactionally before native and provider
 effects; a delayed heartbeat cannot authorize new work. The current product
-passes 53 unit and 47 PostgreSQL tests. Complete fault coverage remains pending.
+passes 57 unit and 53 PostgreSQL tests. Complete fault coverage remains pending.
 
 A separate fresh guest now retains actual detached native supervisor SIGKILL
 proof during vendor assessment. Missing owner completion evidence keeps the
@@ -52,7 +52,7 @@ original assessment and its single bounded observation unknown after deadline,
 despite an empty cgroup and healthy host agent. Existing findings remain affected.
 This guest and the cancelled-reboot guest each retain their own held lease.
 Later rootless owner loss, power loss and a forward clock step now add three
-more held unknown operations. Complete authorized recovery remains separate.
+more held unknown operations. All five subsequently pass separately authorized ownership settlement; their original outcomes remain unknown.
 
 The [rootless fault proof](acceptance/2026-11-11-rootless-worker-loss.json)
 distinguishes a failed scanner container with confirmed cleanup from lost owner
@@ -73,8 +73,7 @@ completed the same interrupted operation without another dispatch.
 A separately approved configuration recovery now restores the exact original
 inode mode, refuses ordinary/coordinator authority and stale preconditions, and
 passes independent mode and consumer-health verification. It uses reviewed scoped
-core actors with existing native service authentication; browser recovery
-permissions and the five earlier uncertain owners remain unchanged.
+core actors with existing native service authentication. A later existing-human browser journey also restores and independently verifies the original mode. All five earlier uncertain owners are now released through signed recovery without changing their unknown historical outcomes.
 
 A [combined controller-suite restore](acceptance/2026-11-11-combined-suite-restore.json)
 now restores both PostgreSQL databases, Oathweave and Registry SQLite, both Redis
@@ -82,7 +81,7 @@ stores, existing credentials, TLS, configuration and runtime artifacts into an
 isolated network. All 138 PostgreSQL tables and both SQLite stores match before
 startup. Redis values and absolute expiries are checked before application
 writers start. Existing authentication serves matching findings, recommendations
-and Registry data, with five held leases and the audit history guard preserved.
+and Registry data, with the captured ownership state and the audit history guard preserved. A fresh post-recovery rehearsal preserves zero held owners and all five historical unknown outcomes.
 Managed guest disks, external inference/CLI sign-ins and a compatible signed
 installation remain separate acceptance boundaries.
 The [current-runtime restore](acceptance/2026-11-12-suite-runtime-restore.json)
@@ -98,7 +97,7 @@ the forthcoming compatible Magnus release; no existing signed release is edited.
 Fresh initialization grants no target access or mutation authority by default.
 
 Component verification includes strict compiler checks, security/scanner/provider
-unit tests, PostgreSQL integration checks, focused Magnus tests, eleven HiveXUI
+unit tests, PostgreSQL integration checks, focused Magnus tests, sixteen HiveXUI
 interaction tests, real scoped Oathweave/browser operation and outcome inspection,
 and an actual Ardent/Qwen read-only plugin task. These establish the bounded
 disposable journey recorded in the acceptance ledger. The dated evidence record
@@ -196,3 +195,12 @@ The controlled runtime outcome is verified while source remediation stays open.
 These locally built fixtures do not establish signed release provenance or the
 complete build/publication lifecycle. Read-only hosted build-attempt tracking
 has separate retained proof above.
+
+
+[Authorized ownership recovery and operator proof](acceptance/2026-11-12-authorized-owner-recovery.json)
+now include all five held operations, a real rootless hostile-work probe and scoped
+future container-agent contracts. The existing operator identity has an audited,
+scoped recovery permission; no additional identity or credentials are required.
+The [fresh post-recovery restore](acceptance/2026-11-12-post-recovery-suite-restore.json)
+checks current images, browser artifacts, all mounted state and acknowledged
+Redis persistence. Original uncertain outcomes remain visible after restore.
