@@ -16,6 +16,11 @@ permission afterward. Creating or starting remediation, writing a branch, merge,
 artifact publication, deployment, exception acceptance and recovery require their
 own permissions and matching authorization. A role name alone grants none of them.
 
+`audit:read` (`embermend:audit:read` on the token) allows the audit export at
+`/api/v1/audit/export` and nothing else. Grant it to the Cindertrace collector's
+service account, which then reads every installation, and to an operator only
+when that operator should read its own installation's audit trail.
+
 Keep the API and worker's protected grant configuration identical. Apply changes
 through the owning installer and verify their effective environments; restarting
 an already created container does not reload its Compose environment file.

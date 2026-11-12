@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import type { Model } from '../index.js';
 import { responseJson } from '../index.js';
-import { candidateJsonSchema, type InferenceProvider } from './config.js';
+import { candidateJsonSchema, networkBaseUrl, type NetworkProvider } from './config.js';
 export class NetworkInference implements Model {
   readonly ref: string; readonly local: boolean;
-  constructor(private readonly config: Extract<InferenceProvider, { kind: 'llamacpp' | 'openai-compatible' }>, private readonly env: NodeJS.ProcessEnv = process.env, private readonly request: typeof fetch = fetch) { this.ref = config.ref; this.local = config.kind === 'llamacpp'; }
+  constructor(private readonly config: NetworkProvider, private readonly env: NodeJS.ProcessEnv = process.env, private readonly request: typeof fetch = fetch) { this.ref = config.ref; this.local = config.kind === 'llamacpp'; }
   private headers(): Record<string, string> { const token = this.config.tokenEnv ? this.env[this.config.tokenEnv] : undefined; if (this.config.tokenEnv && !token) throw new Error('MODEL_CREDENTIAL_UNAVAILABLE'); return { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }; }
-  private url(path: string): URL { return new URL(path, this.config.baseUrl.replace(/\/?$/, '/')); }
+  private url(path: string): URL { return new URL(path, networkBaseUrl(this.config).replace(/\/?$/, '/')); }
   async discover(signal: AbortSignal): Promise<void> {
     const response = await this.request(this.url('models'), { headers: this.headers(), redirect: 'error', signal }); if (!response.ok) throw new Error('MODEL_DISCOVERY_UNAVAILABLE');
     const models = z.object({ data: z.array(z.object({ id: z.string() })) }).parse(await responseJson(response));

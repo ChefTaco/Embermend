@@ -75,6 +75,44 @@ responses use a constrained JSON Schema and refuse tool calls or truncation.
 `maxOutputTokens` bounds network requests. CLI output is bounded by byte limits,
 structured schema and deadline rather than a provider token-limit option.
 
+### Emberpath
+
+`kind: "emberpath"` is an opt-in preset of the OpenAI-compatible provider for an
+Emberpath model router. It takes the Emberpath root as an HTTPS `url` (no
+credentials, query or fragment) and calls its OpenAI-compatible API at
+`<url>/v1`. `ref` defaults to `emberpath`, `tokenEnv` to `EMBERPATH_API_KEY`,
+and the network defaults (`timeoutMs`, `maxOutputTokens`) are the same as
+`openai-compatible`. `model` stays required and must be an exact model ID that
+Emberpath lists at `/v1/models`. An Emberpath route can reach cloud models, so
+it is a **remote** model route: it requires `sourcePolicy.allowRemoteModel: true`.
+
+```json
+{ "kind": "emberpath", "model": "exact-model-id-from-emberpath-models", "url": "https://emberpath.example.com" }
+```
+
+Emberpath forwards the request body of `/v1/chat/completions` unchanged to an
+OpenAI-compatible upstream, so the strict `json_schema` `response_format` that
+Embermend sends reaches the model. A request with `response_format` is routed
+only to upstreams marked as JSON-schema capable; an Ollama upstream receives it
+as its native `format`. `/v1/models` aggregates the upstreams' live model IDs.
+Embermend still checks that the completion names the configured model, so an
+Emberpath alias or failover to a differently named model fails closed with
+`MODEL_IDENTITY_CHANGED` rather than being accepted.
+
+Create a dedicated Emberpath client key for the inference broker, with an
+`actorId` in its metadata so Emberpath attributes the traffic to that actor
+(2 to 32 characters of `a-z`, `0-9`, `_` or `-`):
+
+```bash
+hive-router create-key --name "embermend-inference" --metadata '{"actorId":"embermend-inference"}'
+```
+
+Run it where Emberpath's server configuration is available (from a source
+checkout, `npm run cli -- create-key ...`; pass `--token` when Emberpath sets
+`HIVE_ROUTER_CLI_TOKEN`). The plaintext key is printed once. Put it only in the
+broker's dedicated environment as `EMBERPATH_API_KEY` (or the variable named by
+`tokenEnv`); never in the API or worker environment.
+
 CLI binaries must already be installed and authenticated by the broker's owner.
 Embermend does not install them, initiate interactive login, copy credentials,
 or alter their persistent configuration. Authentication files (`auth.json` for

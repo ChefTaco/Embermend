@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Serve the suite audit export at `GET /api/v1/audit/export` for Cindertrace: every committed audit row as a strict HiveAuditRecord v1 (`hiveAuditRecordSchema`, `hiveAuditPageSchema`), oldest first by `(createdAt, id)` with opaque cursors and no retention window. It requires the new `embermend:audit:read` permission: service accounts read every installation, operators their own. Migration `20261112000000_audit_export` adds an `Audit (createdAt, id)` index for the cross-installation scan and records the actor kind on new audit rows. The route is in the OpenAPI document and the browser contracts.
+- Add the opt-in `emberpath` inference preset, an alias of `openai-compatible` that takes an HTTPS Emberpath `url` (the API is `<url>/v1`) and defaults `ref` to `emberpath` and `tokenEnv` to `EMBERPATH_API_KEY`. Existing provider configurations are unchanged.
+
 ## [0.2.0] - 2026-11-12
 
 - Serve the Hive:Magnus event feed at `GET /api/v1/hive/events`: HiveEvent v1 records derived from committed audit rows for new recommendations, decisions, campaign pauses and verification stops, and failed or unknown execution outcomes, with the recommendation read rules, 14-day retention, cursor paging and strict `@hivemagnus/hive-common` validation. The route is in the OpenAPI document and the browser contracts (`hiveEventSchema`, `hiveEventPageSchema`).

@@ -240,10 +240,12 @@ model Outbox {
 model Audit {
   id String @id
   actorId String
+  actorKind String?
   operation String
   subjectId String
   installationId String
   details Json
   createdAt DateTime @default(now())
   @@index([installationId, createdAt])
+  @@index([createdAt, id])
 }

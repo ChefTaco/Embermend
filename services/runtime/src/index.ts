@@ -31,13 +31,14 @@ if (process.argv[1]?.endsWith('/index.js')) {
     const publicationConfig = z.string().min(1).optional().parse(process.env['EMBERMEND_PUBLICATION_CONFIG']);
     const publisher = publicationConfig ? new OciRegistryPublisher(JSON.parse(await readFile(publicationConfig, 'utf8')), process.env) : undefined;
     const service = new Embermend(db, magnus, github, publisher);
-    const authenticate = oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants: grantsSchema.parse(JSON.parse(env.EMBERMEND_IDENTITY_GRANTS)) });
+    const grants = grantsSchema.parse(JSON.parse(env.EMBERMEND_IDENTITY_GRANTS));
+    const authenticate = oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants });
     const stop = new AbortController();
     if (process.argv[2] === 'worker') {
       process.once('SIGTERM', () => stop.abort()); process.once('SIGINT', () => stop.abort());
       await runWorker(service, stop.signal); await db.$disconnect();
     } else if (process.argv[2] === 'api') {
-      const server = serve({ fetch: createApi(service, authenticate).fetch, hostname: env.EMBERMEND_BIND, port: env.EMBERMEND_PORT });
+      const server = serve({ fetch: createApi(service, authenticate, { auditActorKind: actorId => grants.find(grant => grant.subject === actorId)?.kind }).fetch, hostname: env.EMBERMEND_BIND, port: env.EMBERMEND_PORT });
       const close = (): void => { server.close(() => { void db.$disconnect(); }); };
       process.once('SIGTERM', close); process.once('SIGINT', close);
     } else throw new Error('Use api or worker');

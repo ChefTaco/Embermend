@@ -23,3 +23,11 @@ test('service token refresh is shared and cannot silently use an unscoped fallba
   const provider = new ResourceTokenProvider({ tokenUrl: 'https://identity.example.com/token', clientId: 'fixture-client', clientSecret: 'fixture-client-secret', scope: 'embermend:read' }, request);
   const tokens = await Promise.all([provider.token(), provider.token()]); assert.equal(calls, 1); assert.deepEqual(tokens, ['fixture-resource-token', 'fixture-resource-token']);
 });
+test('an audit collector service account is granted embermend:audit:read only when its token carries it', async () => {
+  const pair = await generateKeyPair('RS256'); const publicKey = await exportJWK(pair.publicKey); publicKey.kid = 'fixture-key'; const keys = createLocalJWKSet({ keys: [publicKey] });
+  const auth = oathweaveAuthenticator({ issuer: 'https://identity.example.com', jwksUrl: 'https://identity.example.com/jwks', userinfoUrl: 'https://identity.example.com/userinfo', grants: [{ subject: 'fixture-collector', kind: 'integration', permissions: ['audit:read'], scope }] }, { keys });
+  const sign = async (permissions: string[]) => new SignJWT({ permissions, actorType: 'SERVICE_ACCOUNT', token_type: 'access', clientId: 'fixture-collector' }).setProtectedHeader({ alg: 'RS256', kid: 'fixture-key' }).setIssuer('https://identity.example.com').setAudience('embermend').setSubject('fixture-collector').setJti('fixture-audit-jti').setIssuedAt().setExpirationTime('5m').sign(pair.privateKey);
+  const actor = await auth(await sign(['embermend:audit:read']));
+  assert.equal(actor.kind, 'integration'); assert.deepEqual([...actor.permissions], ['audit:read']);
+  assert.deepEqual([...(await auth(await sign(['embermend:read']))).permissions], []);
+});
