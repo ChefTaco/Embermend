@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require independent security evidence for the current immutable controlling artifact before code, dependency or image runtime closure; container-only repairs can remain recorded mitigations.
+
 - Expose typed campaign reports and exception-expiry reads to Ardent without granting exception acceptance or other operator authority.
 
 - Publish independently reviewed OCI artifacts through a separate scoped decision, preserving platform and attestation digests; reconcile lost registry replies through reads without replaying writes.

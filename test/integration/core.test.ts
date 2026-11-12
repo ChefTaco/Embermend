@@ -714,10 +714,33 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await assert.rejects(service.finding(sourceOnly, { ...value, evidenceIds: [evidence().id] }, runtime), /SCOPE_OR_PERMISSION_DENIED/);
     await service.finding(operator, { ...value, evidenceIds: [evidence().id] }, runtime);
     const proof = { ...evidence(), id: 'application-runtime-proof', content: { deployedArtifactDigest: 'd'.repeat(64), securityCheckPassed: true, findingIdentity: value.identity } }; await service.evidence(operator, proof);
+    const artifactProof = { ...sourceProof, id: 'application-immutable-artifact-proof', subjectId: 'application-artifact', content: { artifactDigest: 'd'.repeat(64), findingIdentity: value.identity, artifactSecurityCheckPassed: true, immutableArtifactVerified: true } }; await service.evidence(operator, artifactProof);
+    const provenance = { source: 'fixture-review', assurance: 'established', evidenceIds: [artifactProof.id], observedAt: now() };
+    await service.entity(operator, { id: 'application-artifact', kind: 'artifact', scope: appScope, label: 'Reviewed immutable fixture image', provenance, digest: 'd'.repeat(64), sourceRevisionIds: [], buildRunId: null, image: 'registry.example.com/fixture@sha256:' + 'd'.repeat(64) });
+    await service.entity(operator, { id: 'application-deployment', kind: 'deployment', scope, label: 'Fixture deployment', provenance, applicationId: 'fixture-app', environment: 'lab', artifactIds: ['application-artifact'], targetIds: ['fixture-node'], configurationDigest: 'c'.repeat(64) });
     const check = { id: 'application-runtime-check', occurrenceId: runtime.id, dimension: 'runtime', result: 'pass', method: proof.method, evidenceIds: [proof.id], coverage: occurrence().coverage, revision: null, artifactDigest: 'd'.repeat(64), targetId: 'fixture-node', healthPassed: true, observedAt: now(), independent: true, consumerMigrationVerified: false };
     await assert.rejects(service.verify(sourceOnly, check), /SCOPE_OR_PERMISSION_DENIED/);
     await service.verify(operator, check);
     const retained = (await service.findings(operator)).find(row => row.finding.id === value.id); assert.equal(retained?.occurrences.find(item => item.id === runtime.id)?.runtimeState, 'verified-resolved'); assert.equal(retained?.occurrences.find(item => item.id === sourceOccurrence.id)?.sourceState, 'open');
+  });
+
+  await t.test('temporary container repairs cannot close code, dependency or image defects in the controlling artifact', async () => {
+    for (const kind of ['code', 'dependency', 'image'] as const) {
+      const { service } = await reset(); const appScope = { ...scope, targetIds: [] }; const artifactDigest = 'd'.repeat(64);
+      const value = { ...finding(), kind, id: 'fixture-artifact-finding', identity: 'e'.repeat(64), component: 'fixture-app', scope: appScope };
+      const hostProof = { ...evidence(), id: 'fixture-live-container-proof', content: { findingIdentity: value.identity, deployedArtifactDigest: artifactDigest, securityCheckPassed: true, healthPassed: true, temporaryContainerChange: true } }; await service.evidence(operator, hostProof);
+      const occurrence = { id: 'fixture-artifact-occurrence', findingId: value.id, subjectId: 'fixture-node', branch: null, revision: null, artifactDigest, sourceState: 'open', runtimeState: 'affected', coverage: { status: 'complete', requested: ['fixture-node'], examined: ['fixture-node'], excluded: [], failures: [], mode: 'full', observedAt: now() }, evidenceIds: [hostProof.id], recurrenceOf: null };
+      await service.finding(operator, { ...value, evidenceIds: [hostProof.id], scope }, occurrence);
+      const provenance = { source: 'fixture-build', assurance: 'established', evidenceIds: [], observedAt: now() };
+      const artifact = { id: 'fixture-controlling-artifact', kind: 'artifact', scope: appScope, label: 'Immutable controlling image', provenance, digest: artifactDigest, sourceRevisionIds: [], buildRunId: null, image: 'registry.example.com/fixture@sha256:' + artifactDigest }; await service.entity(operator, artifact);
+      await service.entity(operator, { id: 'fixture-controlling-deployment', kind: 'deployment', scope, label: 'Fixture deployment', provenance, applicationId: 'fixture-app', environment: 'lab', artifactIds: [artifact.id], targetIds: ['fixture-node'], configurationDigest: 'c'.repeat(64) });
+      const check = { id: 'fixture-container-only-verification', occurrenceId: occurrence.id, dimension: 'runtime', result: 'pass', method: hostProof.method, evidenceIds: [hostProof.id], coverage: occurrence.coverage, revision: null, artifactDigest, targetId: 'fixture-node', healthPassed: true, observedAt: hostProof.observedAt, independent: true, consumerMigrationVerified: false };
+      await assert.rejects(service.verify(operator, check), /CONTROLLING_ARTIFACT_SECURITY_EVIDENCE_REQUIRED/); assert.equal((await service.findings(operator)).find(f => f.finding.id === value.id)?.occurrences[0]?.runtimeState, 'affected');
+      await service.verify(operator, { ...check, id: 'fixture-container-mitigation', dimension: 'mitigation' }); assert.equal((await service.findings(operator)).find(f => f.finding.id === value.id)?.occurrences[0]?.runtimeState, 'verified-mitigated');
+      const immutableProof = { ...evidence(), id: 'fixture-immutable-artifact-security', scope: appScope, subjectId: artifact.id, content: { findingIdentity: value.identity, artifactDigest, artifactSecurityCheckPassed: true, immutableArtifactVerified: true } }; await service.evidence(operator, immutableProof);
+      await service.entity(operator, { ...artifact, provenance: { ...provenance, evidenceIds: [immutableProof.id] } }); await service.verify(operator, { ...check, id: 'fixture-immutable-artifact-verification' });
+      const retained = (await service.findings(operator)).find(f => f.finding.id === value.id)?.occurrences[0]; assert.ok(retained); assert.equal(retained.runtimeState, 'verified-resolved'); assert.equal(retained.sourceState, 'open');
+    }
   });
 
   await t.test('queued source work rechecks disclosure, execution and path policy before native admission', async () => {

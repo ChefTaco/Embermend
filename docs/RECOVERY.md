@@ -96,6 +96,14 @@ or restart creates a distinct instance identity and preserves prior observations
 Unknown images, absent resources and changed configuration remain partial or not
 assessed; an older observation cannot replace the newer deployment projection.
 Inventory reconciliation never closes a security finding or verifies a build.
+Runtime closure for code, dependency and image findings also requires independent
+security evidence for the current immutable controlling artifact, linked through
+its established provenance and an in-scope deployment on the verified target.
+That evidence binds `artifactDigest`, `findingIdentity`,
+`artifactSecurityCheckPassed` and `immutableArtifactVerified`. Healthy probes after
+a temporary container change can support a recorded mitigation; they cannot
+close a defect that remains in the controlling image. Source outcomes and prior
+verification remain independently retained.
 
 Concurrent native observations serialize their retained execution update. An older
 running or unknown response cannot overwrite a completed ownership-released

@@ -15,6 +15,7 @@ import { Records } from './records.js';
 import { Builds } from './builds.js';
 import { retainHostCapture } from './finding-history.js';
 import { admitPublication } from './publication.js';
+import { admitRuntimeArtifact } from './runtime-artifact.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 function findingEvidenceScope(finding: Finding, evidence: Evidence, subjectId: string): boolean {
@@ -424,6 +425,7 @@ export class Embermend {
       }
       const subject = await tx.entity.findUnique({ where: { id: previous.subjectId } });
       if (subject) requirePermission(actor, 'ingest', entitySchema.parse(subject.data).scope);
+      await admitRuntimeArtifact(tx, actor, finding, verification);
       const next = verifiedOccurrence(finding, previous, verification, evidence);
       const existing = await tx.verification.findUnique({ where: { id: verification.id } }); if (existing && digest(existing.data) !== digest(verification)) throw new DomainError('VERIFICATION_IDENTITY_CONFLICT');
       if (!existing) await tx.verification.create({ data: { id: verification.id, occurrenceId: previous.id, data: json(verification) } });
