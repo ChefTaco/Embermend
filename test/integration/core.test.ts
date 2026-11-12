@@ -652,6 +652,27 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal(new Set(result.occurrences.flatMap(item => item.evidenceIds)).size, 3);
   });
 
+  await t.test('queued source work rechecks disclosure, execution and path policy before native admission', async () => {
+    const { service, magnus } = await reset(); const initial = target(); if (initial.kind !== 'target') throw new Error('Fixture worker required');
+    const actions = ['repository-scan.v1', 'repository-prepare.v1', 'repository-source.v1']; const worker = { ...initial, targetKind: 'worker' as const, capabilities: actions.map(value => 'embermend:' + value) };
+    await service.entity(operator, worker); const provenance = { source: 'fixture-policy-review', assurance: 'established', evidenceIds: [], observedAt: now() };
+    await service.entity(operator, { id: 'fixture-source-repository', kind: 'repository', scope, label: 'Fixture repository', provenance, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
+    const binding = { id: 'fixture-source-policy', kind: 'source-binding', label: 'Scoped application', scope, provenance, repositoryId: 'fixture-source-repository', applicationId: 'fixture-app', includedPaths: ['apps/api'], excludedPaths: [], maintainedBranches: ['main'], buildDefinitions: [], modelPolicy: { providerRefs: ['fixture-model'], allowRemote: false, allowExecution: true } };
+    const before = digest(await service.findings(operator));
+    for (const kind of ['scan', 'preparation', 'source']) {
+      await service.entity(operator, binding);
+      const common = { repositoryId: 'fixture-source-repository', providerId: '123', applicationId: 'fixture-app', scope, workerTargetId: worker.id, deadline: later() };
+      const jobId = kind === 'scan' ? await service.scan(operator, { ...common, commit: 'a'.repeat(40), branch: 'main', pullRequest: null, includedPaths: ['apps/api'], excludedPaths: [], profile: 'typescript-security.v1', mode: 'full', operationId: 'policy-revoked-scan', cancellationId: 'fixture-cancel', maxFiles: 10, maxBytes: 10000, sourcePolicy: { providerRef: 'fixture-model', allowRemoteModel: false, allowRepositoryExecution: false } }) : kind === 'preparation' ? await service.prepare(operator, { ...common, id: 'policy-revoked-preparation', baseCommit: 'a'.repeat(40), branch: 'main', includedPaths: ['apps/api'], excludedPaths: [], edits: [{ path: 'apps/api/new.ts', beforeDigest: null, content: 'export {};' }], validationProfileId: 'fixture-validation' }) : await service.source(operator, { ...common, id: 'policy-revoked-source', commit: 'a'.repeat(40), paths: ['apps/api/server.ts'] });
+      magnus.capabilities = async () => {
+        await service.entity(operator, { ...binding, ...(kind === 'source' ? { excludedPaths: ['apps/api'] } : { modelPolicy: { ...binding.modelPolicy, ...(kind === 'scan' ? { providerRefs: [] } : { allowExecution: false }) } }) });
+        return { protocol: 1, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions, targets: [worker], observedAt: now() };
+      };
+      await tick(service, 'fixture-policy-revoked-' + kind, new AbortController().signal);
+      const job = await service.job(operator, jobId); assert.equal(job.status, 'failed', kind); assert.equal(job.error, 'SOURCE_ADMISSION_CHANGED_BEFORE_DISPATCH', kind); assert.equal(magnus.requests.length, 0); assert.equal(digest(await service.findings(operator)), before);
+      assert.equal((await db.audit.count({ where: { subjectId: jobId, operation: 'source.admission-refused' } })), 1);
+    }
+  });
+
   await t.test('unknown-owner settlement requires a fresh bound independent review and a separate explicit approval', async () => {
     const { service, magnus } = await reset();
     const host = target(); if (host.kind !== 'target') throw new Error('Fixture host required');

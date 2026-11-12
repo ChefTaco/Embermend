@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { z } from 'zod';
-import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
+import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt, type ScanRequest, type Preparation, type SourceRequest } from '@hivemagnus/embermend-contracts';
 import { audit, digest, enqueue, json, lock, within, Prisma, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { redactObject, redact, IntegrationError, githubMergeOperationSchema, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
 import { matchesPath, safePath } from '@hivemagnus/embermend-scanner';
@@ -443,7 +443,7 @@ export class Embermend {
     if (!request.scope.targetIds.includes(request.targetId)) throw new DomainError('ASSESSMENT_TARGET_SCOPE');
     return this.db.$transaction(tx => enqueue(tx, actor, 'vulnerabilities', request.id, request, new Date(request.deadline)));
   }
-  async scan(actor: Actor, input: unknown): Promise<string> {
+  private async validateScan(actor: Actor, input: unknown): Promise<ScanRequest> {
     const request = scanRequestSchema.parse(input); requirePermission(actor, 'assess', request.scope);
     if (!request.scope.targetIds.includes(request.workerTargetId) || !request.scope.applicationIds.includes(request.applicationId)) throw new DomainError('SCAN_SCOPE_MISMATCH');
     const repositoryRow = await this.db.entity.findUnique({ where: { id: request.repositoryId } }); const repository = repositoryRow ? entitySchema.parse(repositoryRow.data) : null;
@@ -454,7 +454,11 @@ export class Embermend {
     if (!request.includedPaths.every(path => (path === '.' || safePath(path)) && binding.includedPaths.some(prefix => matchesPath(path, prefix)))) throw new DomainError('SCAN_PATHS_OUTSIDE_APPLICATION_SCOPE');
     if (!binding.modelPolicy.providerRefs.includes(request.sourcePolicy.providerRef) || request.sourcePolicy.allowRemoteModel && !binding.modelPolicy.allowRemote || request.sourcePolicy.allowRepositoryExecution && !binding.modelPolicy.allowExecution) throw new DomainError('SOURCE_DISCLOSURE_OR_EXECUTION_POLICY_DENIED');
     const bounded = { ...request, excludedPaths: [...new Set([...request.excludedPaths, ...binding.excludedPaths])] };
-    return this.db.$transaction(tx => enqueue(tx, actor, 'scan', request.operationId, bounded, new Date(request.deadline)));
+    return bounded;
+  }
+  async scan(actor: Actor, input: unknown): Promise<string> {
+    const request = await this.validateScan(actor, input);
+    return this.db.$transaction(tx => enqueue(tx, actor, 'scan', request.operationId, request, new Date(request.deadline)));
   }
   async profile(actor: Actor, input: unknown): Promise<string> {
     requirePermission(actor, 'policy', actor.scope); const profile = profileSchema.parse(input);
@@ -496,7 +500,7 @@ export class Embermend {
       await tx.job.update({ where: { id }, data: { cancelRequested: true } }); await audit(tx, actor, 'job.cancellation-requested', id);
     });
   }
-  async prepare(actor: Actor, input: unknown): Promise<string> {
+  private async validatePreparation(actor: Actor, input: unknown): Promise<Preparation> {
     const preparation = preparationSchema.parse(input);
     if (preparation.edits.some(edit => edit.content !== null && redact(edit.content) !== edit.content)) throw new DomainError('SENSITIVE_PATCH_CONTENT_REQUIRES_REDACTION');
     requirePermission(actor, 'prepare', preparation.scope);
@@ -509,6 +513,10 @@ export class Embermend {
     if (!binding || binding.kind !== 'source-binding' || !within(actor.scope, binding.scope) || !binding.maintainedBranches.includes(preparation.branch)) throw new DomainError('MAINTAINED_BRANCH_REQUIRED');
     if (!binding.modelPolicy.allowExecution) throw new DomainError('REPOSITORY_EXECUTION_NOT_AUTHORIZED');
     for (const edit of preparation.edits) if (!safePath(edit.path) || edit.path.split('/').includes('.git') || !binding.includedPaths.some(path => matchesPath(edit.path, path)) || binding.excludedPaths.some(path => matchesPath(edit.path, path)) || !preparation.includedPaths.some(path => matchesPath(edit.path, path)) || preparation.excludedPaths.some(path => matchesPath(edit.path, path))) throw new DomainError('PATCH_OUTSIDE_APPLICATION_SCOPE');
+    return preparation;
+  }
+  async prepare(actor: Actor, input: unknown): Promise<string> {
+    const preparation = await this.validatePreparation(actor, input);
     return this.db.$transaction(async tx => {
       const jobId = await enqueue(tx, actor, 'preparation', preparation.id, preparation, new Date(preparation.deadline));
       const prior = await tx.preparation.findUnique({ where: { id: preparation.id } });
@@ -517,13 +525,23 @@ export class Embermend {
       await audit(tx, actor, 'source.preparation.requested', preparation.id, { baseCommit: preparation.baseCommit, editPaths: preparation.edits.map(edit => edit.path) }); return jobId;
     });
   }
-  async source(actor: Actor, input: unknown): Promise<string> {
+  private async validateSource(actor: Actor, input: unknown): Promise<SourceRequest> {
     const request = sourceRequestSchema.parse(input); requirePermission(actor, 'assess', request.scope); requirePermission(actor, 'evidence', request.scope);
     if (!request.scope.targetIds.includes(request.workerTargetId) || !request.scope.applicationIds.includes(request.applicationId)) throw new DomainError('SOURCE_SCOPE_MISMATCH');
+    const row = await this.db.entity.findUnique({ where: { id: request.repositoryId } }); const repository = row ? entitySchema.parse(row.data) : null;
+    if (!repository || repository.kind !== 'repository' || repository.providerId !== request.providerId || repository.scope.installationId !== request.scope.installationId) throw new DomainError('REPOSITORY_NOT_AUTHORIZED');
     const bindings = (await this.db.entity.findMany({ where: { kind: 'source-binding', installationId: request.scope.installationId } })).map(row => entitySchema.parse(row.data)).filter(entity => entity.kind === 'source-binding' && entity.repositoryId === request.repositoryId && entity.applicationId === request.applicationId);
     const binding = bindings[0]; if (bindings.length !== 1 || !binding || binding.kind !== 'source-binding' || !within(actor.scope, binding.scope)) throw new DomainError('UNIQUE_APPLICATION_SOURCE_BINDING_REQUIRED');
     for (const path of request.paths) if (!safePath(path) || path.split('/').includes('.git') || !binding.includedPaths.some(prefix => matchesPath(path, prefix)) || binding.excludedPaths.some(prefix => matchesPath(path, prefix))) throw new DomainError('SOURCE_PATH_OUTSIDE_APPLICATION_SCOPE');
+    return request;
+  }
+  async source(actor: Actor, input: unknown): Promise<string> {
+    const request = await this.validateSource(actor, input);
     return this.db.$transaction(tx => enqueue(tx, actor, 'source', request.id, request, new Date(request.deadline)));
+  }
+  async validateSourceAdmission(actor: Actor, kind: 'scan' | 'preparation' | 'source', input: unknown): Promise<void> {
+    const checked = kind === 'scan' ? await this.validateScan(actor, input) : kind === 'preparation' ? await this.validatePreparation(actor, input) : await this.validateSource(actor, input);
+    if (digest(checked) !== digest(input)) throw new DomainError('SOURCE_POLICY_CHANGED');
   }
   private async authorized<T>(actor: Actor, plan: Plan, action: Action, work: (tx: Transaction) => Promise<T>): Promise<T> {
     requirePermission(actor, 'execute', plan.scope); requireActionPermission(actor, action, plan.scope); validateAction(action);

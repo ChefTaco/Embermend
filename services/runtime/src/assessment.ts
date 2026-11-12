@@ -1,7 +1,7 @@
 import { setTimeout } from 'node:timers/promises';
 import { z } from 'zod';
 import { assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, sourceResultSchema, preparationSchema, preparationResultSchema, profileSchema, entitySchema, evidenceSchema, scanResultSchema, type Actor, type OperationRequest, type Action, type Receipt } from '@hivemagnus/embermend-contracts';
-import { digest, json } from '@hivemagnus/embermend-store';
+import { digest, json, audit } from '@hivemagnus/embermend-store';
 import { ingestVulnerabilities } from './vulnerabilities.js';
 import { DomainError, requirePermission, assertTarget, type Embermend } from '@hivemagnus/embermend-core';
 import { reconcileDeploymentInventory } from './deployment-inventory.js';
@@ -39,6 +39,14 @@ export async function runAssessment(service: Embermend, actor: Actor, job: { id:
       const target = capabilities?.targets.find(item => item.id === targetId); if (!target || target.kind !== 'target') throw new DomainError('ASSESSMENT_TARGET_UNAVAILABLE');
       const agent = capabilities?.agents?.find(item => item.id === target.agentId); if (agent) await service.entity(system, agent);
       await service.entity(system, entitySchema.parse(target));
+      if (scan || preparation || source) {
+        try { await service.validateSourceAdmission(actor, scan ? 'scan' : preparation ? 'preparation' : 'source', job.payload); }
+        catch (error) {
+          if (!(error instanceof DomainError)) throw error;
+          await audit(service.db, actor, 'source.admission-refused', job.id, { kind: job.kind, reason: error.code });
+          throw new DomainError('SOURCE_ADMISSION_CHANGED_BEFORE_DISPATCH');
+        }
+      }
       const version = vulnerabilities ? vulnerabilities.kind === 'ubuntu' ? 'ubuntu-oval.v1' : 'image-vulnerabilities.v1' : scan ? 'repository-scan.v1' : preparation ? 'repository-prepare.v1' : source ? 'repository-source.v1' : 'inventory.v1';
       const action: Action = { id: `assessment:${operationId}`, version, class: preparation ? 'prepare' : 'assess', targetId, targetKind: scan || preparation || source ? 'worker' : target.targetKind, requiredCapabilities: [`embermend:${version}`], parameters: vulnerabilities ? vulnerabilities.kind === 'ubuntu' ? {} : { imageRef: vulnerabilities.imageRef } : scan ? { request: scan } : preparation ? { request: preparation } : source ? { request: source } : { sections: ['packages', 'services', 'listeners', 'configuration', 'docker', 'compose'], profileId: request?.profileId ?? 'unknown' }, preconditions: {}, dependsOn: [], verificationIds: [operationId], recovery: 'Assessment or preparation has no intended managed-system or persistent-source mutation', expectedRevision: scan?.commit ?? preparation?.baseCommit ?? source?.commit ?? null, patchDigest: null, disruption: 'none' };
       assertTarget(action, target);

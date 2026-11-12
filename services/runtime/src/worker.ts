@@ -78,7 +78,7 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
   } catch (error) {
     const code = error instanceof DomainError ? error.code : 'WORKER_FAILED_INSPECT_RETAINED_STATE';
     const retained = await service.db.job.findUnique({ where: { id } });
-    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: ['ASSESSMENT_FAILED_CONFIRMED', 'CAMPAIGN_FAILED_CONFIRMED'].includes(code) ? 'failed' : ['campaign', 'reconciliation'].includes(job.kind) || retained?.result !== null ? 'unknown' : 'failed', error: code } });
+    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: ['ASSESSMENT_FAILED_CONFIRMED', 'CAMPAIGN_FAILED_CONFIRMED', 'SOURCE_ADMISSION_CHANGED_BEFORE_DISPATCH'].includes(code) ? 'failed' : ['campaign', 'reconciliation'].includes(job.kind) || retained?.result !== null ? 'unknown' : 'failed', error: code } });
   } finally { clearInterval(heartbeat); }
   return true;
 }
