@@ -198,3 +198,18 @@ export const scannerBrokerReplySchema = z.union([
   z.object({ id: z.string().min(1).max(200), result: z.unknown() }).strict(),
   z.object({ id: z.string().min(1).max(200), error: z.literal('MODEL_BROKER_UNAVAILABLE') }).strict(),
 ]);
+
+/**
+ * HiveEvent v1 as served by GET /api/v1/hive/events. It mirrors the Hive:Magnus shared
+ * contract in @hivemagnus/hive-common; the server validates every event with that package.
+ */
+export const HIVE_EVENTS_PATH = '/api/v1/hive/events';
+export const hiveEventSchema = z.object({
+  id: z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/), product: z.literal('embermend'),
+  type: z.enum(['recommendation.created', 'recommendation.approved', 'recommendation.rejected', 'recommendation.policy-authorized', 'campaign.paused', 'campaign.resumed', 'campaign.verification-stopped', 'execution.failed', 'execution.needs-attention']),
+  severity: z.enum(['info', 'warning', 'critical']), title: z.string().min(1).max(200), summary: z.string().max(2000), occurredAt: z.iso.datetime(),
+  subject: z.object({ nodeId: z.string().regex(/^[a-z0-9_-]{2,32}$/).optional() }).strict().optional(),
+  link: z.object({ product: z.literal('embermend'), path: z.string().min(1).max(1024).regex(/^\/(?![/\\])\S*$/) }).strict(), sourceRef: z.string().min(1).max(256).optional(),
+}).strict();
+export type HiveEventRecord = z.infer<typeof hiveEventSchema>;
+export const hiveEventPageSchema = z.object({ data: z.array(hiveEventSchema), nextCursor: z.string().nullable() }).strict();
