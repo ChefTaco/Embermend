@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
 import type { Actor } from '@hivemagnus/embermend-contracts';
 import { VERSION } from '@hivemagnus/embermend-contracts';
-import { DomainError, requirePermission, type Embermend } from '@hivemagnus/embermend-core';
+import { DomainError, hiveEventFeed, requirePermission, type Embermend } from '@hivemagnus/embermend-core';
+import { parseFeedQuery } from '@hivemagnus/hive-common/events';
 
 export type Authenticate = (token: string) => Promise<Actor>;
 export function createApi(service: Embermend, authenticate: Authenticate): Hono<{ Variables: { actor: Actor } }> {
@@ -66,6 +67,13 @@ export function createApi(service: Embermend, authenticate: Authenticate): Hono<
   app.post('/api/v1/jobs/:id/reconcile', async c => c.json({ jobId: await service.reconcileJob(c.get('actor'), c.req.param('id')) }, 202));
   app.post('/api/v1/jobs/:id/cancel', async c => { await service.cancelJob(c.get('actor'), c.req.param('id')); return c.json({ cancellationRequested: true }); });
   app.get('/api/v1/recommendations', async c => c.json(await service.timeline(c.get('actor'))));
+  // Hive:Magnus inbox feed, derived from committed audit rows with the recommendation read rules.
+  app.get('/api/v1/hive/events', async c => {
+    const actor = c.get('actor'); requirePermission(actor, 'read', actor.scope);
+    let query: { after: string | undefined; limit: number };
+    try { query = parseFeedQuery(new URL(c.req.url).searchParams); } catch { return c.json({ error: 'INVALID_FEED_QUERY' }, 400); }
+    return c.json(await hiveEventFeed(service.db, actor, query));
+  });
   app.get('/api/v1/plans/:id', async c => c.json(await service.plan(c.get('actor'), c.req.param('id'))));
   app.post('/api/v1/plans', async c => c.json(await service.propose(c.get('actor'), await c.req.json()), 201));
   app.post('/api/v1/plans/:id/publish', async c => { const body = z.object({ revision: z.number().int().positive() }).strict().parse(await c.req.json()); return c.json({ publicationId: await service.publish(c.get('actor'), c.req.param('id'), body.revision) }); });

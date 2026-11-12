@@ -81,6 +81,18 @@ browser contracts only from a committed source revision using
 provenance. Restricted evidence additionally requires `evidence-restricted`;
 ordinary evidence access never grants it.
 
+`GET /api/v1/hive/events?after=<cursor>&limit=<n>` serves the Hive:Magnus
+inbox feed: HiveEvent v1 records (from `@hivemagnus/hive-common`) derived from
+committed audit rows, oldest first, for the last 14 days. It reports new
+recommendations (`recommendation.created`, severity from the findings' own
+severity and priority), decisions (`recommendation.approved`, `.rejected`,
+`.policy-authorized`), campaign pauses, resumes and verification stops, and
+failed or unknown execution outcomes (`execution.failed`,
+`execution.needs-attention`). It applies the recommendation read rules: an
+account without `read` gets 403, and records outside its scope are omitted.
+Links point at HiveXUI's Embermend page. The Hive Registry announces it as
+`"capabilities": { "events.v1": { "path": "/api/v1/hive/events" } }`.
+
 The Ardent plugin is `@hivemagnus/embermend-ardent-plugin`. Configure
 `EMBERMEND_URL` and a scoped `EMBERMEND_TOKEN` in the managed coordinator's
 environment, then load the package through Ardent's plugin configuration.

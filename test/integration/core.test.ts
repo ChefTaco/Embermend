@@ -10,6 +10,8 @@ import { tick } from '../../services/runtime/dist/worker.js';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
 import { reconcileDeploymentInventory } from '../../services/runtime/dist/deployment-inventory.js';
 import { createApi } from '../../services/runtime/dist/api.js';
+import { validateHiveEvent } from '@hivemagnus/hive-common/contracts';
+import { hiveEventPageSchema } from '@hivemagnus/embermend-contracts';
 
 const url = process.env['DATABASE_URL'];
 if (!url || !new URL(url).pathname.startsWith('/embermend_test') || !['127.0.0.1', 'localhost'].includes(new URL(url).hostname)) throw new Error('Explicit loopback embermend_test PostgreSQL database required');
@@ -830,6 +832,73 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     magnus.receipt = async () => ({ ...retained, state: 'failed', ownershipReleased: true, result: { superseded: true, originalOutcome: 'unknown' } });
     const observation = await service.reconcileJob(operator, originalJob); await tick(service, 'fixture-confirmed-failure', new AbortController().signal);
     assert.equal((await service.job(operator, observation)).status, 'failed'); const original = await service.job(operator, originalJob); assert.equal(original.status, 'failed'); assert.equal(original.error, 'CAMPAIGN_FAILED_CONFIRMED'); assert.equal(original.cancelRequested, true); assert.equal(original.deadline, new Date(0).toISOString()); assert.equal(magnus.requests.length, 1);
+  });
+
+  await t.test('Hive event feed serves derived, scoped, validated events in cursor order', async () => {
+    const { service } = await reset();
+    const outsider: Actor = { ...operator, id: 'fixture-outsider', scope: { installationId: 'fixture-installation', applicationIds: [], targetIds: [] } };
+    const foreign: Actor = { ...operator, id: 'fixture-foreign', scope: { ...scope, installationId: 'fixture-other-installation' } };
+    const unreadable: Actor = { ...coordinator, id: 'fixture-no-read', permissions: new Set(['propose']) };
+    const actors = new Map<string, Actor>([['operator', operator], ['outsider', outsider], ['foreign', foreign], ['unreadable', unreadable]]);
+    const app = createApi(service, async token => { const actor = actors.get(token); if (!actor) throw new Error('invalid'); return actor; });
+    const get = (query: string, token = 'operator') => app.request(`/api/v1/hive/events${query}`, { headers: { authorization: `Bearer ${token}` } });
+    const page = async (query: string, token = 'operator') => { const response = await get(query, token); assert.equal(response.status, 200); return hiveEventPageSchema.parse(await response.json()); };
+    const proposed = await service.propose(coordinator, plan()); await service.publish(coordinator, proposed.id, 1);
+    await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
+    await service.pause(coordinator, 'fixture-campaign', true);
+    await db.execution.create({ data: { id: 'fixture-execution', planId: 'fixture-plan', revision: 1, actionId: 'fixture-action', targetId: 'fixture-node', requestDigest: 'a'.repeat(64), request: {}, state: 'failed', dispatchGeneration: 1 } });
+    const audit = (id: string, operation: string, subjectId: string, details: Record<string, string | number>, ageMs: number) => db.audit.create({ data: { id, actorId: 'fixture-operator', operation, subjectId, installationId: 'fixture-installation', details, createdAt: new Date(Date.now() - ageMs) } });
+    await audit('fixture-audit-receipt', 'execution.receipt', 'fixture-execution', { state: 'failed' }, 0);
+    await audit('fixture-audit-completed', 'execution.receipt', 'fixture-execution', { state: 'completed' }, 0);
+    await audit('fixture-audit-malformed', 'plan.approve', 'fixture-plan', { revision: 'not-a-number' }, 0);
+    await audit('fixture-audit-old', 'plan.reject', 'fixture-plan', { revision: 1 }, 15 * 86400000);
+    await audit('fixture-audit-boundary', 'plan.reject', 'fixture-plan', { revision: 1 }, 14 * 86400000 - 60000);
+
+    assert.equal((await app.request('/api/v1/hive/events')).status, 401);
+    const first = await page('');
+    assert.equal(first.nextCursor, null);
+    assert.deepEqual(first.data.map(event => event.type), ['recommendation.rejected', 'recommendation.created', 'recommendation.approved', 'campaign.paused', 'execution.failed']);
+    for (const event of first.data) { const result = validateHiveEvent(event, { strict: true }); assert.ok(result.ok, JSON.stringify(result)); }
+    const ordered = [...first.data].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    assert.deepEqual(first.data.map(event => event.id), ordered.map(event => event.id));
+    assert.ok(!first.data.some(event => event.id.includes('fixture-audit-old')), 'events older than 14 days are not served');
+    const created = first.data.find(event => event.type === 'recommendation.created');
+    assert.deepEqual(created && { id: created.id, severity: created.severity, subject: created.subject, link: created.link, sourceRef: created.sourceRef }, { id: 'embermend:plan:fixture-plan:r1:created', severity: 'info', subject: { nodeId: 'fixture-node' }, link: { product: 'embermend', path: '/?page=embermend&plan=fixture-plan' }, sourceRef: 'fixture-plan' });
+    const failed = first.data.find(event => event.type === 'execution.failed');
+    assert.deepEqual(failed && { id: failed.id, severity: failed.severity, subject: failed.subject }, { id: 'embermend:execution:fixture-execution:failed:fixture-audit-receipt', severity: 'warning', subject: { nodeId: 'fixture-node' } });
+    assert.equal(first.data.find(event => event.type === 'campaign.paused')?.link.path, '/?page=embermend&campaign=fixture-campaign');
+
+    // The same records give the same IDs, and paging by one reaches the same events in order.
+    assert.deepEqual((await page('')).data.map(event => event.id), first.data.map(event => event.id));
+    const paged: string[] = []; let cursor: string | null = null;
+    do { const next = await page(`?limit=1${cursor ? `&after=${cursor}` : ''}`); assert.ok(next.data.length <= 1); paged.push(...next.data.map(event => event.id)); cursor = next.nextCursor; } while (cursor);
+    assert.deepEqual(paged, first.data.map(event => event.id));
+    const two = await page('?limit=2'); assert.equal(two.data.length, 2); assert.ok(two.nextCursor);
+    assert.deepEqual((await page(`?after=${two.nextCursor}`)).data.map(event => event.id), first.data.slice(2).map(event => event.id));
+    const tail = await page('?limit=5'); assert.equal(tail.nextCursor, null);
+
+    // Severity follows the recommendation's own findings.
+    await db.finding.update({ where: { id: 'fixture-finding' }, data: { data: { ...finding(), severity: 'critical' } } });
+    assert.equal((await page('')).data.find(event => event.type === 'recommendation.created')?.severity, 'critical');
+
+    // Limits and cursors.
+    for (const query of ['?limit=0', '?limit=-1', '?limit=abc', '?after=%21%21', '?after=e30', '?limit=1&limit=2']) assert.equal((await get(query)).status, 400, query);
+    assert.equal((await page('?limit=500')).data.length, first.data.length);
+
+    // Role filtering: no read permission is forbidden, other scopes see nothing.
+    assert.equal((await get('', 'unreadable')).status, 403);
+    assert.deepEqual(await page('', 'outsider'), { data: [], nextCursor: null });
+    assert.deepEqual(await page('', 'foreign'), { data: [], nextCursor: null });
+
+    // Pages stay complete across audit read batches, including many events sharing one instant.
+    const tie = new Date(Date.now() - 3600000);
+    await db.audit.createMany({ data: Array.from({ length: 1100 }, (_, index) => ({ id: `fixture-bulk-${String(index).padStart(4, '0')}`, actorId: 'fixture-operator', operation: index % 2 ? 'campaign.resumed' : 'campaign.paused', subjectId: 'fixture-campaign', installationId: 'fixture-installation', details: {}, createdAt: index < 600 ? tie : new Date(tie.getTime() + index * 1000) })) });
+    assert.equal((await page('?limit=200')).data.length, 200);
+    const all: z.infer<typeof hiveEventPageSchema>['data'] = [];
+    let next: string | null = null;
+    do { const result = await page(`?limit=200${next ? `&after=${next}` : ''}`); all.push(...result.data); next = result.nextCursor; } while (next);
+    assert.equal(all.length, first.data.length + 1100); assert.equal(new Set(all.map(event => event.id)).size, all.length);
+    assert.deepEqual(all.map(event => event.id), [...all].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map(event => event.id));
   });
 
 });
