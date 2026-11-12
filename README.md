@@ -94,6 +94,34 @@ account without `read` gets 403, and records outside its scope are omitted.
 Links point at HiveXUI's Embermend page. The Hive Registry announces it as
 `"capabilities": { "events.v1": { "path": "/api/v1/hive/events" } }`.
 
+`GET /api/v1/audit/export?after=<cursor>&limit=<n>` serves the suite audit
+export that Cindertrace pulls: every committed audit row as a HiveAuditRecord v1
+(`hiveAuditRecordSchema`), oldest first by `(createdAt, id)`, with opaque
+cursors, `limit` from 1 to 200 (default 100) and no retention window. It
+requires the permission **`embermend:audit:read`** (grant permission
+`audit:read`). A service account (an `integration` or `coordinator` grant)
+holding it exports every installation; an operator holding it exports only its
+own installation. A token without it gets 403, and a missing token or one with
+no product grant gets 401. Record IDs are `embermend:audit:<audit row id>`;
+actions are the audit operations with hyphens as underscores (for example
+`plan.approve`, `plan.policy_authorized`, `execution.receipt`); `outcome` is
+`failure` for failed execution receipts and failed verifications. `details`
+holds only flat identifiers, digests, revisions and states (plus the row's
+`installationId`), redacted and at most 4 KB; operator-written text is omitted.
+A collector grant looks like
+`{"subject":"<collector client id>","kind":"integration","permissions":["audit:read"],"scope":{"installationId":"<installation>","applicationIds":[],"targetIds":[]}}`
+in `EMBERMEND_IDENTITY_GRANTS`; its Oathweave client needs the
+`embermend:audit:read` permission and the `embermend` audience.
+Each page's `nextCursor` is the cursor of its last record, even on the final
+page; it is `null` only when `data` is empty (caught up), so a collector keeps
+its last non-null cursor and polls it again. `target` and `subject` are omitted
+when empty. Oathweave signs client-credentials tokens with its native issuer by
+default: set the optional comma-separated `OATHWEAVE_NATIVE_ISSUERS` (for
+example Oathweave's `JWT_ISSUER`, such as `hive-iam`) to accept them. A
+native-issuer token is accepted for service grants only, verified with the
+hive-common Oathweave verifier against `OATHWEAVE_JWKS_URL`, and carries no
+permission but `audit:read`, so it can use this route and nothing else.
+
 The Ardent plugin is `@hivemagnus/embermend-ardent-plugin`. Configure
 `EMBERMEND_URL` and a scoped `EMBERMEND_TOKEN` in the managed coordinator's
 environment, then load the package through Ardent's plugin configuration.

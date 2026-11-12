@@ -11,7 +11,7 @@ import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.
 import { reconcileDeploymentInventory } from '../../services/runtime/dist/deployment-inventory.js';
 import { createApi } from '../../services/runtime/dist/api.js';
 import { validateHiveEvent } from '@hivemagnus/hive-common/contracts';
-import { hiveEventPageSchema } from '@hivemagnus/embermend-contracts';
+import { hiveEventPageSchema, hiveAuditPageSchema, hiveAuditRecordSchema } from '@hivemagnus/embermend-contracts';
 
 const url = process.env['DATABASE_URL'];
 if (!url || !new URL(url).pathname.startsWith('/embermend_test') || !['127.0.0.1', 'localhost'].includes(new URL(url).hostname)) throw new Error('Explicit loopback embermend_test PostgreSQL database required');
@@ -300,6 +300,50 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.propose(coordinator, plan()); await service.publish(coordinator, 'fixture-plan', 1);
     const response = await app.request('/api/v1/decisions', { method: 'POST', headers: { authorization: 'Bearer fixture-coordinator-token', 'content-type': 'application/json' }, body: JSON.stringify({ planId: 'fixture-plan', revision: 1, digest: digest(await service.plan(operator, 'fixture-plan')), decision: 'approve', expiresAt: later() }) }); assert.equal(response.status, 403);
   });
+  await t.test('audit export pages every committed audit row oldest first for authorized readers only', async () => {
+    const { service } = await reset();
+    await service.propose(coordinator, plan()); await service.publish(coordinator, 'fixture-plan', 1);
+    const base = Date.parse('2026-11-01T00:00:00.000Z');
+    for (let index = 0; index < 30; index++) await db.audit.create({ data: { id: `bulk-${String(index).padStart(3, '0')}`, actorId: 'fixture-operator', actorKind: 'operator', operation: 'profile.assigned', subjectId: `subject-${index}`, installationId: index % 2 ? 'other-installation' : scope.installationId, details: { impact: 'secret operator text', apiToken: 'fixture-not-a-real-token', revision: index }, createdAt: new Date(base + Math.floor(index / 3) * 1000) } });
+    await db.audit.create({ data: { id: 'legacy-row', actorId: 'fixture-coordinator', operation: 'execution.receipt', subjectId: 'fixture-execution', installationId: scope.installationId, details: { state: 'failed' }, createdAt: new Date(base - 1000) } });
+    const collector: Actor = { id: 'fixture-collector', kind: 'integration', permissions: new Set(['audit:read']), scope };
+    const admin: Actor = { ...operator, scope: { ...scope, applicationIds: [], targetIds: [] } };
+    const tokens = new Map<string, Actor>([['collector', collector], ['admin', admin], ['coordinator', coordinator], ['reader', { ...operator, permissions: new Set(['read']) }]]);
+    const app = createApi(service, async token => { const actor = tokens.get(token); if (!actor) throw new Error('invalid'); return actor; }, { auditActorKind: id => id === 'fixture-coordinator' ? 'coordinator' : undefined });
+    const get = (path: string, token?: string) => app.request(path, token ? { headers: { authorization: `Bearer ${token}` } } : {});
+    assert.equal((await get('/api/v1/audit/export')).status, 401);
+    assert.equal((await get('/api/v1/audit/export', 'unknown')).status, 401);
+    assert.equal((await get('/api/v1/audit/export', 'coordinator')).status, 403);
+    assert.equal((await get('/api/v1/audit/export', 'reader')).status, 403);
+    for (const query of ['?limit=0', '?limit=abc', '?after=!!', '?after=e30', '?limit=1&limit=2']) assert.equal((await get(`/api/v1/audit/export${query}`, 'collector')).status, 400, query);
+    const total = await db.audit.count();
+    const read = async (token: string, limit: number) => {
+      const records = []; let cursor: string | null = null; let pages = 0;
+      do {
+        const response = await get(`/api/v1/audit/export?limit=${limit}${cursor ? `&after=${cursor}` : ''}`, token); assert.equal(response.status, 200);
+        const page = hiveAuditPageSchema.parse(await response.json()); assert.ok(page.data.length <= limit); records.push(...page.data); cursor = page.nextCursor; pages++;
+      } while (cursor && pages < 1000);
+      return records;
+    };
+    const all = await read('collector', 7);
+    assert.equal(all.length, total); assert.equal(new Set(all.map(record => record.id)).size, total);
+    assert.deepEqual(all.map(record => record.id), [...all].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map(record => record.id));
+    for (const record of all) assert.deepEqual(hiveAuditRecordSchema.parse(record), record);
+    assert.ok(all.some(record => record.details['installationId'] === 'other-installation'));
+    assert.deepEqual((await read('collector', 200)).map(record => record.id), all.map(record => record.id));
+    const first = all[0]; assert.ok(first); assert.equal(first.id, 'embermend:audit:legacy-row'); assert.equal(first.outcome, 'failure'); assert.equal(first.actor.type, 'service');
+    const serialized = JSON.stringify(all); assert.equal(serialized.includes('secret operator text'), false); assert.equal(serialized.includes('fixture-not-a-real-token'), false);
+    assert.ok(all.some(record => record.action === 'plan.proposed' && record.actor.type === 'service' && record.actor.id === 'fixture-coordinator'));
+    const own = await read('admin', 200);
+    assert.equal(own.length, await db.audit.count({ where: { installationId: scope.installationId } })); assert.ok(own.every(record => record.details['installationId'] === scope.installationId));
+    const defaults = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export', 'collector')).json()); assert.equal(defaults.data.length, Math.min(100, total));
+    const clamped = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export?limit=5000', 'collector')).json()); assert.equal(clamped.data.length, Math.min(200, total));
+    const tail = hiveAuditPageSchema.parse(await (await get('/api/v1/audit/export?limit=200', 'collector')).json()); assert.equal(tail.data.length, total); assert.ok(tail.nextCursor);
+    const caughtUp = hiveAuditPageSchema.parse(await (await get(`/api/v1/audit/export?after=${tail.nextCursor}`, 'collector')).json()); assert.deepEqual(caughtUp, { data: [], nextCursor: null });
+    await db.audit.create({ data: { id: 'later-row', actorId: 'fixture-operator', actorKind: 'operator', operation: 'campaign.paused', subjectId: 'fixture-campaign', installationId: scope.installationId, details: {}, createdAt: new Date() } });
+    const resumed = hiveAuditPageSchema.parse(await (await get(`/api/v1/audit/export?after=${tail.nextCursor}`, 'collector')).json()); assert.deepEqual(resumed.data.map(record => record.id), ['embermend:audit:later-row']); assert.ok(resumed.nextCursor);
+  });
+
   await t.test('a transient unknown receipt is observed under its original operation without another dispatch', async () => {
     const { service, magnus } = await reset();
     await service.profile(operator, { id: 'transient-profile', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'observed', explanation: 'Observe the fixture configuration', capability: 'inventory.v1', field: 'mode', expected: '0600', actionVersion: 'file-mode.v1' }] });

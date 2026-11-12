@@ -28,7 +28,7 @@ export async function lock(tx: Transaction, key: string): Promise<void> {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
 }
 export async function audit(tx: Transaction, actor: Actor, operation: string, subjectId: string, details: unknown = {}): Promise<void> {
-  await tx.audit.create({ data: { id: randomUUID(), actorId: actor.id, operation, subjectId, installationId: actor.scope.installationId, details: json(details) } });
+  await tx.audit.create({ data: { id: randomUUID(), actorId: actor.id, actorKind: actor.kind, operation, subjectId, installationId: actor.scope.installationId, details: json(details) } });
 }
 export function serializeActor(actor: Actor): Prisma.InputJsonValue { return json({ ...actor, permissions: [...actor.permissions] }); }
 export function within(outer: Scope, inner: Scope): boolean {

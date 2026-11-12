@@ -4,11 +4,15 @@ import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
 import type { Actor } from '@hivemagnus/embermend-contracts';
 import { VERSION } from '@hivemagnus/embermend-contracts';
-import { DomainError, hiveEventFeed, requirePermission, type Embermend } from '@hivemagnus/embermend-core';
+import { DomainError, auditExport, auditExportInstallation, hiveEventFeed, requirePermission, type Embermend } from '@hivemagnus/embermend-core';
 import { parseFeedQuery } from '@hivemagnus/hive-common/events';
 
 export type Authenticate = (token: string) => Promise<Actor>;
-export function createApi(service: Embermend, authenticate: Authenticate): Hono<{ Variables: { actor: Actor } }> {
+export interface ApiOptions {
+  /** The configured kind of an audit actor, used for audit rows written before the kind was recorded. */
+  auditActorKind?: (actorId: string) => Actor['kind'] | undefined;
+}
+export function createApi(service: Embermend, authenticate: Authenticate, options: ApiOptions = {}): Hono<{ Variables: { actor: Actor } }> {
   const app = new Hono<{ Variables: { actor: Actor } }>();
   app.use('*', bodyLimit({ maxSize: 2 * 1024 * 1024, onError: c => c.json({ error: 'REQUEST_TOO_LARGE' }, 413) }));
   app.onError((error, c) => {
@@ -73,6 +77,14 @@ export function createApi(service: Embermend, authenticate: Authenticate): Hono<
     let query: { after: string | undefined; limit: number };
     try { query = parseFeedQuery(new URL(c.req.url).searchParams); } catch { return c.json({ error: 'INVALID_FEED_QUERY' }, 400); }
     return c.json(await hiveEventFeed(service.db, actor, query));
+  });
+  // Suite audit export (HiveAuditRecord v1) for Cindertrace: every installation for a service holding
+  // embermend:audit:read, the operator's own installation for an operator holding it.
+  app.get('/api/v1/audit/export', async c => {
+    const actor = c.get('actor'); auditExportInstallation(actor);
+    let query: { after: string | undefined; limit: number };
+    try { query = parseFeedQuery(new URL(c.req.url).searchParams, { defaultLimit: 100, maxLimit: 200 }); } catch { return c.json({ error: 'INVALID_FEED_QUERY' }, 400); }
+    return c.json(await auditExport(service.db, actor, { ...query, ...(options.auditActorKind ? { actorKind: options.auditActorKind } : {}) }));
   });
   app.get('/api/v1/plans/:id', async c => c.json(await service.plan(c.get('actor'), c.req.param('id'))));
   app.post('/api/v1/plans', async c => c.json(await service.propose(c.get('actor'), await c.req.json()), 201));

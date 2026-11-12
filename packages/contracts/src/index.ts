@@ -15,7 +15,7 @@ export const timestamp = z.iso.datetime({ offset: true });
 export const jsonObject = z.record(z.string(), z.json());
 export const scopeSchema = z.object({ installationId: id, applicationIds: z.array(id).max(1000), targetIds: z.array(id).max(1000) }).strict();
 export type Scope = z.infer<typeof scopeSchema>;
-export const permissions = ['read', 'evidence', 'evidence-restricted', 'assess', 'prepare', 'propose', 'publish-explanation', 'execute', 'approve', 'policy', 'repository-write', 'merge', 'artifact-publish', 'deploy', 'exception', 'recover', 'ingest'] as const;
+export const permissions = ['read', 'evidence', 'evidence-restricted', 'assess', 'prepare', 'propose', 'publish-explanation', 'execute', 'approve', 'policy', 'repository-write', 'merge', 'artifact-publish', 'deploy', 'exception', 'recover', 'ingest', 'audit:read'] as const;
 export type Permission = (typeof permissions)[number];
 export interface Actor { id: string; kind: 'operator' | 'coordinator' | 'integration'; permissions: ReadonlySet<Permission>; scope: Scope }
 export const coverageSchema = z.object({
@@ -213,3 +213,24 @@ export const hiveEventSchema = z.object({
 }).strict();
 export type HiveEventRecord = z.infer<typeof hiveEventSchema>;
 export const hiveEventPageSchema = z.object({ data: z.array(hiveEventSchema), nextCursor: z.string().nullable() }).strict();
+
+/**
+ * HiveAuditRecord v1 as served by GET /api/v1/audit/export: the suite-wide audit export shape
+ * that Cindertrace pulls from each product. Every product defines this schema unchanged.
+ */
+export const AUDIT_EXPORT_PATH = '/api/v1/audit/export';
+export const AUDIT_READ_PERMISSION = 'embermend:audit:read';
+const auditScalar = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+export const hiveAuditRecordSchema = z.object({
+  id: z.string().regex(/^(hivemem|hiveskills|ardentstudio|embermend):audit:[A-Za-z0-9._:-]{1,200}$/),
+  product: z.enum(['hivemem', 'hiveskills', 'ardentstudio', 'embermend']),
+  occurredAt: z.iso.datetime(),
+  action: z.string().min(1).max(128).regex(/^[a-z0-9_]+(?:\.[a-z0-9_]+)+$/),
+  outcome: z.enum(['success', 'failure']),
+  actor: z.object({ type: z.enum(['user', 'service', 'agent', 'system']), id: z.string().min(1).max(256), issuer: z.string().min(1).max(256).optional(), displayName: z.string().min(1).max(256).optional() }).strict(),
+  target: z.object({ type: z.string().min(1).max(128).optional(), id: z.string().min(1).max(256).optional() }).strict().optional(),
+  subject: z.object({ actorId: z.string().min(1).max(256).optional(), agentRef: z.string().min(1).max(256).optional(), nodeId: z.string().min(1).max(256).optional() }).strict().optional(),
+  details: z.record(z.string(), auditScalar).refine(value => new TextEncoder().encode(JSON.stringify(value)).length <= 4096, 'Audit details exceed 4 KB'),
+}).strict();
+export type HiveAuditRecord = z.infer<typeof hiveAuditRecordSchema>;
+export const hiveAuditPageSchema = z.object({ data: z.array(hiveAuditRecordSchema), nextCursor: z.string().nullable() }).strict();
