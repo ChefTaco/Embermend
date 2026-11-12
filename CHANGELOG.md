@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Yield deliberate canary-verification waits durably so a single worker can run independent assessments, then resume the same campaign job without extending its deadline or replaying admitted actions.
+
 - Keep staged campaigns waiting for independent canary verification within their original deadline, rechecking authorization and pause before the next action.
 - Preserve ambiguous code anchors as separate reviewable findings and retain every credential-exposure location with distinct immutable evidence.
 

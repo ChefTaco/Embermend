@@ -602,23 +602,27 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const value: Plan = { ...initial, actions: [...initial.actions, { ...first, id: 'after-canary', dependsOn: ['fixture-action'] }] };
     const proposed = await service.propose(coordinator, value); await service.publish(coordinator, value.id, 1); await service.decide(operator, { planId: value.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
     const jobId = await service.execute(coordinator, value.id, { revision: 1, digest: proposed.digest }); const before = await service.job(operator, jobId);
-    const running = tick(service, 'fixture-verification-waiter', new AbortController().signal);
+    await tick(service, 'fixture-verification-waiter', new AbortController().signal);
     for (let attempt = 0; attempt < 100; attempt++) { if ((await service.job(operator, jobId)).error === 'ACTION_VERIFICATION_REQUIRED') break; await new Promise(resolve => setTimeout(resolve, 20)); }
     assert.equal((await service.job(operator, jobId)).error, 'ACTION_VERIFICATION_REQUIRED'); assert.equal(magnus.requests.length, 1);
+    assert.equal((await service.job(operator, jobId)).status, 'queued');
+    await service.profile(operator, { id: 'fixture-wait-profile', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'inventory-response', explanation: 'Observe the fixture inventory independently', capability: 'inventory.v1', field: 'exitCode', expected: 0, actionVersion: 'inventory.v1' }] });
+    const assessmentId = await service.assess(coordinator, { id: 'fixture-independent-canary-assessment', scope, targetIds: ['fixture-node'], profileId: 'fixture-wait-profile', profileVersion: '1', deadline: later() });
+    await tick(service, 'fixture-independent-assessment-worker', new AbortController().signal); assert.equal((await service.job(operator, assessmentId)).status, 'completed');
     const proof = { ...evidence(), id: 'canary-independent-evidence', content: { findingIdentity: finding().identity, securityCheckPassed: true, runningStateVerified: true } }; await service.evidence(operator, proof);
     await service.verify(operator, { id: 'fixture-verification', occurrenceId: occurrence().id, dimension: 'runtime', result: 'pass', method: proof.method, evidenceIds: [proof.id], coverage: occurrence().coverage, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: true, observedAt: now(), independent: true, consumerMigrationVerified: false });
-    await running; const completed = await service.job(operator, jobId); assert.equal(completed.status, 'completed'); assert.equal(completed.error, null); assert.equal(completed.deadline, before.deadline); assert.equal(magnus.requests.length, 2);
+    await new Promise(resolve => setTimeout(resolve, 2100)); await tick(service, 'fixture-resumed-canary-worker', new AbortController().signal); const completed = await service.job(operator, jobId); assert.equal(completed.status, 'completed'); assert.equal(completed.error, null); assert.equal(completed.deadline, before.deadline); assert.equal(magnus.requests.filter(request => request.planId === value.id).length, 2);
   });
 
   await t.test('failed canary verification pauses a waiting campaign before another native dispatch', async () => {
     const { service, magnus } = await reset(); const initial = plan(); const first = initial.actions[0]; assert.ok(first);
     const value: Plan = { ...initial, actions: [...initial.actions, { ...first, id: 'after-canary', dependsOn: ['fixture-action'] }] };
     const proposed = await service.propose(coordinator, value); await service.publish(coordinator, value.id, 1); await service.decide(operator, { planId: value.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: value.expiresAt });
-    const jobId = await service.execute(coordinator, value.id, { revision: 1, digest: proposed.digest }); const running = tick(service, 'fixture-failed-canary-waiter', new AbortController().signal);
+    const jobId = await service.execute(coordinator, value.id, { revision: 1, digest: proposed.digest }); await tick(service, 'fixture-failed-canary-waiter', new AbortController().signal);
     for (let attempt = 0; attempt < 100; attempt++) { if ((await service.job(operator, jobId)).error === 'ACTION_VERIFICATION_REQUIRED') break; await new Promise(resolve => setTimeout(resolve, 20)); }
     assert.equal(magnus.requests.length, 1);
     await service.verify(operator, { id: 'canary-failed', occurrenceId: occurrence().id, dimension: 'runtime', result: 'fail', method: evidence().method, evidenceIds: [evidence().id], coverage: occurrence().coverage, revision: null, artifactDigest: null, targetId: 'fixture-node', healthPassed: false, observedAt: now(), independent: true, consumerMigrationVerified: false });
-    await running; assert.equal((await service.job(operator, jobId)).error, 'CAMPAIGN_PAUSED'); assert.equal(magnus.requests.length, 1); assert.equal((await db.campaign.findUniqueOrThrow({ where: { id: value.campaignId } })).paused, true);
+    await new Promise(resolve => setTimeout(resolve, 2100)); await tick(service, 'fixture-failed-canary-resumed', new AbortController().signal); assert.equal((await service.job(operator, jobId)).error, 'CAMPAIGN_PAUSED'); assert.equal(magnus.requests.length, 1); assert.equal((await db.campaign.findUniqueOrThrow({ where: { id: value.campaignId } })).paused, true);
   });
 
   await t.test('repeated credential locations retain distinct immutable evidence through scan ingestion', async () => {
