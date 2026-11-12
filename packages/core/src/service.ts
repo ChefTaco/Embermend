@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { z } from 'zod';
-import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt, type ScanRequest, type Preparation, type SourceRequest } from '@hivemagnus/embermend-contracts';
+import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt, type ScanRequest, type Preparation, type SourceRequest, type Finding, type Evidence } from '@hivemagnus/embermend-contracts';
 import { audit, digest, enqueue, json, lock, within, Prisma, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { redactObject, redact, IntegrationError, githubMergeOperationSchema, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
 import { matchesPath, safePath } from '@hivemagnus/embermend-scanner';
@@ -15,6 +15,10 @@ import { Records } from './records.js';
 import { Builds } from './builds.js';
 import { retainHostCapture } from './finding-history.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
+
+function findingEvidenceScope(finding: Finding, evidence: Evidence, subjectId: string): boolean {
+  return within(finding.scope, evidence.scope) || (['code', 'credential-exposure'].includes(finding.kind) && finding.scope.targetIds.length === 0 && finding.scope.installationId === evidence.scope.installationId && evidence.scope.applicationIds.every(id => finding.scope.applicationIds.includes(id)) && evidence.subjectId === subjectId);
+}
 
 export class Embermend {
   private readonly dispatchJob = new AsyncLocalStorage<{ jobId: string; owner: string }>();
@@ -78,9 +82,14 @@ export class Embermend {
       const supplied = new Map<string, z.infer<typeof evidenceSchema>>();
       for (const evidenceId of new Set([...value.evidenceIds, ...occurrence.evidenceIds])) {
         const evidence = await tx.evidence.findUnique({ where: { id: evidenceId } });
-        if (!evidence || !within(value.scope, evidenceSchema.parse(evidence.data).scope)) throw new DomainError('FINDING_EVIDENCE_UNAVAILABLE');
-        supplied.set(evidenceId, evidenceSchema.parse(evidence.data));
+        if (!evidence) throw new DomainError('FINDING_EVIDENCE_UNAVAILABLE');
+        const item = evidenceSchema.parse(evidence.data);
+        if (!findingEvidenceScope(value, item, occurrence.subjectId)) throw new DomainError('FINDING_EVIDENCE_UNAVAILABLE');
+        requirePermission(actor, 'ingest', item.scope);
+        supplied.set(evidenceId, item);
       }
+      const subject = await tx.entity.findUnique({ where: { id: occurrence.subjectId } });
+      if (subject) requirePermission(actor, 'ingest', entitySchema.parse(subject.data).scope);
       const existing = await tx.finding.findUnique({ where: { installationId_identity: { installationId: value.scope.installationId, identity: value.identity } } });
       const oldFinding = existing ? findingSchema.parse(existing.data) : null;
       if (oldFinding && !within(actor.scope, oldFinding.scope)) throw new DomainError('EXISTING_FINDING_OUTSIDE_SCOPE', 403);
@@ -403,13 +412,15 @@ export class Embermend {
       const occurrenceRow = await tx.occurrence.findUnique({ where: { id: verification.occurrenceId } }); if (!occurrenceRow) throw new DomainError('NOT_FOUND', 404);
       const findingRow = await tx.finding.findUnique({ where: { id: occurrenceRow.findingId } }); if (!findingRow) throw new DomainError('NOT_FOUND', 404);
       const finding = findingSchema.parse(findingRow.data); requirePermission(actor, 'ingest', finding.scope);
-      const evidence = [];
-      for (const id of verification.evidenceIds) { const row = await tx.evidence.findUnique({ where: { id } }); if (!row) throw new DomainError('MISSING_VERIFICATION_EVIDENCE'); const item = evidenceSchema.parse(row.data); if (!within(finding.scope, item.scope)) throw new DomainError('VERIFICATION_EVIDENCE_SCOPE'); evidence.push(item); }
       const previous = occurrenceSchema.parse(occurrenceRow.data);
+      const evidence = [];
+      for (const id of verification.evidenceIds) { const row = await tx.evidence.findUnique({ where: { id } }); if (!row) throw new DomainError('MISSING_VERIFICATION_EVIDENCE'); const item = evidenceSchema.parse(row.data); if (!findingEvidenceScope(finding, item, previous.subjectId)) throw new DomainError('VERIFICATION_EVIDENCE_SCOPE'); requirePermission(actor, 'evidence', item.scope); if (item.sensitivity === 'restricted') requirePermission(actor, 'evidence-restricted', item.scope); evidence.push(item); }
       if (verification.dimension === 'source') {
         const bindings = (await tx.entity.findMany({ where: { kind: 'source-binding', installationId: finding.scope.installationId } })).map(row => entitySchema.parse(row.data)).filter(item => item.kind === 'source-binding' && item.repositoryId === previous.subjectId && item.applicationId === finding.component && verification.branch !== undefined && verification.branch !== null && item.maintainedBranches.includes(verification.branch));
         if (bindings.length !== 1) throw new DomainError('SOURCE_VERIFICATION_MAINTAINED_BRANCH_REQUIRED');
       }
+      const subject = await tx.entity.findUnique({ where: { id: previous.subjectId } });
+      if (subject) requirePermission(actor, 'ingest', entitySchema.parse(subject.data).scope);
       const next = verifiedOccurrence(finding, previous, verification, evidence);
       const existing = await tx.verification.findUnique({ where: { id: verification.id } }); if (existing && digest(existing.data) !== digest(verification)) throw new DomainError('VERIFICATION_IDENTITY_CONFLICT');
       if (!existing) await tx.verification.create({ data: { id: verification.id, occurrenceId: previous.id, data: json(verification) } });

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Scope source findings and scanner evidence to their application independently of worker hosts, retaining versioned execution references so supported findings survive worker replacement without granting access to host evidence.
+
 - Recheck repository identity and current disclosure, execution and path policy immediately before queued source work is admitted; record known refusals without dispatch or invented unknown ownership.
 
 - Derive authorization and other non-sink finding anchors from source syntax rather than variable model explanations, preserving supported file moves and flagging duplicate anchors for review.

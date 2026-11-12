@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { database, digest, claim, enqueue, json } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus } from '@hivemagnus/embermend-integrations';
-import { buildSchema, receiptSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
+import { buildSchema, receiptSchema, scanRequestSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
@@ -637,19 +637,45 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await service.entity(operator, worker);
     magnus.capabilities = async () => ({ protocol: 1, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['repository-scan.v1'], targets: [worker], observedAt: now() });
     const provenance = { source: 'fixture', assurance: 'established', evidenceIds: [], observedAt: now() };
-    await service.entity(operator, { id: 'fixture-repository', kind: 'repository', scope, label: 'Fixture repository', provenance, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
-    await service.entity(operator, { id: 'fixture-source-binding', kind: 'source-binding', label: 'Fixture application', scope, provenance, repositoryId: 'fixture-repository', applicationId: 'fixture-app', includedPaths: ['apps/api'], excludedPaths: [], maintainedBranches: ['main'], buildDefinitions: [], modelPolicy: { providerRefs: ['fixture-model'], allowRemote: false, allowExecution: false } });
+    await service.entity(operator, { id: 'fixture-repository', kind: 'repository', scope: { ...scope, targetIds: [] }, label: 'Fixture repository', provenance, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
+    await service.entity(operator, { id: 'fixture-source-binding', kind: 'source-binding', label: 'Fixture application', scope: { ...scope, targetIds: [] }, provenance, repositoryId: 'fixture-repository', applicationId: 'fixture-app', includedPaths: ['apps/api'], excludedPaths: [], maintainedBranches: ['main'], buildDefinitions: [], modelPolicy: { providerRefs: ['fixture-model'], allowRemote: false, allowExecution: false } });
     magnus.dispatch = async request => {
       magnus.requests.push(request);
       const locations = [{ path: 'apps/api/first.ts', line: 1 }, { path: 'apps/api/first.ts', line: 2 }, { path: 'apps/api/second.ts', line: 1 }];
-      return { operationId: request.operationId, requestDigest: digest(request), targetId: worker.id, state: 'completed', evidenceIds: [], ownershipReleased: true, observedAt: now(), result: { scanResult: { scannerVersion: 'fixture', profile: 'typescript-security.v1', modelRef: 'fixture-model', commit: 'a'.repeat(40), operationId: request.operationId, languages: ['typescript'], assessedClasses: ['secret'], state: 'completed', coverage: { status: 'complete', requested: ['apps/api/first.ts', 'apps/api/second.ts'], examined: ['apps/api/first.ts', 'apps/api/second.ts'], excluded: [], failures: [], mode: 'full', observedAt: now() }, candidates: locations.map(location => ({ ...location, fingerprint: 'd'.repeat(64), component: 'fixture-app', symbol: '<module>', weakness: 'secret', title: 'Credential-shaped literal', evidence: 'Value withheld', assumptions: ['Owner validation required'], severity: 'high', confidence: 0.8, validation: 'candidate' })) } } };
+      return { operationId: request.operationId, requestDigest: digest(request), targetId: request.action.targetId, state: 'completed', evidenceIds: [], ownershipReleased: true, observedAt: now(), result: { scanResult: { scannerVersion: 'fixture', profile: 'typescript-security.v1', modelRef: 'fixture-model', commit: 'a'.repeat(40), operationId: request.operationId, languages: ['typescript'], assessedClasses: ['secret'], state: 'completed', coverage: { status: 'complete', requested: ['apps/api/first.ts', 'apps/api/second.ts'], examined: ['apps/api/first.ts', 'apps/api/second.ts'], excluded: [], failures: [], mode: 'full', observedAt: now() }, candidates: locations.map(location => ({ ...location, fingerprint: 'd'.repeat(64), component: 'fixture-app', symbol: '<module>', weakness: 'secret', title: 'Credential-shaped literal', evidence: 'Value withheld', assumptions: ['Owner validation required'], severity: 'high', confidence: 0.8, validation: 'candidate' })) } } };
     };
-    const jobId = await service.scan(coordinator, { repositoryId: 'fixture-repository', providerId: '123', commit: 'a'.repeat(40), applicationId: 'fixture-app', scope, branch: 'main', pullRequest: null, includedPaths: ['apps/api'], excludedPaths: [], profile: 'typescript-security.v1', mode: 'full', workerTargetId: worker.id, operationId: 'fixture-multi-location-scan', deadline: later(), cancellationId: 'fixture-scan-cancel', maxFiles: 10, maxBytes: 10000, sourcePolicy: { providerRef: 'fixture-model', allowRemoteModel: false, allowRepositoryExecution: false } });
+    const request = scanRequestSchema.parse({ repositoryId: 'fixture-repository', providerId: '123', commit: 'a'.repeat(40), applicationId: 'fixture-app', scope, branch: 'main', pullRequest: null, includedPaths: ['apps/api'], excludedPaths: [], profile: 'typescript-security.v1', mode: 'full', workerTargetId: worker.id, operationId: 'fixture-multi-location-scan', deadline: later(), cancellationId: 'fixture-scan-cancel', maxFiles: 10, maxBytes: 10000, sourcePolicy: { providerRef: 'fixture-model', allowRemoteModel: false, allowRepositoryExecution: false } });
+    const jobId = await service.scan(coordinator, request);
     await tick(service, 'fixture-multi-location-worker', new AbortController().signal);
     assert.equal((await service.job(operator, jobId)).status, 'completed');
     const result = (await service.findings(operator)).find(row => row.finding.kind === 'credential-exposure'); assert.ok(result);
     assert.equal(result.finding.evidenceIds.length, 3); assert.equal(result.occurrences.length, 3);
     assert.equal(new Set(result.occurrences.flatMap(item => item.evidenceIds)).size, 3);
+    assert.deepEqual(result.finding.scope.targetIds, []);
+    const secondScope = { ...scope, targetIds: ['fixture-second-worker'] }; const other = { ...operator, scope: secondScope }; const broad = { ...operator, scope: { ...scope, targetIds: [...scope.targetIds, ...secondScope.targetIds] } };
+    const secondWorker = { ...worker, id: 'fixture-second-worker', magnusTargetId: 'fixture-second-worker', scope: secondScope }; await service.entity(broad, secondWorker);
+    magnus.capabilities = async () => ({ protocol: 1, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['repository-scan.v1'], targets: [secondWorker], observedAt: now() });
+    const repeated = await service.scan(other, { ...request, scope: secondScope, workerTargetId: secondWorker.id, operationId: 'fixture-replacement-worker-scan' }); await tick(service, 'fixture-replacement-source-worker', new AbortController().signal);
+    assert.equal((await service.job(other, repeated)).status, 'completed');
+    const retained = (await service.findings(other)).find(row => row.finding.id === result.finding.id); assert.ok(retained); assert.equal(retained.finding.evidenceIds.length, 6); assert.equal(retained.occurrences.length, 3);
+    const proof = await service.readEvidence(other, retained.finding.evidenceIds[0] ?? 'missing'); assert.equal(proof.source, 'ai-scanner'); assert.equal(typeof proof.content['operationId'], 'string'); await assert.rejects(service.readEvidence(other, evidence().id), /SCOPE_OR_PERMISSION_DENIED/);
+
+  });
+
+  await t.test('application-level source findings retain target-scoped runtime evidence controls', async () => {
+    const { service } = await reset(); const appScope = { ...scope, targetIds: [] }; const sourceOnly = { ...operator, scope: appScope };
+    const sourceProof = { ...evidence(), id: 'application-source-proof', scope: appScope, subjectId: 'fixture-repository' }; await service.evidence(operator, sourceProof);
+    const value = { ...finding(), id: 'application-code-finding', identity: 'e'.repeat(64), kind: 'code' as const, component: 'fixture-app', scope: appScope, evidenceIds: [sourceProof.id] };
+    const sourceOccurrence = { ...occurrence(), id: 'application-source-occurrence', findingId: value.id, subjectId: 'fixture-repository', branch: 'main', revision: 'a'.repeat(40), sourceState: 'open' as const, runtimeState: 'unknown' as const, evidenceIds: [sourceProof.id] };
+    await service.finding(operator, value, sourceOccurrence);
+    const runtime = { ...occurrence(), id: 'application-runtime-occurrence', findingId: value.id, artifactDigest: 'd'.repeat(64) };
+    await assert.rejects(service.finding(sourceOnly, { ...value, evidenceIds: [evidence().id] }, runtime), /SCOPE_OR_PERMISSION_DENIED/);
+    await service.finding(operator, { ...value, evidenceIds: [evidence().id] }, runtime);
+    const proof = { ...evidence(), id: 'application-runtime-proof', content: { deployedArtifactDigest: 'd'.repeat(64), securityCheckPassed: true, findingIdentity: value.identity } }; await service.evidence(operator, proof);
+    const check = { id: 'application-runtime-check', occurrenceId: runtime.id, dimension: 'runtime', result: 'pass', method: proof.method, evidenceIds: [proof.id], coverage: occurrence().coverage, revision: null, artifactDigest: 'd'.repeat(64), targetId: 'fixture-node', healthPassed: true, observedAt: now(), independent: true, consumerMigrationVerified: false };
+    await assert.rejects(service.verify(sourceOnly, check), /SCOPE_OR_PERMISSION_DENIED/);
+    await service.verify(operator, check);
+    const retained = (await service.findings(operator)).find(row => row.finding.id === value.id); assert.equal(retained?.occurrences.find(item => item.id === runtime.id)?.runtimeState, 'verified-resolved'); assert.equal(retained?.occurrences.find(item => item.id === sourceOccurrence.id)?.sourceState, 'open');
   });
 
   await t.test('queued source work rechecks disclosure, execution and path policy before native admission', async () => {
