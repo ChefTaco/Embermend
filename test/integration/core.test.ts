@@ -722,6 +722,18 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await assert.rejects(service.verify(sourceOnly, check), /SCOPE_OR_PERMISSION_DENIED/);
     await service.verify(operator, check);
     const retained = (await service.findings(operator)).find(row => row.finding.id === value.id); assert.equal(retained?.occurrences.find(item => item.id === runtime.id)?.runtimeState, 'verified-resolved'); assert.equal(retained?.occurrences.find(item => item.id === sourceOccurrence.id)?.sourceState, 'open');
+    assert.deepEqual((await service.findings(sourceOnly)).find(row => row.finding.id === value.id)?.occurrences.map(item => item.id), [sourceOccurrence.id]);
+    const otherScope = { ...scope, targetIds: ['another-runtime-host'] }; const broad = { ...operator, scope: { ...scope, targetIds: [...scope.targetIds, ...otherScope.targetIds] } };
+    await service.entity(broad, { ...target(), id: 'another-runtime-host', scope: otherScope, magnusTargetId: 'another-runtime-host' });
+    const otherProof = { ...proof, id: 'other-host-runtime-proof', scope: otherScope, subjectId: 'another-runtime-host' }; await service.evidence(broad, otherProof);
+    const otherOccurrence = { ...runtime, id: 'other-host-runtime-occurrence', subjectId: 'another-runtime-host', evidenceIds: [otherProof.id] };
+    await service.finding(broad, { ...value, evidenceIds: [otherProof.id] }, otherOccurrence);
+    await service.verify(broad, { ...check, id: 'other-host-mitigation', occurrenceId: otherOccurrence.id, dimension: 'mitigation', targetId: 'another-runtime-host', evidenceIds: [otherProof.id], coverage: { ...check.coverage, requested: ['another-runtime-host'], examined: ['another-runtime-host'] } });
+    await service.propose(operator, { ...plan(), findingIds: [value.id], evidenceIds: [sourceProof.id] });
+    const report = await service.records.campaignReport(operator, plan().campaignId); const reported = report.plans[0]?.findings[0];
+    assert.equal(reported?.occurrences.length, 2); assert.ok(!reported?.occurrences.some(item => item.subjectId === 'another-runtime-host'));
+    assert.ok(!reported?.verifications.some(item => item.id === 'other-host-mitigation'));
+    assert.equal((await service.findings(broad)).find(row => row.finding.id === value.id)?.occurrences.length, 3);
   });
 
   await t.test('temporary container repairs cannot close code, dependency or image defects in the controlling artifact', async () => {

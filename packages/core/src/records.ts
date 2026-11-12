@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { observationSchema, relationshipSchema, profileAssignmentSchema, profileSchema, entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, verificationSchema, exceptionSchema, scheduleSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, scopeSchema, type Actor } from '@hivemagnus/embermend-contracts';
 import { audit, digest, json, lock, within, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { DomainError, requirePermission } from './authorization.js';
+import { visibleOccurrences } from './occurrence-access.js';
 
 export class Records {
   constructor(private readonly db: Database) {}
@@ -94,7 +95,7 @@ export class Records {
       for (const id of plan.findingIds) {
         const findingRow = await this.db.finding.findUnique({ where: { id } }); if (!findingRow) throw new DomainError('FINDING_MISSING');
         const finding = findingSchema.parse(findingRow.data); requirePermission(actor, 'read', finding.scope);
-        const occurrences = (await this.db.occurrence.findMany({ where: { findingId: id } })).map(item => occurrenceSchema.parse(item.data));
+        const occurrences = await visibleOccurrences(this.db, actor, (await this.db.occurrence.findMany({ where: { findingId: id } })).map(item => occurrenceSchema.parse(item.data)));
         const verifications = (await this.db.verification.findMany({ where: { occurrenceId: { in: occurrences.map(item => item.id) } } })).map(item => verificationSchema.parse(item.data));
         findings.push({ finding, occurrences, verifications });
       }

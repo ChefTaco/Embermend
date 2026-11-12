@@ -16,6 +16,7 @@ import { Builds } from './builds.js';
 import { retainHostCapture } from './finding-history.js';
 import { admitPublication } from './publication.js';
 import { admitRuntimeArtifact } from './runtime-artifact.js';
+import { visibleOccurrences } from './occurrence-access.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 function findingEvidenceScope(finding: Finding, evidence: Evidence, subjectId: string): boolean {
@@ -137,7 +138,7 @@ export class Embermend {
     requirePermission(actor, 'read', actor.scope);
     const rows = await this.db.finding.findMany({ where: { installationId: actor.scope.installationId }, orderBy: { updatedAt: 'desc' }, take: 1000 });
     const result = [];
-    for (const row of rows) { const finding = findingSchema.parse(row.data); if (within(actor.scope, finding.scope)) result.push({ finding, occurrences: (await this.db.occurrence.findMany({ where: { findingId: finding.id } })).map(item => occurrenceSchema.parse(item.data)) }); }
+    for (const row of rows) { const finding = findingSchema.parse(row.data); if (within(actor.scope, finding.scope)) result.push({ finding, occurrences: await visibleOccurrences(this.db, actor, (await this.db.occurrence.findMany({ where: { findingId: finding.id } })).map(item => occurrenceSchema.parse(item.data))) }); }
     return result;
   }
   async propose(actor: Actor, input: unknown): Promise<{ id: string; revision: number; digest: string }> {

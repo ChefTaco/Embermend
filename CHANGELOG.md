@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep application-wide finding and campaign-report reads within the reader's runtime subject scope; verification history follows only visible occurrences.
+
 - Require independent security evidence for the current immutable controlling artifact before code, dependency or image runtime closure; container-only repairs can remain recorded mitigations.
 
 - Expose typed campaign reports and exception-expiry reads to Ardent without granting exception acceptance or other operator authority.
