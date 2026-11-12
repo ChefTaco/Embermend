@@ -1,12 +1,14 @@
 # Acceptance ledger
 
-Status is evidence-based. Component tests and virtual-machine availability do
-not establish integrated acceptance. The product remains a development preview
-until all required journeys and failure cases have retained proof.
+All AC-01–AC-24 journeys have passed in the supported reference environment,
+with retained evidence below. The compatible signed installation/restore and
+subsequent authorized production inventory/assessment are complete. These proofs
+retain their scope and coverage limits; production mutation policies remain disabled.
+Component tests or an empty findings list alone do not establish security closure.
 
 | Criterion | Implementation and verification checkpoint | Integrated acceptance |
 |---|---|---|
-| AC-01 | Required Magnus compatibility/capability gates; actual outage preserves history and refuses new dispatch | Reference outage passed; compatible signed installation pending |
+| AC-01 | Required Magnus compatibility/capability gates; actual outage preserves history and refuses new dispatch | Passed reference outage and compatible signed installation |
 | AC-02 | Immutable repository rename, application/source/artifact/deployment/agent and old/new instance reconciliation | Passed supported reference demonstration |
 | AC-03 | Versioned Ubuntu hardening, independently verified configuration change and recurrence | Passed supported reference demonstration |
 | AC-04 | Real vendor OVAL and bounded security update, explicit activation/restart/reboot with independent running-state checks | Passed supported reference package demonstration |
@@ -26,7 +28,7 @@ until all required journeys and failure cases have retained proof.
 | AC-18 | Future container-agent scoped enrollment, identity, assessment and routing fixtures refuse host action and replacement identities | Passed contract demonstration |
 | AC-19 | Owned scoped exception expires once; actual Ardent/Qwen renews one assessment without changing the code candidate | Passed supported exception lifecycle |
 | AC-20 | Actual native rootless hostile validation denies sibling source/Git history, credentials, sockets, egress and root writes; redaction retained | Passed bounded isolation/redaction demonstration |
-| AC-21 | Restart/duplicate original-identity invariants and exact combined-store restoration | Passed current-candidate combined restore; signed-installation restore pending |
+| AC-21 | Restart/duplicate original-identity invariants and exact combined-store restoration | Passed combined-store and signed-installation restore |
 | AC-22 | Existing Oathweave sign-in and HiveXUI recommendation/decision/pause/evidence/recovery/source/publication/deployment/outcome journeys | Passed disposable authenticated browser journeys |
 | AC-23 | One typed five-execution campaign report preserves verified source/runtime changes, mitigation history, expired exception, remaining candidates and explicit coverage | Passed coherent authoritative report; model truncation disclosed |
 | AC-24 | Real fictional owning-system invalidation and consumer migration; source deletion and incomplete migration both refuse closure | Passed controlled credential lifecycle |
@@ -38,14 +40,15 @@ three actual Magnus-enrolled Ubuntu 24.04 guests, separately authorized fixture
 permission changes, independent native readback, duplicate delivery, a real
 request with an intentionally lost client reply, authorized inode-mode recovery,
 recurrence preserving earlier verification, vendor OVAL assessment and a
-PostgreSQL-only restore rehearsal. No integrated criterion is complete.
+PostgreSQL-only restore rehearsal. No integrated criterion was complete at that initial checkpoint.
 
 The fixture has no application consumer. Fresh host heartbeats establish only
 host-agent health. A later recurrence was secured again and remains open until
 its own new independent security verification is recorded. The complete managed model,
 GitHub/Compose journey, the complete native crash/reboot matrix, combined suite restore
 and production assessment were unproven at that initial checkpoint. Later dated
-records below supersede individual gaps without completing the full acceptance ledger.
+records below supersede those initial gaps; the final operational record completes
+the bounded acceptance ledger.
 
 ## Release gate
 
@@ -352,9 +355,8 @@ when explaining its partial view. Neither that explanation nor a successful buil
 or live-container probe establishes permanent security closure.
 
 These bounded reference demonstrations satisfy their listed criterion journeys.
-The compatible signed installation and real-fleet assessment
-still gate operational completion and production announcement. Existing production
-mutation authority has not been expanded.
+The later signed installation and production records below complete the operational
+gates. Existing production mutation authority has not been expanded.
 
 
 The [current workflow-state restore](acceptance/2026-11-12-current-workflows-restore.json)
@@ -366,3 +368,44 @@ Registry records; unordered occurrence collections are compared by identity.
 All captured runtime restrictions and configured health checks pass. Five original
 unknown outcomes, zero held owners, one retained disabled policy and the audit
 guard survive in an internal namespace with no published ports or fleet access.
+
+The [signed-suite evidence](acceptance/2026-11-12-signed-suite.json) records the
+actual 11-service Hive 3.2.0 installation using published immutable product images,
+authenticated scoped ingestion, a coordinated API/worker snapshot, isolated rehearsal
+and same-host restore. The exact data and initialized authentication survive restoration;
+the browser opens the recommendations page and keeps unassessed coverage explicit.
+The full image policy passed on both architectures. An initial Docker address-pool
+exhaustion retained the source installation and failed evidence; retry reused the
+original verified archive after completed stopped test copies were retired with their
+data, archives, inspections and logs preserved. Production assessment is separate.
+
+
+## Operational acceptance
+
+The [production assessment and recovery evidence](acceptance/2026-11-12-production-assessment.json)
+records the signed Hive 3.2.2 upgrade, all 13 services healthy, exact preservation
+of all 26 Embermend tables in both the running store and isolated restored copy,
+and unchanged security fields across 14 identity tables after the reviewed browser
+client setup. The native controller database restore preserves its six completed
+assessment operations; controller, suite and agent archives are verified off host.
+Two additional historical canary owners were settled through separately reviewed
+signed evidence after a real maintenance boot; their original unknown outcomes
+remain unknown and were never replayed.
+
+Existing deployment maintenance authentication performed reviewed setup and three
+scoped production assessments. No unknown operator password was reset and no
+resource token was fabricated. Existing human/coordinator browser authorization
+has the separate disposable journey proof above. The effective production API and
+worker grants are now exactly `read`, `evidence` and `assess` for one target;
+temporary profile-policy authority is removed. No enabled mutation policy or
+product mutation execution exists.
+
+Magnus posture and Compose posture complete their declared checks. The Ubuntu
+baseline explicitly retains three unassessed checks; the inventory-only production
+grant does not establish vendor vulnerability coverage or fleet-wide security.
+Three earlier requests refused an ineligible target before native reservation and
+remain in history. The 3.2.1 tag's failed fresh image gate is retained; patched
+immutable PostgreSQL images pass in the subsequent signed release. Existing
+unversioned product storage is registered only after the read-only major/runtime/
+checksum verifier succeeds. Production automation requires a subsequent explicit
+matching policy and is outside this acceptance authorization.

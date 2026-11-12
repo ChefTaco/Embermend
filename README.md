@@ -5,10 +5,28 @@ infrastructure and applications. Embermend owns security findings, revisioned
 recommendations, authorization policies, and verified outcomes. Magnus owns
 host enrollment, managed execution, resource ownership, and signed receipts.
 
-**Development preview.** Product completion requires all acceptance criteria in
-[the specification](docs/PRODUCT_SPECIFICATION.md). See
-[acceptance status](docs/ACCEPTANCE.md) before enabling or claiming a capability.
+**Embermend 0.1.0 is released.** All AC-01–AC-24 reference acceptance journeys
+have retained proof in the [acceptance ledger](docs/ACCEPTANCE.md), including
+native fault recovery, the source-to-deployment workflow and combined-store restore.
+The configured production suite has completed scoped assessment; Ubuntu coverage
+remains explicitly partial. Production mutation policies stay disabled.
 There is no standalone host-management mode or direct SSH execution path.
+
+## Install
+
+Use signed Hive 3.2.2 or a later compatible combination with Magnus 2.5.0 or newer
+and its explicit Embermend bridge. In guided setup, opt into Embermend after
+selecting Magnus or configuring an existing external Magnus. The default is off.
+
+```sh
+git clone https://github.com/ChefTaco/hive.git && cd hive
+./hive.sh --release latest
+```
+
+Follow the [suite setup guide](https://github.com/ChefTaco/hive/blob/v3.2.2/deployment/EMBERMEND.md)
+and [scoped operations guide](docs/OPERATIONS.md). Existing installations use their
+own reviewed configuration, verified backup and restore rehearsal. Initial access
+needs only `read`, `evidence` and `assess` on exact authorized targets.
 
 ## Develop
 
@@ -83,3 +101,6 @@ GitHub permissions, merge enforcement and the optional unattended App setup are
 described in [provider authorization](docs/GITHUB_PROVIDER_AUTH.md).
 Managed job observation and cancellation semantics are documented in
 [recovery](docs/RECOVERY.md).
+
+Scoped operator access, operational observations and a concrete optional unattended
+identity proposal are described in [operations](docs/OPERATIONS.md).

@@ -1,0 +1,158 @@
+{
+  "schema": 1,
+  "date": "2026-11-12",
+  "result": "passed",
+  "scope": "Configured production suite and one explicitly authorized inventory/assessment canary. Broader fleet security and production mutation automation are not certified.",
+  "release": {
+    "publishedRelease": "3.2.2",
+    "sourceRevision": "e99f6be17b3f6858d9f29da4d2b40716e12d11e2",
+    "controllerSHA256": "86d48819063894b8266e07c48609d1c50fba42e85b4ee91d7f4d4dfb205b64a9",
+    "manifestSHA256": "63be4c5b8ce5360651a6962b8291c4f47a45eca92474b77a72d3c35c5024fa30",
+    "signatureVerified": true,
+    "releaseWorkflowConclusion": "success",
+    "releaseWorkflowURL": "https://github.com/ChefTaco/hive/actions/runs/43199591043"
+  },
+  "runtimeVersions": {
+    "embermend": "0.1.0",
+    "magnus": "2.5.0",
+    "oathweave": "2.2.0",
+    "hivexui": "0.3.0"
+  },
+  "healthyServices": 13,
+  "existingAuthentication": {
+    "existingOperatorAndDeploymentMaintenanceUsed": true,
+    "passwordResetOrFabricatedResourceToken": false,
+    "protectedIdentityTablesUnchangedAfterProductSetup": 14,
+    "reviewedPublicBrowserClientAdded": 1,
+    "publicBrowserClientHasSecret": false,
+    "effectiveProductPermissions": [
+      "read",
+      "evidence",
+      "assess"
+    ],
+    "apiWorkerGrantsIdentical": true,
+    "temporaryProfilePolicyPermissionRemoved": true,
+    "targetCount": 1,
+    "applicationScopeCount": 0,
+    "nativeBackendActions": [
+      "inventory.v1"
+    ]
+  },
+  "assessment": {
+    "completedJobs": 6,
+    "latestPostUpgradeCompletedJobs": 3,
+    "earlierFailedIneligibleRequestsRetained": 3,
+    "earlierFailuresReservedNativeWork": false,
+    "profiles": [
+      {
+        "profileId": "hivemagnus-posture",
+        "jobStatus": "completed",
+        "coverage": "complete",
+        "checks": [
+          {
+            "ruleId": "managed-boundary",
+            "state": "pass"
+          },
+          {
+            "ruleId": "bridge-protocol",
+            "state": "pass"
+          }
+        ],
+        "originalNativeOperationCompleted": true,
+        "ownershipReleased": true
+      },
+      {
+        "profileId": "docker-compose-posture",
+        "jobStatus": "completed",
+        "coverage": "complete",
+        "checks": [
+          {
+            "ruleId": "container-not-privileged",
+            "state": "pass"
+          },
+          {
+            "ruleId": "container-read-only",
+            "state": "pass"
+          },
+          {
+            "ruleId": "container-no-new-privileges",
+            "state": "pass"
+          }
+        ],
+        "originalNativeOperationCompleted": true,
+        "ownershipReleased": true
+      },
+      {
+        "profileId": "ubuntu-24.04-baseline",
+        "jobStatus": "completed",
+        "coverage": "partial",
+        "checks": [
+          {
+            "ruleId": "ssh-password-authentication",
+            "state": "not-assessed"
+          },
+          {
+            "ruleId": "ssh-root-login",
+            "state": "not-assessed"
+          },
+          {
+            "ruleId": "configuration-permissions",
+            "state": "not-assessed"
+          }
+        ],
+        "originalNativeOperationCompleted": true,
+        "ownershipReleased": true
+      }
+    ],
+    "emptyFindingListDoesNotEstablishCoverage": true,
+    "vendorHostVulnerabilityCoverage": "not admitted in this production scope"
+  },
+  "mutations": {
+    "enabledProductionPolicies": 0,
+    "productMutationExecutions": 0,
+    "productionAutomationRequiresSubsequentExplicitPolicy": true,
+    "maintenanceRecoverySeparateFromProductMutation": true,
+    "historicalCanaryOwnersSeparatelySettled": 2,
+    "historicalOutcomesPreservedAsUnknown": 2,
+    "unknownWorkReplayed": false
+  },
+  "recovery": {
+    "verifiedSourceBackup": true,
+    "isolatedSuiteRehearsalPassed": true,
+    "exactProductTablesPreservedLiveAndRestored": 26,
+    "finalPostUpgradeAssessmentStateSeparatelyBackedUpAndRestored": true,
+    "preUpgradeJobHistoryPreserved": 6,
+    "finalProductJobHistoryPreserved": 9,
+    "nativeSchemaRestoreVerified": true,
+    "nativeCompletedAssessmentOperationsPreserved": 6,
+    "productAndNativeOperationIdentitiesMatch": true,
+    "nativeHeldOwners": 0,
+    "agentJournalAndSignedSettlementsBackedUp": true,
+    "allThreeBackupArchivesCopiedOffHostAndHashVerified": true,
+    "finalSuiteBackupMode": "online",
+    "sharedApiWorkerSnapshotGroup": true,
+    "longestApplicationPauseSeconds": 1.482,
+    "agentRestoreOrExternalProviderRestoreClaimed": false,
+    "registeredProductStorageFormat": "embermend-postgres-18-runtime2"
+  },
+  "transport": {
+    "verifiedTLS": true,
+    "healthAndCompatibilityReachable": true,
+    "unauthenticatedFindingReadStatus": 401,
+    "configuredProductBrowserPageAndRuntimeClient": true
+  },
+  "operations": {
+    "readOnlyMetadataQueriesValidated": 6,
+    "queueAndHeldWorkEmpty": true,
+    "coverageLimitsRetained": true,
+    "owningInstallerDoctorPassed": true,
+    "registryEntriesInSync": 14
+  },
+  "typescript": {
+    "version": "6.0.3",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "otherInstallationUnchanged": true
+}
