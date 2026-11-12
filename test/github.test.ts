@@ -16,30 +16,124 @@ test('merge refuses changed heads and never alters protection settings', async (
   const client = new GitHubClient('fixture-provider-token', grants, request); await assert.rejects(client.merge('123', 1, commit), /HEAD_OR_BASE_CHANGED/); assert.ok(urls.every(url => !url.includes('/merge') && !url.includes('/protection')));
 });
 
-test('merge fails closed for incomplete checks, blocked rules, reviews and administrative credentials', async () => {
-  for (const refusal of ['incomplete', 'duplicate-check', 'blocked', 'review-required', 'admin', 'unknown', 'changed-base', 'graphql-errors']) {
+test('merge fails closed for incomplete checks, blocked rules and missing reviews regardless of role', async () => {
+  for (const refusal of ['incomplete', 'duplicate-check', 'blocked', 'review-required', 'admin-blocked', 'unknown', 'changed-base', 'graphql-errors']) {
     const writes: string[] = [];
     const request: typeof fetch = async (url, init) => {
       const path = new URL(String(url)).pathname;
       if (init?.method !== 'GET' && path !== '/graphql') writes.push(path);
       if (path.startsWith('/repositories/')) return Response.json({ id: 123, full_name: 'fixture-owner/fixture-repository', owner: { login: 'fixture-owner' }, name: 'fixture-repository', default_branch: 'main' });
       if (path.endsWith('/check-runs')) return Response.json({ total_count: refusal === 'incomplete' || refusal === 'duplicate-check' ? 2 : 1, check_runs: Array.from({ length: refusal === 'duplicate-check' ? 2 : 1 }, () => ({ id: 1, name: 'Verify', head_sha: commit, status: 'completed', conclusion: 'success' })) });
-      if (path === '/graphql') return Response.json({ data: { repository: { databaseId: 123, nameWithOwner: 'fixture-owner/fixture-repository', viewerPermission: refusal === 'admin' ? 'ADMIN' : 'WRITE', pullRequest: { headRefOid: commit, baseRefName: 'main', baseRefOid: refusal === 'changed-base' ? 'b'.repeat(40) : commit, isDraft: false, state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: refusal === 'blocked' ? 'BLOCKED' : refusal === 'unknown' ? 'UNKNOWN' : 'CLEAN', reviewDecision: refusal === 'review-required' ? 'REVIEW_REQUIRED' : 'APPROVED' } } }, ...(refusal === 'graphql-errors' ? { errors: [{ message: 'Fixture authorization failure' }] } : {}) });
+      if (path === '/graphql') return Response.json({ data: { repository: { databaseId: 123, nameWithOwner: 'fixture-owner/fixture-repository', viewerPermission: refusal === 'admin-blocked' ? 'ADMIN' : 'WRITE', pullRequest: { headRefOid: commit, baseRefName: 'main', baseRefOid: refusal === 'changed-base' ? 'b'.repeat(40) : commit, isDraft: false, state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: ['blocked', 'admin-blocked'].includes(refusal) ? 'BLOCKED' : refusal === 'unknown' ? 'UNKNOWN' : 'CLEAN', reviewDecision: refusal === 'review-required' ? 'REVIEW_REQUIRED' : 'APPROVED' } } }, ...(refusal === 'graphql-errors' ? { errors: [{ message: 'Fixture authorization failure' }] } : {}) });
       return Response.json({ number: 1, state: 'open', merged: false, merge_commit_sha: null, head: { sha: commit, ref: 'embermend/fixture' }, base: { ref: 'main', sha: commit } });
     };
     await assert.rejects(new GitHubClient('fixture-provider-token', grants, request).merge('123', 1, commit)); assert.deepEqual(writes, [], refusal);
   }
 });
 
-test('a ready non-administrator merge pins the reviewed head in its only write', async () => {
+const mergeUuid = '630b9d5e-3f2a-4f7e-8b0c-2d5f9a8c1e42';
+const pendingMerge = (extra: Record<string, unknown> = {}) => ({ status: 'pending', details: { uuid: mergeUuid, expected_head_sha: commit, merge_method: 'squash', merge_action: 'default', bypass_rules: false, ...extra } });
+const repoReply = { id: 123, full_name: 'fixture-owner/fixture-repository', owner: { login: 'fixture-owner' }, name: 'fixture-repository', default_branch: 'main' };
+const pullReply = { number: 1, state: 'open', merged: false, merge_commit_sha: null, head: { sha: commit, ref: 'embermend/fixture' }, base: { ref: 'main', sha: commit } };
+test('ready administrator and app identities use exact-head merging with server rule bypass disabled', async () => {
+  for (const role of ['WRITE', 'MAINTAIN', 'ADMIN', null]) {
+    const writes: { path: string; body: unknown; version: string | null }[] = [];
+    const request: typeof fetch = async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path.startsWith('/repositories/')) return Response.json(repoReply);
+      if (path.endsWith('/check-runs')) return Response.json({ total_count: 1, check_runs: [{ id: 1, name: 'Verify', head_sha: commit, status: 'completed', conclusion: 'success' }] });
+      if (path === '/graphql') return Response.json({ data: { repository: { databaseId: 123, nameWithOwner: 'fixture-owner/fixture-repository', viewerPermission: role, pullRequest: { headRefOid: commit, baseRefName: 'main', baseRefOid: commit, isDraft: false, state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', reviewDecision: 'APPROVED' } } } });
+      if (init?.method === 'PUT') { writes.push({ path, body: JSON.parse(String(init.body)) as unknown, version: new Headers(init.headers).get('x-github-api-version') }); return Response.json(pendingMerge(), { status: 202 }); }
+      return Response.json(pullReply);
+    };
+    const operation = await new GitHubClient('fixture-provider-token', grants, request).merge('123', 1, commit);
+    assert.equal(operation.state, 'pending'); assert.equal(operation.requestId, mergeUuid);
+    assert.deepEqual(writes, [{ path: '/repos/fixture-owner/fixture-repository/pulls/1/merge-async', body: { sha: commit, merge_method: 'squash', merge_action: 'default', bypass_rules: false }, version: '2026-03-10' }]);
+  }
+});
+test('merge queue acceptance remains pending until a matching merge commit is observed without another mutation', async () => {
+  let phase = 'pending'; const methods: string[] = [];
+  const request: typeof fetch = async (url, init) => {
+    methods.push(init?.method ?? 'GET'); const path = new URL(String(url)).pathname;
+    if (path.startsWith('/repositories/')) return Response.json(repoReply);
+    if (path.includes('/merge-async/')) return Response.json(phase === 'pending' ? pendingMerge() : { status: 'enqueued', details: {} });
+    return Response.json({ ...pullReply, ...(phase === 'merged' ? { merged: true, state: 'closed', merge_commit_sha: 'b'.repeat(40) } : {}) });
+  };
+  const client = new GitHubClient('fixture-provider-token', grants, request);
+  const original = { providerId: '123', pullNumber: 1, headCommit: commit, bypassRules: false, state: 'pending', requestId: mergeUuid, commit: null };
+  assert.equal((await client.observeMerge('123', original)).state, 'pending'); phase = 'enqueued'; assert.equal((await client.observeMerge('123', original)).state, 'enqueued'); phase = 'merged'; const merged = await client.observeMerge('123', original); assert.equal(merged.state, 'merged'); assert.equal(merged.commit, 'b'.repeat(40)); assert.ok(methods.every(method => method === 'GET'));
+});
+test('asynchronous merge observation refuses mismatched identities, bypass and unconfirmed commits', async () => {
+  for (const mode of ['uuid', 'head', 'bypass', 'commit']) {
+    const request: typeof fetch = async url => { const path = new URL(String(url)).pathname; if (path.startsWith('/repositories/')) return Response.json(repoReply);
+      if (path.includes('/merge-async/')) return Response.json(mode === 'commit' ? { status: 'merged', details: { sha: 'b'.repeat(40) } } : pendingMerge(mode === 'uuid' ? { uuid: '730b9d5e-3f2a-4f7e-8b0c-2d5f9a8c1e42' } : mode === 'head' ? { expected_head_sha: 'b'.repeat(40) } : { bypass_rules: true }));
+      return Response.json(pullReply);
+    };
+    await assert.rejects(new GitHubClient('fixture-provider-token', grants, request).observeMerge('123', { providerId: '123', pullNumber: 1, headCommit: commit, bypassRules: false, state: 'pending', requestId: mergeUuid, commit: null }));
+  }
+});
+test('provider permission refusal and conflicting pending options never select a merge fallback', async () => {
+  for (const mode of ['forbidden', 'unsupported', 'bypass', 'unspecified-bypass', 'head', 'failed']) {
+    const writes: string[] = [];
+    const request: typeof fetch = async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path.startsWith('/repositories/')) return Response.json(repoReply);
+      if (path.endsWith('/check-runs')) return Response.json({ total_count: 1, check_runs: [{ id: 1, name: 'Verify', head_sha: commit, status: 'completed', conclusion: 'success' }] });
+      if (path === '/graphql') return Response.json({ data: { repository: { databaseId: 123, nameWithOwner: 'fixture-owner/fixture-repository', pullRequest: { headRefOid: commit, baseRefName: 'main', baseRefOid: commit, isDraft: false, state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', reviewDecision: null } } } });
+      if (init?.method === 'PUT') {
+        writes.push(path);
+        if (mode === 'forbidden' || mode === 'unsupported') return Response.json({ message: 'Fixture refusal' }, { status: mode === 'forbidden' ? 403 : 404 });
+        if (mode === 'failed') return Response.json({ status: 'failed', details: { message: 'Fixture PR closed' } }, { status: 400 });
+        const details: Record<string, unknown> = pendingMerge(mode === 'bypass' ? { bypass_rules: true } : mode === 'head' ? { expected_head_sha: 'b'.repeat(40) } : {}).details;
+        if (mode === 'unspecified-bypass') delete details['bypass_rules'];
+        return Response.json({ status: 'pending', details }, { status: 409 });
+      }
+      return Response.json(pullReply);
+    };
+    const result = new GitHubClient('fixture-provider-token', grants, request).merge('123', 1, commit);
+    if (mode === 'failed') assert.equal((await result).state, 'failed'); else await assert.rejects(result);
+    assert.deepEqual(writes, ['/repos/fixture-owner/fixture-repository/pulls/1/merge-async']);
+  }
+});
+test('expired merge request results use original PR evidence and never authorize replay', async () => {
+  let merged = false; const methods: string[] = [];
+  const request: typeof fetch = async (url, init) => {
+    methods.push(init?.method ?? 'GET'); const path = new URL(String(url)).pathname;
+    if (path.startsWith('/repositories/')) return Response.json(repoReply);
+    if (path.includes('/merge-async/')) return Response.json({ message: 'Fixture expired request' }, { status: 404 });
+    return Response.json({ ...pullReply, ...(merged ? { merged: true, state: 'closed', merge_commit_sha: 'b'.repeat(40) } : {}) });
+  };
+  const client = new GitHubClient('fixture-provider-token', grants, request);
+  const original = { providerId: '123', pullNumber: 1, headCommit: commit, bypassRules: false, state: 'pending', requestId: mergeUuid, commit: null };
+  const pending = await client.observeMerge('123', original); assert.equal(pending.state, 'pending'); assert.equal(pending.requestId, mergeUuid);
+  merged = true; assert.equal((await client.observeMerge('123', original)).commit, 'b'.repeat(40)); assert.ok(methods.every(method => method === 'GET'));
+});
+test('lost pull-request replies reconcile only exact original branch, commit and operation evidence with GETs', async () => {
+  const branch = 'embermend/fixture-change'; const operationId = 'fixture-change';
+  const pull = { number: 8, html_url: 'https://github.com/fixture-owner/fixture-repository/pull/8', state: 'open', body: `Prepared by Embermend.\n\nOperation: ${operationId}\n`, head: { ref: branch, sha: commit, repo: { id: 123 } }, base: { ref: 'main', repo: { id: 123 } } };
+  for (const mode of ['match', 'closed', 'absent', 'ambiguous', 'incomplete', 'branch', 'head', 'marker', 'fork']) {
+    const methods: string[] = [];
+    const request: typeof fetch = async (url, init) => {
+      methods.push(init?.method ?? 'GET'); const parsed = new URL(String(url));
+      if (parsed.pathname.startsWith('/repositories/')) return Response.json(repoReply);
+      if (parsed.pathname.includes('/git/ref/')) return Response.json({ ref: `refs/heads/${branch}`, object: { type: 'commit', sha: mode === 'branch' ? 'b'.repeat(40) : commit } });
+      assert.equal(parsed.searchParams.get('state'), 'all'); assert.equal(parsed.searchParams.get('head'), `fixture-owner:${branch}`); assert.equal(parsed.searchParams.get('base'), 'main');
+      const value = { ...pull, ...(mode === 'closed' ? { state: 'closed' } : mode === 'marker' ? { body: 'Operation: another-change' } : mode === 'head' ? { head: { ...pull.head, sha: 'b'.repeat(40) } } : mode === 'fork' ? { head: { ...pull.head, repo: { id: 456 } } } : {}) };
+      return Response.json(mode === 'absent' ? [] : Array.from({ length: mode === 'ambiguous' ? 2 : mode === 'incomplete' ? 100 : 1 }, () => value));
+    };
+    const observed = new GitHubClient('fixture-provider-token', grants, request).findPullRequest('123', { branch, base: 'main', headCommit: commit, operationId });
+    if (mode === 'absent' || mode === 'fork') assert.equal(await observed, null);
+    else if (mode === 'match' || mode === 'closed') { const found = await observed; assert.equal(found?.number, 8); assert.equal(found?.state, mode === 'closed' ? 'closed' : 'open'); }
+    else await assert.rejects(observed);
+    assert.ok(methods.every(method => method === 'GET'));
+  }
+});
+test('public automation commits never infer an operator profile identity', async () => {
   const writes: unknown[] = [];
   const request: typeof fetch = async (url, init) => {
-    const path = new URL(String(url)).pathname;
-    if (path.startsWith('/repositories/')) return Response.json({ id: 123, full_name: 'fixture-owner/fixture-repository', owner: { login: 'fixture-owner' }, name: 'fixture-repository', default_branch: 'main' });
-    if (path.endsWith('/check-runs')) return Response.json({ total_count: 1, check_runs: [{ id: 1, name: 'Verify', head_sha: commit, status: 'completed', conclusion: 'success' }] });
-    if (path === '/graphql') return Response.json({ data: { repository: { databaseId: 123, nameWithOwner: 'fixture-owner/fixture-repository', viewerPermission: 'WRITE', pullRequest: { headRefOid: commit, baseRefName: 'main', baseRefOid: commit, isDraft: false, state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN', reviewDecision: 'APPROVED' } } } });
-    if (path.endsWith('/merge')) { writes.push(typeof init?.body === 'string' ? JSON.parse(init.body) : null); return Response.json({ merged: true, sha: 'b'.repeat(40) }); }
-    return Response.json({ number: 1, state: 'open', merged: false, merge_commit_sha: null, head: { sha: commit, ref: 'embermend/fixture' }, base: { ref: 'main', sha: commit } });
+    if (new URL(String(url)).pathname.startsWith('/repositories/')) return Response.json(repoReply);
+    assert.equal(init?.method, 'POST'); writes.push(JSON.parse(String(init?.body)) as unknown); return Response.json({ sha: 'b'.repeat(40) });
   };
-  assert.equal(await new GitHubClient('fixture-provider-token', grants, request).merge('123', 1, commit), 'b'.repeat(40)); assert.deepEqual(writes, [{ sha: commit, merge_method: 'squash' }]);
+  await new GitHubClient('fixture-provider-token', grants, request).createCommit('123', commit, 'c'.repeat(40), 'fixture-operation');
+  assert.deepEqual(writes, [{ message: 'fix: remediate verified security finding\n\nEmbermend operation: fixture-operation', tree: 'c'.repeat(40), parents: [commit], author: { name: 'Embermend', email: 'automation@example.com' }, committer: { name: 'Embermend', email: 'automation@example.com' } }]);
 });

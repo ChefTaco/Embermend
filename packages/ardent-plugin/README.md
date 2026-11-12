@@ -21,3 +21,8 @@ separate operations. Configure only the permissions actually granted to the
 coordinator; enabling tools cannot expand its server-side authority.
 
 This is a development preview, pending the full product acceptance ledger.
+
+The endpoint may be a native service origin or the Hive ingress prefix
+`https://suite.example.com/api/embermend`. Tool requests preserve that prefix.
+List tools return named object envelopes (`findings`, `entities`, `policies`)
+so Ardent's evidence recorder can retain them during actual model tasks.

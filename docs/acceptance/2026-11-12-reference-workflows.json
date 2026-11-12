@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "date": "2026-11-12",
+  "status": "passed-disposable-reference-workflows",
+  "completion": "Compatible signed-suite installation and real-fleet assessment remain release gates. No production automation is authorized.",
+  "authentication": {
+    "existingHumanIdentity": true,
+    "existingCoordinatorIdentity": true,
+    "newOperatorCredentials": false,
+    "coordinatorCanApprove": false,
+    "coordinatorCanChangePolicy": false,
+    "coordinatorCanRecover": false,
+    "coordinatorCanPublishArtifacts": false,
+    "coordinatorCanMergeOrDeploy": false,
+    "roleNameAloneDeterminesAuthorization": false
+  },
+  "stagedCampaign": {
+    "canarySecurityFailureStopsLaterDispatch": true,
+    "separateOriginalArtifactRecoveryVerified": true,
+    "threeStagesVerifiedBeforeSuccessorAdmission": true,
+    "maxUnavailable": 1,
+    "standingPolicyWithoutExplicitAcknowledgment": true,
+    "standingPolicyRetainedDisabled": true
+  },
+  "monorepo": {
+    "immutableRepositoryIdentitySurvivesSameOwnerRename": true,
+    "siblingApplicationNotAnalyzedOrMounted": true,
+    "repeatedIndependentInjectionLocationsRetained": true,
+    "ambiguousMatchesRequireReview": true
+  },
+  "sourceToRuntime": {
+    "repository": "https://github.com/ChefTaco/embermend-acceptance-renamed",
+    "pullRequest": "https://github.com/ChefTaco/embermend-acceptance-renamed/pull/1",
+    "maintainedCommit": "ba8c29e19875f171721decec6ac9a51d5ce9c937",
+    "hostedWorkflowRun": "https://github.com/ChefTaco/embermend-acceptance-renamed/actions/runs/43149634796",
+    "platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "signedArchiveDigest": "2ca6e12fb1f5322e5561d605685464cffe8ae0b06eab872d687bdf1ba21de18a",
+    "imageDigest": "2d3b59f5585e9dd65d652fbf4b177508c54998b7f2b5e8f76e257e106ad941e0",
+    "signedArchiveVerified": true,
+    "sbomAndProvenanceRetained": true,
+    "bothPlatformSourceMembersMatchIndependentValidatedRepair": true,
+    "separatePrMergePublicationDeploymentDecisions": true,
+    "protectedChecksAndImmutableHeadRespected": true,
+    "buildAloneDoesNotEstablishPublicationOrDeployment": true,
+    "sourceFixLeavesAffectedDeploymentOpen": true,
+    "bothActualDeploymentsIndependentlyVerified": true,
+    "dockerHealthMetadata": "unknown; independent HTTP health verified",
+    "headerTrustAndConditionalInjectionCandidatesRemainOpen": true
+  },
+  "temporaryContainer": {
+    "sameInstanceAndAffectedImageAfterTemporaryOverlay": true,
+    "passingLiveProbesDoNotPermitPermanentClosure": true,
+    "mitigationRecordedSeparately": true,
+    "explicitlyAuthorizedMitigationRemovalAndFixedImageDeployment": true,
+    "newInstanceAndHistoricalImageRetained": true,
+    "externalOverlayWasNegativeFaultInstrumentationOnly": true
+  },
+  "credentialLifecycle": {
+    "fictionalFixtureCredentialOnly": true,
+    "sourceDeletionAloneRefusedClosure": true,
+    "invalidationWithoutConsumerMigrationRefusedClosure": true,
+    "oldCredentialStatus": 401,
+    "replacementCredentialStatus": 200,
+    "consumerStatus": 200,
+    "ordinaryExportRedacted": true,
+    "suiteAndProviderCredentialsUnchanged": true
+  },
+  "exception": {
+    "ownerRationaleScopeControlsAndExpiryRetained": true,
+    "singleDurableExpiryEvent": true,
+    "expiredExceptionDoesNotRepairFinding": true,
+    "actualArdentRenewedOneScopedAssessment": true,
+    "ardentVersion": "3.1.2",
+    "model": "qwen3.8-27b",
+    "endpointReference": "approved-local-qwen"
+  },
+  "outages": {
+    "historyRemainsReadableDuringMagnusOutage": true,
+    "newNativeReservationRefusedBeforeDispatch": true,
+    "offlineTargetLeavesVerificationUnknownAndFindingAffected": true,
+    "sameFailedJobAdoptedWithoutRepeatingFault": true,
+    "contactAndFreshAssessmentRecover": true
+  },
+  "hostileSource": {
+    "nativeVersion": "2.5.0 candidate",
+    "rootlessDaemonAndDisposableContainer": true,
+    "executedValidationCannotReadSiblingApplicationOrGitObjects": true,
+    "managementCredentialsAndSocketsAbsent": true,
+    "outboundNetworkDenied": true,
+    "rootFilesystemWritesDenied": true,
+    "reviewedPatchUnchangedAfterValidation": true,
+    "providerAndModelBrokersOutsideRepositoryCode": true
+  },
+  "report": {
+    "oneCampaign": true,
+    "completedExecutions": 5,
+    "exactPlansPublicationsAndProviderNativeIdentitiesRetained": true,
+    "sourceRuntimeMitigationAndCredentialOutcomesDistinct": true,
+    "expiredExceptionRemainingCandidatesAndCoverageVisible": true,
+    "typedApiReportComplete": true,
+    "modelContextTruncationDisclosed": true,
+    "modelOutputDoesNotEstablishSecurityClosure": true
+  },
+  "securityRegressions": {
+    "applicationFindingDoesNotGrantOtherHostOccurrenceOrVerificationAccess": true,
+    "temporaryContainerRepairRequiresImmutableArtifactSecurityEvidenceForPermanentClosure": true,
+    "sourceScopeProjectedBeforeExecutingRepositoryValidation": true
+  },
+  "proofDigests": {
+    "campaign": "75319994e60a7d2a5df41aedbbe33d632741581b0b230c4277970521d2e0975b",
+    "exception": "855659acb27575fa5d458ead0dd4935fe2431b162b4ac4a887fd26c67aa86cd8",
+    "renewal": "4cab8a20542b06a3c20322ab1727c5d81ea7e993ff6818cef66ac1dc73f9f5e0",
+    "outage": "19528c28bc16a7c6385e0484912bc3006d8c25b9966b87c290fecd3cb783d43e",
+    "staged": "2aed6d910ec650d502eba537ebc19f989eb1927cdc4393e6574a4851db87eabb",
+    "offline": "f426de36a5df93183a624f46cd415d6ffd30bc4f217e3b190a21ab7075163f40",
+    "overlay": "5724e95db02cbb75fb4a1d2e740e11d49b46718d3bb3384b27b3ae87c3b4e7f0",
+    "rollout": "bf0a038b43c7eec1321102084c13bea19e2ba3be3b0c5e5c5a1dd0471a2aa0d6",
+    "artifact": "57f67d38930aa341340b0670f7a14e9cc6c1f369cf83023ad36df15fb37bd37b",
+    "isolation": "18a9e7075c0fed991071303e847aa69f73bf3939f3056975636e7ca1d0f437a1",
+    "reportModel": "b32553293c647cf413b34dfec1d830447b59d63c07f69eb424e8ed2e10edeaa2",
+    "recovery": "3062e03ede5189758076cd100016ab83edd582dfd35b615c0cb4798392349cf5",
+    "exposure": "846a271ee8668ad209b454ee4f9238b5ae45b48c24dbfff2815a1c8982214a54"
+  }
+}

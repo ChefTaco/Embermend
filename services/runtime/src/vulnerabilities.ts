@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { vulnerabilityAssessmentSchema, type Actor, type Finding, type Coverage } from '@hivemagnus/embermend-contracts';
 import { digest } from '@hivemagnus/embermend-store';
@@ -7,9 +6,9 @@ import type { Embermend } from '@hivemagnus/embermend-core';
 
 const packageSchema = z.object({ name: z.string(), installedVersion: z.string(), architecture: z.string(), fixedVersions: z.array(z.string()) }).strict();
 const assessmentSchema = z.object({ engine: z.string(), engineVersion: z.string(), vendor: z.string(), platform: z.string(), observedAt: z.iso.datetime({ offset: true }), coverage: z.enum(['complete', 'partial', 'stale']), failures: z.array(z.string()), feed: z.object({ url: z.url(), generatedAt: z.iso.datetime({ offset: true }), sha256: z.string().regex(/^[a-f0-9]{64}$/) }), advisories: z.array(z.object({ definitionId: z.string(), title: z.string(), severity: z.string(), references: z.array(z.object({ source: z.string(), id: z.string(), url: z.string() })), cves: z.array(z.string().regex(/^CVE-\d{4}-\d{4,}$/)), packages: z.array(packageSchema), vendorDecision: z.literal('affected') })), definitionCount: z.number().int(), resultSha256: z.string().regex(/^[a-f0-9]{64}$/) });
-export async function ingestVulnerabilities(service: Embermend, actor: Actor, request: z.infer<typeof vulnerabilityAssessmentSchema>, raw: Record<string, unknown>) {
+export async function ingestVulnerabilities(service: Embermend, actor: Actor, request: z.infer<typeof vulnerabilityAssessmentSchema>, raw: Record<string, unknown>, operationId: string) {
   const result = assessmentSchema.parse(request.kind === 'ubuntu' ? raw['ubuntuOval'] : raw['imageVulnerabilities']);
-  const subject = request.targetId; const scope = { ...request.scope, targetIds: [subject] }; const evidenceId = randomUUID();
+  const subject = request.targetId; const scope = { ...request.scope, targetIds: [subject] }; const evidenceId = digest(['vulnerability-evidence', operationId]);
   await service.evidence(actor, { id: evidenceId, scope, subjectId: subject, method: request.kind === 'ubuntu' ? 'ubuntu-oval.v1' : 'image-vulnerabilities.v1', observedAt: result.observedAt, digest: digest(result), content: result, sensitivity: 'ordinary', source: 'magnus' });
   const cves = [...new Set(result.advisories.flatMap(item => item.cves))]; const signals = [];
   for (let index = 0; index < cves.length; index += 100) signals.push(...await threatSignals(cves.slice(index, index + 100)));

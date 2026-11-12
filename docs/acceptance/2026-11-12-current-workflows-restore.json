@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "date": "2026-11-12",
+  "status": "passed-current-candidate-combined-controller-restore",
+  "backup": {
+    "filesVerifiedByDigest": 541,
+    "imageArchives": 9,
+    "sourceServicesResumed": true,
+    "readOnlyPublicationCatalogAndOciLayoutCaptured": true,
+    "allActiveEnvironmentsAndMountedBrowserBuildCaptured": true
+  },
+  "postgres": {
+    "exactBeforeWritersStart": true,
+    "tables": {
+      "embermend": 26,
+      "magnus": 112
+    }
+  },
+  "sqlite": {
+    "stores": 2,
+    "exactBeforeStartup": true,
+    "integrityAndForeignKeysVerified": true
+  },
+  "redis": {
+    "logicalValuesAndAbsoluteExpiriesMatched": true,
+    "naturallyExpiredKeysReported": true,
+    "allStreamsPreserved": true,
+    "persistenceAcknowledged": true,
+    "stores": {
+      "lab-redis": {
+        "captured": 3,
+        "verifiedNonExpired": 3,
+        "expiredNaturally": 0
+      },
+      "browser-redis": {
+        "captured": 105,
+        "verifiedNonExpired": 104,
+        "expiredNaturally": 1
+      }
+    }
+  },
+  "authentication": {
+    "existingCredentialsReused": true,
+    "noCredentialChanges": true,
+    "findingsAndTimelineLogicalRecordsMatch": true,
+    "unorderedOccurrenceCollectionsComparedByIdentity": true,
+    "registryMatches": true,
+    "uiStatus": 200,
+    "unauthenticatedStatus": 401
+  },
+  "history": {
+    "heldNativeOwners": 0,
+    "historicalUnknownOutcomes": 5,
+    "disabledPoliciesRetained": 1,
+    "enabledPolicies": 0,
+    "activeJobs": 0,
+    "appendOnlyAuditGuardVerified": true
+  },
+  "runtime": {
+    "restoredServices": 10,
+    "configuredHealthChecksHealthy": true,
+    "usersSecurityResourcesTmpfsRestartAndHealthOverridesMatch": true,
+    "allMountsUseRestoredFiles": true,
+    "internalNetwork": true,
+    "publishedPorts": false,
+    "fleetAndExternalProviderAccess": false
+  },
+  "sourceRevisions": {
+    "control": "9bb71928a252f6ebaeff3507d6ec01e081b2b955",
+    "product": "452985933067019886d87151f68eb3cb06015135",
+    "ui": "324c19babd4a569fb63bcd736fefb815fed7a9bf",
+    "identity": "764942c5c6693ed67f23f3eede933c87d281eb6d",
+    "scanner": "452985933067019886d87151f68eb3cb06015135"
+  },
+  "retainedPriorAttempts": {
+    "unorderedHttpComparisonRejected": true,
+    "logicalFieldsIndependentlyComparedEqual": true,
+    "freshBackupAndRestoreUsedForPassingProof": true,
+    "earlyStartingHealthCheckRetainedThenIndependentlyRecheckedHealthy": true
+  },
+  "scopeLimitations": [
+    "Managed guest disks and external model/CLI sign-ins remain outside controller backup scope.",
+    "This is the current candidate ingress harness; compatible signed installer and its restore remain release gates."
+  ],
+  "proofDigests": {
+    "postgres-exact.json": "f8d26563d1066423188ad355342056d2f46039f56e6ee0689b6f772fb8c29a4a",
+    "runtime-constraints-verified.json": "3bc504e58ecb84ce29434d6382c5c34e3a653e2ebe816900aebfd54d149e5a16",
+    "redis-verified.json": "5f708efff7db299ab744c5d66eccf1a0b62447bf4a1808906f276150ba8bd50d",
+    "identity-readback": "66e942cfb4278c3247f364ed8534bb1b079baa7ca7673f0f5a7b9c2c1c08502a"
+  }
+}

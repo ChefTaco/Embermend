@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-12",
+  "scope": "Fresh isolated restore of the current disposable controller suite after authorized ownership recovery",
+  "sourceRevision": {
+    "embermend": "2180db15cc01074bbcb2dd1c312eb087a722974e",
+    "magnus": "29db72376f69d597449ecacf18bb2ba4b9e50989",
+    "hivexui": "bb894e2708b556fe1ed0bd2130188e26ddb0a1f7"
+  },
+  "backup": {
+    "coldWriters": true,
+    "actualCurrentRuntimeEnvironmentsAndBrowserArtifacts": true,
+    "imageDeclaredControllerVolumeCaptured": true,
+    "immutableImagesExportedAndLoaded": 9,
+    "acknowledgedRedisPingAndSaveRequired": true,
+    "sourceStableDependencyPortsAndRestartVerified": true
+  },
+  "restore": {
+    "postgresTables": {
+      "embermend": 26,
+      "magnus": 112
+    },
+    "postgresExactBeforeStartup": true,
+    "sqliteExactBeforeStartupAndIntegrityChecks": true,
+    "redisStores": [
+      {
+        "captured": 3,
+        "unexpiredValuesAndDeadlinesMatched": 3,
+        "expiredNaturally": 0
+      },
+      {
+        "captured": 104,
+        "unexpiredValuesAndDeadlinesMatched": 104,
+        "expiredNaturally": 0
+      }
+    ],
+    "existingAuthentication": true,
+    "sameFindingsRecommendationsAndRegistry": true,
+    "unauthenticatedStatus": 401,
+    "retainedUnknownOutcomesWithReleasedOwnership": 5,
+    "remainingHeldNativeOwners": 0,
+    "activeJobs": 0,
+    "standingPolicies": 0,
+    "appendOnlyHistoryGuard": true,
+    "runtimeConstraintsAndUsersMatched": true,
+    "configuredHealthChecksPassed": true,
+    "allMountsUseRestoredFiles": true,
+    "internalNetwork": true,
+    "publishedPorts": false,
+    "fleetAndProviderContact": false
+  },
+  "preliminaryFailuresRetained": [
+    "Initial isolated namespace inherited a CLI entrypoint and refused startup before database restore.",
+    "A subsequent attempt verified PostgreSQL and Redis but refused an uncaptured image-declared state volume.",
+    "The final fresh backup and restore include that volume and explicit namespace entrypoint."
+  ],
+  "limits": [
+    "Managed guest disks and external model or CLI sign-in stores remain outside this controller backup.",
+    "This is not acceptance of a signed combined installation or a production restore."
+  ],
+  "productionMutationPoliciesEnabled": false
+}

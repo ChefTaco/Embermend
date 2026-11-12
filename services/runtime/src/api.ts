@@ -60,6 +60,8 @@ export function createApi(service: Embermend, authenticate: Authenticate): Hono<
   app.post('/api/v1/scans', async c => c.json({ jobId: await service.scan(c.get('actor'), await c.req.json()) }, 202));
   app.post('/api/v1/preparations', async c => c.json({ jobId: await service.prepare(c.get('actor'), await c.req.json()) }, 202));
   app.post('/api/v1/source-reads', async c => c.json({ jobId: await service.source(c.get('actor'), await c.req.json()) }, 202));
+  app.post('/api/v1/build-observations', async c => c.json({ jobId: await service.builds.request(c.get('actor'), await c.req.json()) }, 202));
+  app.get('/api/v1/builds', async c => c.json(await service.builds.list(c.get('actor'))));
   app.get('/api/v1/jobs/:id', async c => c.json(await service.job(c.get('actor'), c.req.param('id'))));
   app.post('/api/v1/jobs/:id/reconcile', async c => c.json({ jobId: await service.reconcileJob(c.get('actor'), c.req.param('id')) }, 202));
   app.post('/api/v1/jobs/:id/cancel', async c => { await service.cancelJob(c.get('actor'), c.req.param('id')); return c.json({ cancellationRequested: true }); });

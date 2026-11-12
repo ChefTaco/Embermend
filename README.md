@@ -77,3 +77,9 @@ Use the owning system's credential-invalidation evidence before closing an
 exposed-secret occurrence; deleting the literal is insufficient.
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Inference setup and CLI isolation are described in [the provider guide](docs/INFERENCE.md).
+GitHub permissions, merge enforcement and the optional unattended App setup are
+described in [provider authorization](docs/GITHUB_PROVIDER_AUTH.md).
+Managed job observation and cancellation semantics are documented in
+[recovery](docs/RECOVERY.md).

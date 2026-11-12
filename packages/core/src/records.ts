@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { observationSchema, relationshipSchema, profileAssignmentSchema, profileSchema, entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, verificationSchema, exceptionSchema, scheduleSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, scopeSchema, type Actor } from '@hivemagnus/embermend-contracts';
 import { audit, digest, json, lock, within, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { DomainError, requirePermission } from './authorization.js';
+import { visibleOccurrences } from './occurrence-access.js';
 
 export class Records {
   constructor(private readonly db: Database) {}
@@ -11,19 +12,31 @@ export class Records {
   }
   async relationship(actor: Actor, input: unknown): Promise<string> {
     const value = relationshipSchema.parse(input); requirePermission(actor, 'ingest', value.scope);
-    await this.db.$transaction(async tx => {
+    return this.db.$transaction(async tx => {
+      await lock(tx, `relationship-id:${value.id}`); await lock(tx, `relationship-edge:${value.fromId}:${value.toId}:${value.kind}`);
       await this.entitiesIn(tx, { ...actor, scope: value.scope }, [value.fromId, value.toId]);
       for (const id of value.provenance.evidenceIds) { const evidence = await tx.evidence.findUnique({ where: { id } }); if (!evidence || !within(value.scope, evidenceSchema.parse(evidence.data).scope)) throw new DomainError('RELATIONSHIP_EVIDENCE_OUTSIDE_SCOPE'); }
       if (value.provenance.assurance === 'established' && !value.provenance.evidenceIds.length) throw new DomainError('ESTABLISHED_RELATIONSHIP_REQUIRES_EVIDENCE');
-      const prior = await tx.relationship.findUnique({ where: { id: value.id } }); if (prior && digest(prior.provenance) !== digest(value)) throw new DomainError('RELATIONSHIP_PROVENANCE_IMMUTABLE');
-      if (!prior) await tx.relationship.create({ data: { id: value.id, fromId: value.fromId, toId: value.toId, kind: value.kind, provenance: json(value) } });
-      await audit(tx, actor, 'relationship.recorded', value.id);
-    }); return value.id;
+      const named = await tx.relationship.findUnique({ where: { id: value.id } }); if (named && digest(named.provenance) !== digest(value)) throw new DomainError('RELATIONSHIP_PROVENANCE_IMMUTABLE');
+      const prior = await tx.relationship.findUnique({ where: { fromId_toId_kind: { fromId: value.fromId, toId: value.toId, kind: value.kind } } });
+      if (prior) {
+        requirePermission(actor, 'ingest', relationshipSchema.parse(prior.provenance).scope);
+        if (prior.id !== value.id) {
+          const id = digest(['relationship-evidence', prior.id, value.scope, value.provenance]);
+          const observation = { id, scope: value.scope, source: 'relationship-evidence', sourceEventId: id, subjectId: value.fromId, type: 'relationship-evidence', observedAt: value.provenance.observedAt, evidenceIds: value.provenance.evidenceIds, data: { relationshipId: prior.id } };
+          if (!await tx.observation.findUnique({ where: { id } })) await tx.observation.create({ data: { id, installationId: value.scope.installationId, subjectId: value.fromId, source: observation.source, sourceEventId: id, observedAt: new Date(observation.observedAt), data: json(observation) } });
+          await audit(tx, actor, 'relationship.corroborated', prior.id, { observationId: id });
+        }
+        return prior.id;
+      }
+      await tx.relationship.create({ data: { id: value.id, fromId: value.fromId, toId: value.toId, kind: value.kind, provenance: json(value) } });
+      await audit(tx, actor, 'relationship.recorded', value.id); return value.id;
+    });
   }
   async relationships(actor: Actor) {
     requirePermission(actor, 'read', actor.scope);
     const ids = (await this.db.entity.findMany({ where: { installationId: actor.scope.installationId } })).map(row => entitySchema.parse(row.data)).filter(row => within(actor.scope, row.scope)).map(row => row.id);
-    return (await this.db.relationship.findMany({ where: { fromId: { in: ids }, toId: { in: ids } }, take: 2000 })).map(row => relationshipSchema.parse(row.provenance));
+    return (await this.db.relationship.findMany({ where: { fromId: { in: ids }, toId: { in: ids } }, take: 2000 })).map(row => relationshipSchema.parse(row.provenance)).filter(row => within(actor.scope, row.scope));
   }
   async observation(actor: Actor, input: unknown): Promise<string> {
     const value = observationSchema.parse(input); requirePermission(actor, 'ingest', value.scope);
@@ -82,12 +95,12 @@ export class Records {
       for (const id of plan.findingIds) {
         const findingRow = await this.db.finding.findUnique({ where: { id } }); if (!findingRow) throw new DomainError('FINDING_MISSING');
         const finding = findingSchema.parse(findingRow.data); requirePermission(actor, 'read', finding.scope);
-        const occurrences = (await this.db.occurrence.findMany({ where: { findingId: id } })).map(item => occurrenceSchema.parse(item.data));
+        const occurrences = await visibleOccurrences(this.db, actor, (await this.db.occurrence.findMany({ where: { findingId: id } })).map(item => occurrenceSchema.parse(item.data)));
         const verifications = (await this.db.verification.findMany({ where: { occurrenceId: { in: occurrences.map(item => item.id) } } })).map(item => verificationSchema.parse(item.data));
         findings.push({ finding, occurrences, verifications });
       }
-      const executions = (await this.db.execution.findMany({ where: { planId: row.id } })).map(item => ({ id: item.id, revision: item.revision, actionId: item.actionId, state: item.state, receipt: item.receipt }));
-      plans.push({ plan, digest: revision.digest, status: row.status, publications: await this.db.publication.findMany({ where: { planId: row.id } }), executions, findings });
+      const executions = (await this.db.execution.findMany({ where: { planId: row.id, revision: plan.revision } })).map(item => ({ id: item.id, revision: item.revision, actionId: item.actionId, state: item.state, receipt: item.receipt }));
+      plans.push({ plan, digest: revision.digest, status: row.status, publications: await this.db.publication.findMany({ where: { planId: row.id, revision: plan.revision } }), executions, findings });
     }
     return { reportId: randomUUID(), generatedAt: new Date().toISOString(), campaign, plans, exceptions: (await this.exceptions(actor)).filter(item => item.findingIds.some(id => reportedFindingIds.has(id))) };
   }

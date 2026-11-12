@@ -113,6 +113,8 @@ export class OpenAICompatibleModel implements Model {
     return JSON.parse(choice.message.content) as unknown;
   }
 }
-export { GitHubClient, type GitHubRepositoryGrant } from './github.js';
+export { GitHubClient, githubMergeOperationSchema, type GitHubRepositoryGrant, type GitHubMergeOperation } from './github.js';
 
 export * from './threat-feeds.js';
+export * from './inference/index.js';
+export * from './registry.js';

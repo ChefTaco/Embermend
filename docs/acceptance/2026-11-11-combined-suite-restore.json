@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "dateTimezone": "America/Chicago",
+  "status": "bounded-combined-controller-suite-rehearsal",
+  "sourceProduct": "5553f9b66d0e0200d002328950f246f633118dea",
+  "sourceControl": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa",
+  "existingAuthentication": true,
+  "typescript": "6.0.3",
+  "strict": true,
+  "backup": {
+    "writersStoppedBeforeCapture": true,
+    "sourceWritersRestarted": true,
+    "postgresDatabases": 2,
+    "postgresTables": {
+      "embermend": 26,
+      "magnus": 112
+    },
+    "sqliteStores": 2,
+    "sqliteTables": [
+      25,
+      7
+    ],
+    "redisStores": 2,
+    "redisExplicitSave": true,
+    "existingCredentialsTlsAndConfigurationRetained": true,
+    "controllerAndUiRuntimeArtifactsRetained": true,
+    "containerImagesExportedAndLoaded": 8,
+    "managedGuestDisksIncluded": false
+  },
+  "restore": {
+    "isolatedInternalNetwork": true,
+    "publishedPorts": false,
+    "fleetAndProviderAccess": false,
+    "allMountsUseRestoredFiles": true,
+    "sourceStateMounted": false,
+    "postgresTablesExactBeforeApplicationStartup": {
+      "embermend": 26,
+      "magnus": 112
+    },
+    "sqliteBytesExactBeforeStartup": true,
+    "sqliteIntegrityAndForeignKeysVerified": true,
+    "redis": {
+      "lab-redis": {
+        "captured": 0,
+        "unexpiredValuesAndDeadlinesMatched": 0,
+        "expiredNaturally": 0
+      },
+      "browser-redis": {
+        "captured": 105,
+        "unexpiredValuesAndDeadlinesMatched": 104,
+        "expiredNaturally": 1
+      }
+    },
+    "redisVerification": "Canonical field/value comparison for hashes and other supported logical types; exact serialized streams including group state; absolute expiries unchanged, elapsed expiries counted separately",
+    "existingClientTokenExchange": true,
+    "originalIssuerPreserved": true,
+    "findingsResponseMatched": true,
+    "recommendationsResponseMatched": true,
+    "registryResponseMatched": true,
+    "uiHttpStatus": 200,
+    "unauthenticatedStatus": 401,
+    "heldNativeLeasesUnchanged": 5,
+    "appendOnlyGuardVerified": true,
+    "queuedOrRunningJobs": 0,
+    "standingMutationPolicies": 0
+  },
+  "proofDigests": {
+    "backupFileManifest": "f59ee5d7d6501d2d44e0cc7370e9498927fbc25afbe236aebcd91c76ba0dd0fb",
+    "postgres": "f8d26563d1066423188ad355342056d2f46039f56e6ee0689b6f772fb8c29a4a",
+    "redis": "87af48b34c32f4b5e201885d686f04c560b056f3dc041c93c75161b1c64ce6a8",
+    "runtimeEvidence": "1b2d8b4304e7c91bfe23998d13363d653efb0cf28cb56d813dba918f69adff00",
+    "isolation": "6cfd0e5025722a0736b3f96b64293fe11740b954d77961bd49220f69fca102ad"
+  },
+  "limits": [
+    "This restores the configured disposable controller suite, not managed guest disks, a signed production installation or a complete fleet disaster-recovery scenario.",
+    "The running lab control service is the retained earlier preview build. This does not establish a combined release of the latest integration branches.",
+    "The first backup stopped on a root-owned runtime file. Its cleanup restarted the source services; the corrected backup copied that state through its owning container without changing source permissions.",
+    "A first isolated verifier used the wrong filesystem identity. It was corrected to the backup owner; subsequent fresh restoration uses that identity from startup.",
+    "A post-startup Redis key comparison encountered normal expiry. A subsequent serialized comparison refused reordered hash encodings; no data-loss conclusion was inferred. Final proof compares immutable logical values and absolute expiries before application writers start.",
+    "A canonical preflight refused an unhandled stream type. Stream verification now retains the complete serialized stream and consumer-group state. Failed or partial rehearsals were retained and not counted as passing.",
+    "Existing inference endpoints, local CLI sign-in stores and managed hosts remain external. They are not contacted by the isolated restored suite.",
+    "All five uncertain native operations remain unknown and held. No recovery lease was cleared, and no production mutation policy was created.",
+    "Remaining native interruption cuts, complete authorized recovery, broader AC-01–AC-24 acceptance and the compatible signed release still gate production."
+  ]
+}

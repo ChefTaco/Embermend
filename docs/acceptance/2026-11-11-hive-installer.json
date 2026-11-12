@@ -1,0 +1,182 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "dateTimezone": "America/Chicago",
+  "status": "component-verified-not-production",
+  "pullRequest": "https://github.com/ChefTaco/hive/pull/82",
+  "reviewedHead": "af5f15c1134b6b10554fb4ff8c4003cb6c5b9c77",
+  "mergedCommit": "649932ed28198023e2fba35449c9fba48c1936a7",
+  "mergedAt": "2026-11-11T21:42:28Z",
+  "integratedSuiteBase": "d1ff02dd4fbe16e9552f891584e8221aa52d0d93",
+  "integratedSuiteVersion": "3.1.1",
+  "hostedChecks": [
+    {
+      "name": "Analyze (actions)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099126827/job/130784926122"
+    },
+    {
+      "name": "Gitleaks",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131741/job/130784937668"
+    },
+    {
+      "name": "Gitleaks",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099127565/job/130784891771"
+    },
+    {
+      "name": "recovery-scope",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799954467"
+    },
+    {
+      "name": "Analyze (go)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099126827/job/130784962824"
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099126827/job/130784934279"
+    },
+    {
+      "name": "Analyze (python)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099126827/job/130784944271"
+    },
+    {
+      "name": "verify (24.22.1)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799956228"
+    },
+    {
+      "name": "verify (26.13.0)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799955760"
+    },
+    {
+      "name": "Server images and Compose recovery (linux/amd64)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799952861"
+    },
+    {
+      "name": "Server images and Compose recovery (linux/arm64)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130800029749"
+    },
+    {
+      "name": "Public npm upgrade and restore (Node 24.22.1)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799955709"
+    },
+    {
+      "name": "Public npm upgrade and restore (Node 26.13.0)",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799953377"
+    },
+    {
+      "name": "recovery / Backup, ownership, rehearsals, failures and two restores through sudo",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/actions/runs/43099131781/job/130799953501"
+    },
+    {
+      "name": "CodeQL",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://github.com/ChefTaco/hive/runs/130785129104"
+    },
+    {
+      "name": "Socket Security: Project Report",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://socket.dev/dashboard/org/ChefTaco/sbom/28a0a03a-046b-434a-8331-8518c113cab9"
+    },
+    {
+      "name": "Socket Security: Pull Request Alerts",
+      "status": "COMPLETED",
+      "conclusion": "SUCCESS",
+      "url": "https://socket.dev"
+    }
+  ],
+  "publishedReleases": {
+    "allTrackedReleaseFilesUnchanged": true,
+    "release311SignatureVerified": true,
+    "files": [
+      {
+        "path": "releases/3.1.1.inputs.json",
+        "beforeSha256": "98023d4760592b5165cce9c3eb447dd8262f0d5b166806b4156deb719eb4250a",
+        "afterSha256": "98023d4760592b5165cce9c3eb447dd8262f0d5b166806b4156deb719eb4250a"
+      },
+      {
+        "path": "releases/3.1.1.json",
+        "beforeSha256": "77ca1658ce8f0267d6780507221977c934325877061234be4e12f9d88a19fa79",
+        "afterSha256": "77ca1658ce8f0267d6780507221977c934325877061234be4e12f9d88a19fa79"
+      },
+      {
+        "path": "releases/3.1.1.json.sig",
+        "beforeSha256": "2cc25600d5bb04ffcda7daba1825793b22ee8764d68cab648254d703ef7614a2",
+        "afterSha256": "2cc25600d5bb04ffcda7daba1825793b22ee8764d68cab648254d703ef7614a2"
+      }
+    ]
+  },
+  "compilers": [
+    {
+      "workspace": "packages/hive",
+      "typescript": "6.0.3",
+      "strict": true,
+      "noUncheckedIndexedAccess": true,
+      "exactOptionalPropertyTypes": true
+    },
+    {
+      "workspace": "packages/hive-release",
+      "typescript": "6.0.3",
+      "strict": true,
+      "noUncheckedIndexedAccess": true,
+      "exactOptionalPropertyTypes": true
+    }
+  ],
+  "installer": {
+    "entry": "hive.sh",
+    "optionalSelection": true,
+    "defaultEnabled": false,
+    "requiresLocalMagnus": true,
+    "requiresExplicitSignedMagnusProtocol": 1,
+    "minimumMagnusVersion": "2.4.0",
+    "versionAloneInsufficient": true,
+    "sharedApiWorkerImage": true,
+    "privatePostgres": true,
+    "usesReviewedPostgresRuntimeProfile": true,
+    "freshTargetApplicationGrants": [],
+    "standingMutationPolicyCreated": false,
+    "existingProfilesUnchanged": true
+  },
+  "localProof": [
+    "Complete repository typecheck and tests",
+    "OpenAPI and privacy/secret gates",
+    "Actual PTY selection, default-off and undeclared-bridge refusal",
+    "Signed release-builder compatibility admission",
+    "Fresh initialization idempotence and permission ceilings",
+    "Reviewed datastore profile for the optional product"
+  ],
+  "limits": [
+    "This merges source installer integration; existing published 3.1.1 manifests, signatures and inputs remain unchanged. No new signed Embermend suite release was published.",
+    "Initial CI package-tool installation timed out before tests. Only failed/interrupted jobs were retried for the same reviewed head; all hosted checks passed before merge. No check was bypassed.",
+    "The operator must use a future compatible signed release with accepted Magnus, Oathweave, HiveXUI and Embermend artifacts before fleet installation. Full AC-01–AC-24 acceptance and combined suite restore remain pending.",
+    "Production mutation policies stay disabled. Product portfolio and website updates follow production rollout."
+  ]
+}

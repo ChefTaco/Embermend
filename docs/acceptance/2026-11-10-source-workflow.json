@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "productSourceRevision": "c4e76019fa75fc8c6b09ccbc88fb6ec814de8971",
+  "source": {
+    "base": "f43a4ed4ee29ff1aa42f2f64d526b069f7ccfaa4",
+    "prHead": "d5cc729a29ced97ab6d894a7ab5d4ad5cda05b90",
+    "verifiedMaintainedRevision": "530b3bb5807bd2c47c49340dde777d0a55a7d71f",
+    "pullRequest": "https://github.com/ChefTaco/Embermend/pull/2",
+    "dedicatedProtectedAcceptanceBranch": true,
+    "requiredChecks": [
+      "Verify",
+      "Gitleaks",
+      "Images"
+    ],
+    "protectionsApplyToAdministrators": true,
+    "activeImplementationAndDefaultBranchesChanged": false
+  },
+  "assessment": {
+    "modelRef": "approved-local-qwen",
+    "coverage": "complete",
+    "candidateClasses": [
+      "injection",
+      "path-handling",
+      "authorization"
+    ],
+    "scope": "Controlled catalog source, owned probes and a source-only application; other monorepo application excluded"
+  },
+  "preparation": {
+    "before": {
+      "injectionRows": 2,
+      "traversalRead": true,
+      "crossOwner": true
+    },
+    "after": {
+      "injectionRows": 0,
+      "traversalRead": false,
+      "crossOwner": false
+    },
+    "sameProbeSource": true,
+    "validatedDraftPatchDigest": "371bcd27d9ab51cdbb9cfe6f48936d3b27b3d284d55ceabe397a2546f8d7271c",
+    "rootlessWorker": "Magnus-enrolled Ubuntu 24.04.5; immutable scanner image and reviewed fixed validation command"
+  },
+  "authorization": {
+    "explanationPublishedBeforeCoveredMutation": true,
+    "exactPlanAndPatchBound": true,
+    "coordinatorSelfApprovalRefused": true,
+    "separateMergeDecision": true,
+    "writingCredentialWithoutMergePermissionRefused": true,
+    "mergeRuleBypassRequested": false,
+    "productionPolicyEnabled": false
+  },
+  "provider": {
+    "sourceWriteMutations": 4,
+    "lostReplyAfterActualPRCreation": true,
+    "duplicatePullRequestsCreated": 0,
+    "originalPullAdoptedByReads": true,
+    "mergeRequests": 1,
+    "asynchronousMergeRequestRetained": true,
+    "mergeReceiptDigest": "e9f41008c3d7ea84b36a4408fb92a57f0bff7552fa79162b1ffc9fb98e5d29ac",
+    "writeReceiptDigest": "cae7afe5f5abe8976913f3e49814c1deddfdf98cc9ebe179075da8d0e9745bb2",
+    "artifactPublications": 0,
+    "deployments": 0
+  },
+  "verification": {
+    "sourceOnly": true,
+    "verifiedSourceClasses": [
+      "authorization",
+      "injection"
+    ],
+    "verifiedSourceRevision": "530b3bb5807bd2c47c49340dde777d0a55a7d71f",
+    "independentImmutableReadback": true,
+    "independentIsolatedProbes": {
+      "injectionRows": 0,
+      "traversalRead": false,
+      "crossOwner": false
+    },
+    "originalNativeOwnershipReleased": true,
+    "nativeReceiptDigests": [
+      "fa2b03b69fadd2c9dd661c80c6806f61271f14a2ebc45cecb1ee9910d3d10ba1",
+      "e47d951f7c64b487b894087f6f002e339f9dc5f72c4a249717ca731fad7eb91d"
+    ],
+    "otherMaintainedBranchOccurrencesStillOpen": 3,
+    "pathHandlingValidity": "disputed",
+    "pathHandlingOccurrence": "open",
+    "runtimeClosureClaimed": false
+  },
+  "noEffectRecovery": {
+    "originalStaleOperationReleasedWithoutProviderMutation": true,
+    "concurrentAdmissionGuardRegressionPassed": true
+  },
+  "privateRecordDigests": [
+    {
+      "record": "source-flow-preparation.json",
+      "sha256": "803c86a27d644c9a988ca7255cb79e50c92e361df4faf7245138b935eb2c75f2"
+    },
+    {
+      "record": "source-flow-publication.json",
+      "sha256": "3346880398d07fc9ddde8f0a17af8158d51800d4e0364cbf6e6fb79cf7c8ad76"
+    },
+    {
+      "record": "source-flow-merge.json",
+      "sha256": "440033588b1b7a8088f02a64761cb83c74e9c6b96f6767b5c5205081010fc765"
+    },
+    {
+      "record": "source-flow-verification.json",
+      "sha256": "b80b80097e537e353549e0c9bad84e8012e6712d893d01fb4444cb5cedc1e42e"
+    }
+  ],
+  "limitations": [
+    "Controlled direct-service journey; authenticated browser/Oathweave/coordinator-runtime journey remains pending",
+    "SQL and owner-helper checks validate conditional fixture defects; no production reachability or abstract-store filesystem escape established",
+    "Source-only acceptance branch proof; no artifact publication, deployed runtime or credential invalidation proof",
+    "Earlier uncertain object-creation phases remain held rather than retried blindly",
+    "Native agent crashes, reboot continuation, broader fault injection and combined suite restore remain pending",
+    "All AC-01 through AC-24 remain the full product completion boundary"
+  ],
+  "postVerificationRestore": {
+    "scope": "Disposable product PostgreSQL only",
+    "dumpSha256": "ad848a3e92e8d94fd6b4dc2530604e7506d3245420a51891159ac688831422a7",
+    "tableCount": 26,
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true
+  }
+}

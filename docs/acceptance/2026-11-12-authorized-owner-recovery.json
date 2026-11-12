@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-12",
+  "scope": "Disposable reference environment; existing service credentials and existing human operator identity",
+  "criteria": [
+    "AC-15",
+    "AC-16",
+    "AC-18",
+    "AC-20",
+    "AC-21",
+    "AC-22"
+  ],
+  "ownershipRecovery": {
+    "originalUnknownOperations": 5,
+    "separatelyPublishedAndApprovedRecoveryPlans": 5,
+    "independentQuiescenceReview": true,
+    "exactOriginalCommandRequestAndFencePreserved": true,
+    "historicalOutcomesRemainUnknown": true,
+    "ownershipReleased": 5,
+    "remainingHeldNativeOwners": 0,
+    "newNativeCommands": 0,
+    "findingStatesUnchangedBySettlement": true,
+    "freshInventoryAfterSettlement": 5,
+    "actualApprovedQwenScanAfterRootlessRecovery": true,
+    "lostTerminalCommitRecoveredByReadOnlyObservationOfSameSignedDecision": true,
+    "earlierUnacknowledgedDecisionRecognizedAsSuperseded": true
+  },
+  "operatorJourney": {
+    "existingHumanIdentityAndKeys": true,
+    "permissionReviewBasedOnActualScopes": true,
+    "onlyScopedRecoveryPermissionAddedToExistingOperatorRoleAndAudience": true,
+    "coordinatorCannotApproveGrantPolicyOrRecover": true,
+    "sameHumanCanMakeSeparateExplicitDecisions": true,
+    "originalModeChangeAndOriginalArtifactRecoveryHaveSeparatePlanDigestsAndDecisions": true,
+    "publicationBeforeEachMutation": true,
+    "independentManagedModeAndConsumerHealthVerification": true,
+    "originalModeRestored": true,
+    "unrelatedPackageFindingStaysOutstanding": true,
+    "browserReadsRetainedUnknownOutcomeWithoutDispatch": true
+  },
+  "hostileRepository": {
+    "actualRootlessValidation": true,
+    "outOfApplicationPatchRefused": true,
+    "managementAndProviderWriteCredentialsAbsent": true,
+    "hostControlSocketsAbsent": true,
+    "egressDenied": true,
+    "readOnlyRootEnforced": true,
+    "fakeCredentialOutputRedacted": true,
+    "stdoutCannotGrantAuthority": true
+  },
+  "futureContainerAgent": {
+    "contractFixturesOnly": true,
+    "scopedEnrollmentIdentityAssessmentAndOperationRoutingTested": true,
+    "hostActionsAndReplacementIdentityRefused": true,
+    "futureAgentImplemented": false
+  },
+  "limits": [
+    "Ownership settlement establishes current quiescence, never historical success or security closure.",
+    "Browser proof covers the disposable fixture and existing scoped human identity.",
+    "Release artifacts, signed installation and all remaining acceptance journeys are separate gates."
+  ],
+  "productionMutationPoliciesEnabled": false
+}

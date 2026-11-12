@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "date": "2026-11-11",
+  "dateTimezone": "America/Chicago",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "scope": "One fresh Magnus-enrolled disposable Ubuntu 24.04 host. Actual SIGKILL of the detached supervisor worker main process while its vendor-assessment child had started; host agent is a separate process. Existing native service authentication and scoped core fixture actors.",
+  "sources": {
+    "productRuntime": "5553f9b66d0e0200d002328950f246f633118dea",
+    "runtimeImage": "sha256:e1c4a7b7b3748b4707344feee8a490fe46f9bf5bdf200f9685af66bf759deb2b",
+    "magnusAgent": "4a96834258d33d8505ae4e716ce5e1d659e9ace2",
+    "agentArchiveSha256": "d444177d8438c98fe8af079b01514d2d1a8dc95ef3a3dabb26066148c7ac13e4",
+    "contractsArchiveSha256": "d78cd34e18855e5624e791b1ae3f3cfedf8abf9a493bea7df8f4bf6fd7ad1e25",
+    "magnusControl": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa"
+  },
+  "fault": {
+    "operationId": "cafc322567a76342735c613ff38f3a7d1e2d28a8b145b221388a0645c784a643",
+    "commandIdSha256": "a123331350fa6d0e44f23996f1df4406a06dd70dd4f7e6289810c180fe320540",
+    "requestDigest": "468215be06bb405be3c656c53723bb92ce86e84653bb837e48cbd3557ebfaba9",
+    "workerUnitSha256": "ed8fbdb89b8f4cb6dbeba07681ecd76e1fdf23c40a47cf1324afdda98b256c26",
+    "processCountBeforeKill": 3,
+    "mainWorkerKilledWithSigkill": true,
+    "hostAgentPidUnchanged": true,
+    "hostAgentActive": true,
+    "processCountAtObservation": 0,
+    "workerStateAtObservation": "failed",
+    "immediatePostSignalProcessCount": null,
+    "immediateEvidenceLimit": "First harness observed but did not persist its immediate process count before a too-short observer assertion; no claim about child survival immediately after SIGKILL."
+  },
+  "originalJob": {
+    "status": "unknown",
+    "deadlineRetained": true,
+    "cancelRequested": false,
+    "deadlineExpiredBeforeObservation": true
+  },
+  "observation": {
+    "count": 1,
+    "status": "unknown",
+    "error": "WORKER_FAILED_INSPECT_RETAINED_STATE",
+    "sameOperation": true,
+    "sameNativeCommand": true,
+    "receiptState": "unknown",
+    "ownershipReleased": false,
+    "heldLeaseState": "unknown",
+    "receiptDigest": "6cb471054ee72024a5771c5b1c10c75e87035805c875a397c1e8e6730fb4ae1d",
+    "redispatches": 0
+  },
+  "security": {
+    "baselineVendorAssessment": "completed",
+    "baselineAffectedOccurrences": 14,
+    "findingsUnchanged": true,
+    "findingHistoryDigest": "5d90e403efcc9ccf05d6d624539d268710d7e52943f2d5b0742ae744708f1f02",
+    "consumerHealth": "healthy",
+    "verificationCreated": false
+  },
+  "restore": {
+    "dumpSha256": "0cb2ccc1c7105ce60421ae8224640b8c6eb9a8c4023be10e601f2598900cce13",
+    "tables": 26,
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true,
+    "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required"
+  },
+  "limits": [
+    "The fault killed the native detached supervisor main process; it did not kill or reconfigure the host agent. Three processes were observed in its exact owned cgroup before SIGKILL.",
+    "The first private harness waited only 20 seconds for its separately bounded observation and failed that postcondition. A continuation reused the original job and the same single observation; no fault, native operation or assessment was replayed. The immediate post-signal process count was not retained, so no claim is made about child survival immediately after the signal.",
+    "Missing owner completion proof remained unknown even after the cgroup was empty. Existing vendor findings stayed affected; absent scanner output cannot close unexamined work.",
+    "This exercises a native vendor-assessment supervisor. Rootless container worker loss, all reboot scheduling/persistence cuts, live clock faults and separately authorized held-operation recovery still need distinct proof.",
+    "One original native lease on this guest remains held unknown. The earlier cancelled-reboot guest independently retains its own held lease; no lease clearance, retry or production policy change occurred.",
+    "This is not another browser/Oathweave journey, combined suite restore, signed release or completed AC-01–AC-24 acceptance."
+  ]
+}

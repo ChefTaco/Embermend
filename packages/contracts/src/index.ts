@@ -34,7 +34,7 @@ export const entitySchema = z.discriminatedUnion('kind', [
   z.object({ ...entityBase, kind: z.literal('source-binding'), repositoryId: id, applicationId: id, includedPaths: z.array(id), excludedPaths: z.array(id), maintainedBranches: z.array(id), buildDefinitions: z.array(id), modelPolicy: z.object({ providerRefs: z.array(id), allowRemote: z.boolean(), allowExecution: z.boolean() }).strict().default({ providerRefs: [], allowRemote: false, allowExecution: false }) }).strict(),
   z.object({ ...entityBase, kind: z.literal('source-revision'), repositoryId: id, commit: revision, branch: id.nullable() }).strict(),
   z.object({ ...entityBase, kind: z.literal('artifact'), digest: sha256, sourceRevisionIds: z.array(id), buildRunId: id.nullable(), image: z.string().regex(/^.+@sha256:[a-f0-9]{64}$/).nullable() }).strict(),
-  z.object({ ...entityBase, kind: z.literal('deployment'), applicationId: id, environment: id, artifactIds: z.array(id), targetIds: z.array(id), configurationDigest: sha256.nullable() }).strict(),
+  z.object({ ...entityBase, kind: z.literal('deployment'), applicationId: id, magnusResourceId: id.optional(), environment: id, artifactIds: z.array(id), targetIds: z.array(id), configurationDigest: sha256.nullable() }).strict(),
   z.object({ ...entityBase, kind: z.literal('target'), magnusInstallationId: id, magnusTargetId: id, agentId: id, environment: id.optional(), targetKind: z.enum(['host', 'container', 'worker']), enrollment: z.enum(['discovered', 'legacy', 'draining', 'enrolled']), platform: id, capabilities: z.array(id), lastSeenAt: timestamp, parentHostId: id.nullable(), workloadId: id.nullable(), instanceId: id.nullable(), executionNamespace: id, lifecycle: z.enum(['active', 'offline', 'retired']) }).strict(),
   z.object({ ...entityBase, kind: z.literal('container-instance'), runtimeId: id, deploymentId: id, artifactId: id, hostId: id, agentId: id.nullable(), startedAt: timestamp }).strict(),
 ]);
@@ -145,13 +145,32 @@ export const profileSchema = z.object({ id, version: id, platform: id, descripti
 export type Profile = z.infer<typeof profileSchema>;
 export const assessmentRequestSchema = z.object({ id, scope: scopeSchema, targetIds: z.array(id).min(1), profileId: id, profileVersion: id, deadline: timestamp }).strict();
 export const jobSchema = z.object({ id, kind: id, status: z.enum(['queued', 'running', 'completed', 'failed', 'unknown', 'canceled']), progress: z.number().min(0).max(1), cancelRequested: z.boolean(), deadline: timestamp, error: z.string().nullable(), result: z.json().nullable() }).strict();
+export const buildObservationRequestSchema = z.object({
+  id, scope: scopeSchema, repositoryId: id, applicationId: id, sourceRevisionId: id,
+  providerRunId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), runAttempt: z.number().int().positive(),
+  workflowId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), workflowPath: z.string().regex(/^\.github\/workflows\/[A-Za-z0-9._-]+\.ya?ml$/),
+  deadline: timestamp,
+}).strict();
+export type BuildObservationRequest = z.infer<typeof buildObservationRequestSchema>;
+export const buildSchema = z.object({
+  id, scope: scopeSchema, repositoryId: id, applicationId: id, sourceRevisionId: id, sourceCommit: revision,
+  providerRunId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), runAttempt: z.number().int().positive(), workflowId: z.number().int().positive(), workflowPath: id,
+  status: z.enum(['requested', 'pending', 'queued', 'waiting', 'in_progress', 'completed']),
+  conclusion: z.enum(['success', 'failure', 'action_required', 'cancelled', 'neutral', 'skipped', 'stale', 'startup_failure', 'timed_out']).nullable(),
+  providerUpdatedAt: timestamp, observedAt: timestamp, providerUrl: z.url(), evidenceIds: z.array(id).min(1),
+  artifactProvenance: z.literal('unestablished'),
+}).strict();
+export type Build = z.infer<typeof buildSchema>;
 export const recommendationSchema = z.object({
   plan: planSchema, digest: sha256, status: id,
+  jobs: z.array(jobSchema).default([]),
   publications: z.array(z.object({ id, planId: id, revision: z.number().int().positive(), digest: sha256, surface: id, explanation: z.string(), publishedAt: timestamp })),
   executions: z.array(z.object({ id, state: id, actionId: id, targetId: id, receipt: receiptSchema.nullable() })),
   campaign: z.object({ id, installationId: id, paused: z.boolean(), generation: z.number().int(), createdAt: timestamp }).nullable(),
 });
 export type Recommendation = z.infer<typeof recommendationSchema>;
+export const campaignReportSchema = z.object({ reportId: id, generatedAt: timestamp, campaign: recommendationSchema.shape.campaign.unwrap(), plans: z.array(z.object({ plan: planSchema, digest: sha256, status: id, publications: recommendationSchema.shape.publications, executions: z.array(z.object({ id, revision: z.number().int(), actionId: id, state: id, receipt: receiptSchema.nullable() })), findings: z.array(z.object({ finding: findingSchema, occurrences: z.array(occurrenceSchema), verifications: z.array(verificationSchema) })) })), exceptions: z.array(exceptionSchema) });
+export type CampaignReport = z.infer<typeof campaignReportSchema>;
 export const accessSchema = z.object({ actorId: id, kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema }).strict();
 export const sourceEditSchema = z.object({ path: id, beforeDigest: sha256.nullable(), content: z.string().max(1000000).nullable() }).strict();
 export const preparationSchema = z.object({
@@ -173,3 +192,9 @@ export const profileAssignmentSchema = z.object({ id, scope: scopeSchema, profil
 export const scheduleSchema = z.object({ id, scope: scopeSchema, kind: z.enum(['assessment', 'vulnerabilities', 'scan']), payload: z.unknown(), intervalSeconds: z.number().int().min(300).max(2592000), nextAt: timestamp, enabled: z.boolean() }).strict();
 export const compatibilitySchema = z.object({ product: z.literal('embermend'), version: id, protocol: z.literal(1), magnusRequired: z.literal(true), operatorSurface: z.literal('hivexui'), runtime: id, storage: z.literal('postgresql'), supportedTargets: z.array(id) }).strict();
 export const readinessSchema = z.object({ status: z.enum(['ready', 'degraded']), serviceAvailable: z.literal(true), assessmentReady: z.boolean(), managedDispatch: z.boolean(), eligibleTargets: z.number().int().min(0), blockers: z.array(id), capabilities: capabilitySchema.nullable() }).strict();
+
+/** Version-one scanner stdio reply. Failure is explicit and carries no provider data. */
+export const scannerBrokerReplySchema = z.union([
+  z.object({ id: z.string().min(1).max(200), result: z.unknown() }).strict(),
+  z.object({ id: z.string().min(1).max(200), error: z.literal('MODEL_BROKER_UNAVAILABLE') }).strict(),
+]);

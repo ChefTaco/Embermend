@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "dateTimezone": "America/Chicago",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "sources": {
+    "tracking": "09a916d7050c9ab2341b19f2a66829d135cd2aea",
+    "originalJobResultFix": "1e78901d43e8a68ceeb9c795d9e43b34e5834ecd",
+    "magnusIntegrated": "13353369f62f22b8b16166523fcebf9bd0b2a172",
+    "magnusAcceptanceControl": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa"
+  },
+  "runtime": {
+    "source": "1e78901d43e8a68ceeb9c795d9e43b34e5834ecd",
+    "imageId": "sha256:48b66041b6d7507a33380cc693e9386e359c6c52904ed94c4f725b311b0cc998",
+    "repoDigests": [
+      "embermend-runtime@sha256:48b66041b6d7507a33380cc693e9386e359c6c52904ed94c4f725b311b0cc998"
+    ],
+    "observedAt": "2026-11-11T03:32:04.329Z"
+  },
+  "scope": "Existing authenticated disposable candidate services and a public workflow on the controlled repository. Existing provider authentication; no new credentials or expanded identity grants.",
+  "tracking": {
+    "providerUrl": "https://github.com/ChefTaco/Embermend/actions/runs/42948775971",
+    "sourceCommit": "de1a74c17b2ca6c2d31801af9760897eb15a2c55",
+    "runAttempt": 1,
+    "workflowPath": ".github/workflows/ci.yml",
+    "jobId": "2e9638cc-c231-43b9-bf22-877229ec7de0",
+    "status": "completed",
+    "conclusion": "success",
+    "artifactProvenance": "unestablished",
+    "buildDigest": "c42d5b46e7b67c925619fd7956b13e86f90bd171d145f86d4bef4f86ff9e1eba",
+    "evidenceDigests": [
+      "549016d637cfb1a8f84928353a3f57c684f8fd7d46bba27b026dfd63021cb861"
+    ],
+    "duplicateRequestRetainedSameJob": true
+  },
+  "workerCrash": {
+    "cut": "Provider read completed; persistence transaction blocked on the build lock; actual disposable worker SIGKILL rolled back uncommitted data",
+    "originalJobId": "2bb4bad3-c46e-4034-8c14-c4374d546de3",
+    "observationJobId": "ac84f14a-6807-4f6d-8a21-76f5559f942c",
+    "beforeStatus": "unknown",
+    "afterStatus": "completed",
+    "originalDeadline": "2026-11-11T03:28:34.533Z",
+    "deadlineUnchanged": true,
+    "cancellationPreserved": true,
+    "observerPermissions": [
+      "read",
+      "evidence",
+      "recover"
+    ],
+    "providerUrl": "https://github.com/ChefTaco/Embermend/actions/runs/42952187926",
+    "sourceCommit": "09a916d7050c9ab2341b19f2a66829d135cd2aea",
+    "artifactProvenance": "unestablished",
+    "exitCode": 137,
+    "sameImage": true,
+    "restart": "Explicit start of the same container after recording the killed state; manual docker kill suppressed the restart policy",
+    "retainedHarnessCorrection": "The initial postcondition incorrectly expected Docker RestartCount to increase after explicit start. Exit status and later StartedAt verified the restart; the original failed harness log remains retained."
+  },
+  "exceptionExpiry": {
+    "exceptionId": "host8-expiry-acceptance-20261110",
+    "ownerRetained": true,
+    "status": "expired",
+    "expiryEvents": 1,
+    "findingsUnchanged": true,
+    "coordinatorAcceptanceRefused": true,
+    "expiredReplayRefused": true
+  },
+  "offlineTarget": {
+    "method": "Reversible disposable VM pause/unpause; no guest configuration change or new boot",
+    "status": "failed",
+    "error": "TARGET_CAPABILITY_UNAVAILABLE",
+    "nativeEffectAdmitted": false,
+    "findingsUnchanged": true,
+    "verificationCountUnchanged": true,
+    "cancellationPreserved": true,
+    "freshRecoveryAssessment": "completed",
+    "applicationMode": "fixed",
+    "crossOwnerStatus": 403,
+    "sourceState": "open",
+    "runtimeState": "verified-resolved"
+  },
+  "authentication": {
+    "browserOperator": [
+      {
+        "path": "access",
+        "status": 200
+      },
+      {
+        "path": "builds",
+        "status": 200
+      },
+      {
+        "path": "build-observations",
+        "status": 403
+      }
+    ],
+    "coordinator": [
+      {
+        "path": "builds",
+        "status": 200
+      },
+      {
+        "path": "build-observations",
+        "status": 403
+      }
+    ],
+    "coordinatorOutOfScopeListEmpty": true,
+    "noAdminRoleRejection": true,
+    "noGrantExpansion": true
+  },
+  "verification": {
+    "unitTests": 53,
+    "postgresqlTests": 40,
+    "typecheck": true,
+    "openapi": true,
+    "artifactSecretScan": true,
+    "privateDataGate": true,
+    "strictCompilerGate": true,
+    "magnusFullLocalAndHostedChecks": true
+  },
+  "restore": {
+    "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required",
+    "dumpSha256": "390bbc7e9e5bff2ab65b5281018a0345387ed604499a74168635c0d24aa666af",
+    "tables": 26,
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true
+  },
+  "limits": [
+    "Observation creation used a scoped authoritative-core acceptance actor; browser authentication proved reads and missing-operation refusal, not browser-created build jobs.",
+    "Tracking an existing workflow does not establish isolated build execution, artifact publication or signed artifact provenance.",
+    "The retained crash exercised the product worker, not native node-agent SIGKILL or the complete reboot fault matrix.",
+    "PostgreSQL restore only; combined suite restore and all 24 acceptance criteria remain pending.",
+    "No production policy, production host, default source branch, signed release catalog or identity grant changed."
+  ]
+}

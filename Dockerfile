@@ -10,6 +10,9 @@ RUN npm ci --ignore-scripts
 RUN npm run db:generate && npm run build && npm prune --omit=dev --ignore-scripts
 
 FROM ${RUNTIME_IMAGE} AS runtime
+USER 0:0
+# Retain the reviewed worker entry path across the shared runtime migration.
+RUN ln -s /usr/local/bin/node /usr/bin/node
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build --chown=1000:1000 /app /app

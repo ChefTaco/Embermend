@@ -53,7 +53,8 @@ export async function claim(db: Database, owner: string): Promise<string | null>
   return db.$transaction(async tx => {
     // A crashed handler may have changed an external system. Never requeue it.
     await tx.job.updateMany({ where: { status: 'running', leaseUntil: { lt: new Date() } }, data: { status: 'unknown', error: 'WORKER_LEASE_EXPIRED_RECONCILE_ORIGINAL_OPERATION' } });
-    await tx.job.updateMany({ where: { status: 'queued', deadline: { lte: new Date() } }, data: { status: 'failed', error: 'DEADLINE_EXCEEDED_BEFORE_ADMISSION' } });
+    await tx.job.updateMany({ where: { status: 'queued', deadline: { lte: new Date() }, result: { equals: Prisma.DbNull } }, data: { status: 'failed', error: 'DEADLINE_EXCEEDED_BEFORE_ADMISSION' } });
+    await tx.job.updateMany({ where: { status: 'queued', deadline: { lte: new Date() }, NOT: { result: { equals: Prisma.DbNull } } }, data: { status: 'unknown', error: 'DEADLINE_EXCEEDED_RECONCILE_ORIGINAL_OPERATION' } });
     const rows: unknown = await tx.$queryRaw`SELECT id FROM "Job" WHERE status = 'queued' AND "availableAt" <= NOW() AND deadline > NOW() AND "cancelRequested" = false ORDER BY "createdAt" FOR UPDATE SKIP LOCKED LIMIT 1`;
     const row = z.array(claimedSchema).parse(rows)[0];
     if (!row) return null;

@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "date": "2026-11-10",
+  "dateTimezone": "America/Chicago",
+  "status": "partial-development-evidence",
+  "compiler": "6.0.3",
+  "sources": {
+    "rebootProduct": "dd2eb8b27011550b0db89867b492895cd2853381",
+    "deploymentProduct": "8ec8dac8b6fd871b90cdaf55cfe4035550a9bebb",
+    "latestProduct": "42ee9d8c9a77d7cfcf4597003ee3d2c6d484eb37",
+    "magnus": "1e9da87dac6b955ae4bb5f2534a6e6bb753bf1fa",
+    "fixtureSource": "3c95682957a5a93b0764ba6d5f345545ad696464",
+    "agentArchiveSha256": "0417b45b2f6c642295ea96aa2895f9d1ae16d5dbe1414cdf0b9c015c27c284a1"
+  },
+  "scope": "One fresh Ubuntu 24.04 disposable guest, initially configured before Magnus enrollment. Existing credentials and isolated candidate services; no enrolled guest was reconfigured through SSH.",
+  "authority": "Product operator/coordinator roles evaluated through the authoritative core using existing native service authentication; this stage is not an additional Oathweave/browser journey.",
+  "chronology": [
+    {
+      "stage": "reboot-run",
+      "revision": 1,
+      "planDigest": "ba743b56cc0f40574f42981aba2158d4d8043959caccaa2aa6192821f2ca930a",
+      "publishedAt": "2026-11-11T02:24:00.292Z",
+      "approvedAt": "2026-11-11T02:24:00.299Z",
+      "reservedAt": "2026-11-11T02:24:13.189Z",
+      "exactRevisionBound": true,
+      "separateCoordinatorApprovalRefusal": true
+    },
+    {
+      "stage": "rollout-run",
+      "revision": 1,
+      "planDigest": "40f862c01c2298118a13614fa3da0c7ea266d4523d50478912ec971cbfb4ddf0",
+      "publishedAt": "2026-11-11T02:28:43.346Z",
+      "approvedAt": "2026-11-11T02:28:43.352Z",
+      "reservedAt": "2026-11-11T02:30:24.220Z",
+      "exactRevisionBound": true,
+      "separateCoordinatorApprovalRefusal": true
+    }
+  ],
+  "reboot": {
+    "originalNativeOperationCount": 1,
+    "acknowledgedSchedule": true,
+    "beforeBootIdSha256": "44e469a44e7d0ced0cd3996e0434c8edd0db87e589e9e1bc01bf73b4d23914d1",
+    "afterBootIdSha256": "eb20ffe20749898a0f00e7a08955233fdc0c8ff18a7da02269bfedf3deac2879",
+    "scheduleDigest": "922593918a130c5a12f05784c5814a501b00d654acd55a86278f29ed960ceda2",
+    "originalAdmissionExpiredBeforeObservation": true,
+    "cancellationRetained": true,
+    "originalJobDeadlineUnchanged": true,
+    "originalJobStatus": "completed",
+    "observerPermissions": [
+      "read",
+      "evidence",
+      "recover"
+    ],
+    "observationMethods": [
+      "GET"
+    ],
+    "observationGetCount": 6,
+    "newDispatchesDuringObservation": 0,
+    "newCapabilityRequestsDuringObservation": 0,
+    "ownershipReleased": true,
+    "receiptSha256": "d0fa7f8844947f7e3c918c3b0376f5f93f8188ccb5ddee933a4f20873f32b5a8",
+    "independentBootInventory": true,
+    "applicationHealthAfterReboot": "baseline healthy; ownership defect still affected"
+  },
+  "artifacts": {
+    "buildType": "Trusted local Docker builds from git archive of two committed fixture files; no credentials or unrelated checkout files in the context",
+    "registryScope": "Disposable loopback registry; production registry and signed publication acceptance pending",
+    "sourceCommit": "3c95682957a5a93b0764ba6d5f345545ad696464",
+    "images": [
+      {
+        "mode": "baseline",
+        "contextSha256": "fde4401cfe8b653c72193db3198beac46eab55c76bbb3f711547508bea814a3b",
+        "manifestDigest": "sha256:30dacc36c39fe0cfb4edddd4665ad11a65b94a296dc2000e99bba680aa645d60",
+        "imageId": "sha256:30dacc36c39fe0cfb4edddd4665ad11a65b94a296dc2000e99bba680aa645d60"
+      },
+      {
+        "mode": "fixed",
+        "contextSha256": "fde4401cfe8b653c72193db3198beac46eab55c76bbb3f711547508bea814a3b",
+        "manifestDigest": "sha256:b911490949f3f51d688bdc20bd0d7af106dcb1fb5932ce05944d2fbd2473634b",
+        "imageId": "sha256:b911490949f3f51d688bdc20bd0d7af106dcb1fb5932ce05944d2fbd2473634b"
+      }
+    ]
+  },
+  "deployment": {
+    "originalNativeOperationCount": 1,
+    "exactApprovedDigest": "b911490949f3f51d688bdc20bd0d7af106dcb1fb5932ce05944d2fbd2473634b",
+    "execution": "completed",
+    "ownershipReleased": true,
+    "receiptSha256": "e72bd43edc4938b2195e7877f9a34167764c60f1a234b2dd464a62e41361a131",
+    "independentManagedImageReadback": true,
+    "actualContainerReplacement": true,
+    "retainedContainerInstanceCount": 3,
+    "currentArtifactIdSha256": "bb7b352ad6b23d239eff63879a56d829b64e6a4dfe00d5d6776d41a981231ac9",
+    "historicalInventoryCannotOverwriteCurrentDeployment": true,
+    "nativeCaptureTimeOrdersProjection": true,
+    "freshEnvelopeWithRetainedOldNativeContentReplayedWithoutRollback": true,
+    "repeatedInventoryCorroboratesStableRelationships": true,
+    "allowedOwnerStatus": 200,
+    "deniedOwnerStatus": 403,
+    "applicationHealth": "healthy with expected fixed mode and source revision",
+    "runtimeOutcome": "verified-resolved",
+    "sourceOutcome": "open",
+    "securityEvidenceSha256": "556138ddc14ab044a3c664d28d7f3d3b7b68a874f13b6beb1726859d5499a2a7",
+    "campaignReportSha256": "8eff24b004dac2f0e3395516c455954e639e05bb679f2fda0222c25576f2411e",
+    "duplicateJobAndOperationIdentityRetained": true,
+    "containerAgentImplemented": false
+  },
+  "verification": {
+    "embermendUnitTests": 50,
+    "postgresqlTests": 39,
+    "magnusFullVerify": true,
+    "focusedNativeTests": 28,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "restore": {
+    "scope": "Disposable product PostgreSQL only; combined suite/secret/image restore still required",
+    "tables": 26,
+    "dumpSha256": "81108882672a046ef5f4a3d72f5e05b9342b4101ebefa9c5baa82512030b3c87",
+    "restoredExactly": true,
+    "appendOnlyGuardVerified": true
+  },
+  "limits": [
+    "No production mutation or policy change",
+    "Reboot was not chained to a real vendor package update; update activation remains pending",
+    "Native process SIGKILL, cancelled-schedule and full reboot fault matrix remain pending",
+    "Artifact builds/publication used trusted local acceptance tooling; GitHub Actions tracking and complete isolated build/publication lifecycle remain pending",
+    "No signed release provenance, multi-architecture release or combined suite restore claim",
+    "Controlled runtime authorization fixture only; full product AC-01 through AC-24 acceptance remains incomplete"
+  ]
+}

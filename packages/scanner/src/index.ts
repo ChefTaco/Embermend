@@ -2,7 +2,7 @@ import ts from 'typescript';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { posix } from 'node:path';
-import { scanRequestSchema, scanResultSchema, type ScanRequest, type ScanResult, type ScanCandidate } from '@hivemagnus/embermend-contracts';
+import { scanRequestSchema, scanResultSchema, scannerBrokerReplySchema, type ScanRequest, type ScanResult, type ScanCandidate } from '@hivemagnus/embermend-contracts';
 import { redact, type Model } from '@hivemagnus/embermend-integrations';
 
 export const sourceFileSchema = z.object({ path: z.string().min(1).max(1000), content: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
@@ -68,10 +68,21 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
         if (candidate.symbol !== '<module>' && !symbol) { failures.push(`invalid-model-symbol:${file.path}`); continue; }
         const normalized = file.source.split('\n')[candidate.line - 1]?.trim() ?? '';
         const anchors = file.hints.filter(hint => hint.line === candidate.line && hint.weakness === candidate.weakness);
-        const anchor = anchors.length === 1 ? anchors[0]?.syntaxDigest : sha(JSON.stringify([normalized, candidate.evidence]));
+        const anchor = anchors.length === 1 ? anchors[0]?.syntaxDigest : sha(normalized);
         const assumptions = candidate.assumptions.map(redact);
         if (anchors.length !== 1) assumptions.push('Semantic matching requires review when the evidence anchor changes');
-        candidates.push({ ...candidate, evidence: redact(candidate.evidence), title: redact(candidate.title), assumptions, fingerprint: sha(JSON.stringify([request.providerId, request.applicationId, candidate.weakness, candidate.symbol, symbol?.syntaxDigest ?? sha(normalized), anchor])), component: request.applicationId, validation: 'candidate' });
+        // Identical syntax in separate locations cannot establish a unique move.
+        // Count indexed locations, including ones the model did not flag, so a
+        // model omission cannot silently merge two independently reachable sinks.
+        const matchingLocations = indexed.flatMap(other => {
+          const symbols = symbol ? other.symbols.filter(otherSymbol => otherSymbol.name === symbol.name && otherSymbol.syntaxDigest === symbol.syntaxDigest) : [{ line: 1, endLine: other.source.split('\n').length }];
+          return symbols.flatMap(otherSymbol => anchors.length === 1
+            ? other.hints.filter(hint => hint.syntaxDigest === anchor && hint.weakness === candidate.weakness && hint.line >= otherSymbol.line && hint.line <= otherSymbol.endLine).map(hint => `${other.path}:${hint.line}`)
+            : other.source.split('\n').flatMap((line, index) => line.trim() === normalized && index + 1 >= otherSymbol.line && index + 1 <= otherSymbol.endLine ? [`${other.path}:${index + 1}`] : []));
+        });
+        const ambiguous = new Set(matchingLocations).size > 1;
+        if (ambiguous) assumptions.push('Ambiguous semantic anchor: location retained separately; cross-scan matching requires technical review');
+        candidates.push({ ...candidate, evidence: redact(candidate.evidence), title: redact(candidate.title), assumptions, fingerprint: sha(JSON.stringify([request.providerId, request.applicationId, candidate.weakness, candidate.symbol, symbol?.syntaxDigest ?? sha(normalized), anchor, ...(ambiguous ? [candidate.path, candidate.line] : [])])), component: request.applicationId, validation: 'candidate' });
       }
       examined.push(file.path);
     } catch { failures.push(`analysis-failed:${file.path}`); }
@@ -89,5 +100,14 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
   const incomplete = excluded.some(value => !['outside-application-scope'].includes(value.reason)) || failures.length > 0 || examined.length === 0;
   const canceled = signal.aborted || failures.includes('canceled-or-deadline');
   return scanResultSchema.parse({ scannerVersion: '0.1.0', profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
-    coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [candidate.fingerprint, candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
+    coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [JSON.stringify([candidate.fingerprint, candidate.path, candidate.line]), candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
+}
+
+export { readScanSources } from './source-reader.js';
+
+export function scannerBrokerResult(raw: unknown, expectedId: string): unknown {
+  const response = scannerBrokerReplySchema.parse(raw);
+  if (response.id !== expectedId) throw new Error('MODEL_BROKER_IDENTITY_MISMATCH');
+  if ('error' in response) throw new Error('MODEL_BROKER_UNAVAILABLE');
+  return response.result;
 }

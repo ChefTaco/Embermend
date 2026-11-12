@@ -3,6 +3,7 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
   merge_group:
 permissions:
   contents: read
@@ -46,8 +47,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.22.3
       - run: docker build --target runtime -t embermend-runtime:ci .
       - run: docker run --rm embermend-runtime:ci --version
       - run: docker build --target scanner -t embermend-scanner:ci .
       - name: Verify scanner compiler and isolation-compatible runtime
-        run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint node embermend-scanner:ci --input-type=module -e "import ts from 'typescript'; if (ts.version !== '6.0.3') process.exit(1); await import('@hivemagnus/embermend-scanner');"
+        run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint /usr/bin/node embermend-scanner:ci --input-type=module -e "import ts from 'typescript'; import { realpathSync } from 'node:fs'; if (ts.version !== '6.0.3') process.exit(1); await import('@hivemagnus/embermend-scanner'); if (realpathSync('/usr/bin/node') !== process.execPath || process.getuid() !== 1000) throw new Error('Reviewed worker Node path or owner changed');"
+      - name: Exercise scanner broker failures and isolated source/preparation entry commands
+        run: node test/containers/scanner-protocol.mjs embermend-scanner:ci

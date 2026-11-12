@@ -29,10 +29,11 @@
     "verify": "npm run db:generate && npm run build && npm run scan:artifacts && npm run typecheck && npm test && npm run openapi:check && npm run check:packages && npm run check:strict && npm run check:private",
     "check:strict": "node scripts/check-strict.mjs",
     "scan:artifacts": "bash scripts/gitleaks.sh --artifacts",
-    "check:packages": "node scripts/check-packages.mjs"
+    "check:packages": "node scripts/check-packages.mjs",
+    "inference": "node services/runtime/dist/index.js inference"
   },
   "devDependencies": {
-    "@hivemagnus/ardent": "3.0.0",
+    "@hivemagnus/ardent": "3.1.2",
     "@types/node": "24.19.2",
     "@types/pg": "8.20.0",
     "jose": "6.2.13",
