@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { database, digest, claim, enqueue, json } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus } from '@hivemagnus/embermend-integrations';
-import { buildSchema, receiptSchema, type OperationRequest, type Receipt, type Plan } from '@hivemagnus/embermend-contracts';
+import { buildSchema, receiptSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
@@ -595,6 +595,49 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await api.request('/api/v1/builds')).status, 401);
     const denied = createApi(service, async () => ({ ...operator, permissions: new Set(['read']) })); assert.equal((await denied.request('/api/v1/builds', { headers: { authorization: 'Bearer fixture-product-token' } })).status, 403);
     assert.ok(methods.every(method => method === 'GET'));
+  });
+
+  await t.test('unknown-owner settlement requires a fresh bound independent review and a separate explicit approval', async () => {
+    const { service, magnus } = await reset();
+    const host = target(); if (host.kind !== 'target') throw new Error('Fixture host required');
+    const capable = { ...host, capabilities: [...host.capabilities, 'embermend:execution-settle.v1'] };
+    await service.entity(operator, capable);
+    magnus.capabilities = async () => ({ protocol: 1, installationId: 'fixture-magnus', serviceVersion: 'fixture', actions: ['execution-settle.v1'], targets: [capable], observedAt: now() });
+    const independent = { ...operator, id: 'fixture-independent-reviewer' };
+    const reviewer = { ...operator, id: 'fixture-separate-approver' };
+    const content = { originalOperationId: 'original-unknown', originalRequestDigest: 'b'.repeat(64), nativeCommandId: 'original-native', nativeRequestDigest: 'c'.repeat(64), originalOutcome: 'unknown', disposition: 'effects_verified', actionVersion: 'reboot.v1', independent: true, executionGroupEmpty: true, rebootScheduleAbsent: true, rootlessContainerAbsent: true, workspaceUnmounted: true, observedBootId: 'a4bd788c-b589-48fc-a95c-f0eeaf72b270' };
+    const review = { ...evidence(), id: 'owner-review', method: 'owner-settlement-review.v1', source: 'operator-technical-review', content };
+    await service.evidence(independent, review);
+    const makePlan = (id: string, evidenceId = review.id, evidenceDigest = digest(content)): Plan => ({ ...plan(), id, campaignId: id, evidenceIds: [evidenceId], actions: [{ id: 'settle', version: 'execution-settle.v1', class: 'recovery', targetId: host.id, targetKind: 'host', requiredCapabilities: ['embermend:execution-settle.v1'], parameters: { originalOperationId: content.originalOperationId, originalRequestDigest: content.originalRequestDigest, nativeCommandId: content.nativeCommandId, nativeRequestDigest: content.nativeRequestDigest, evidenceId, evidenceDigest, disposition: 'effects_verified', originalOutcome: 'unknown' }, preconditions: { environment: 'lab' }, dependsOn: [], verificationIds: ['fixture-recovery-verification'], recovery: 'Settle current ownership only; the historical outcome remains unknown.', expectedRevision: null, patchDigest: null, disruption: 'none' }] });
+    const propose = async (p: Plan, approver = reviewer) => { const proposed = await service.propose(coordinator, p); await service.publish(coordinator, p.id, 1); await service.decide(approver, { planId: p.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: p.expiresAt }); return p; };
+    const valid = await propose(makePlan('owner-valid'));
+    const refusedActors: Actor[] = [coordinator, { ...operator, permissions: new Set(['read', 'execute']) }, { ...coordinator, permissions: new Set([...coordinator.permissions, 'recover']) }];
+    for (const actor of refusedActors) await assert.rejects(service.dispatch(actor, valid.id, 'settle'), /SCOPE_OR_PERMISSION_DENIED|OPERATOR_AUTHORITY_REQUIRED/);
+    const self = await propose(makePlan('owner-self-approval'), operator); await assert.rejects(service.dispatch(operator, self.id, 'settle'), /SEPARATE_EXPLICIT/);
+    const wrong = await propose(makePlan('owner-wrong-digest', review.id, 'd'.repeat(64))); await assert.rejects(service.dispatch(operator, wrong.id, 'settle'), /FRESH_INDEPENDENT/);
+    await service.evidence(operator, { ...review, id: 'owner-self-review' });
+    const selfReview = await propose(makePlan('owner-self-review-plan', 'owner-self-review')); await assert.rejects(service.dispatch(operator, selfReview.id, 'settle'), /INDEPENDENT_OWNER_REVIEW/);
+    const staleReview = { ...review, id: 'owner-stale-review', observedAt: new Date(Date.now() - 301000).toISOString() }; await service.evidence(independent, staleReview);
+    const stale = await propose(makePlan('owner-stale', staleReview.id)); await assert.rejects(service.dispatch(operator, stale.id, 'settle'), /FRESH_INDEPENDENT/);
+    assert.equal(magnus.requests.length, 0);
+    const before = digest(await service.findings(operator)); const receipt = await service.dispatch(operator, valid.id, 'settle'); assert.equal(receipt.state, 'completed'); assert.equal(magnus.requests.length, 1); assert.equal(digest(await service.findings(operator)), before);
+    await service.dispatch(operator, valid.id, 'settle'); assert.equal(magnus.requests.length, 1);
+  });
+
+  await t.test('settled unknown outcomes stop observation without inventing clean results or restoring held ownership', async () => {
+    const { service, magnus } = await reset(); const p = plan(); const proposed = await service.propose(coordinator, p); await service.publish(coordinator, p.id, 1); await service.decide(operator, { planId: p.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: p.expiresAt }); magnus.loseReply = true;
+    await assert.rejects(service.dispatch(coordinator, p.id, 'fixture-action'), /UNKNOWN_EXECUTION/);
+    const execution = await db.execution.findFirstOrThrow(); const originalReceipt = magnus.receipts.get(execution.id); assert.ok(originalReceipt);
+    const settled: Receipt = { ...originalReceipt, state: 'unknown', ownershipReleased: true, result: { ownershipSettled: true, originalOutcome: 'unknown' } };
+    magnus.receipt = async () => settled; await service.reconcile(operator, execution.id);
+    magnus.receipt = async () => ({ ...settled, state: 'running', ownershipReleased: false, result: {} }); assert.deepEqual(await service.reconcile(operator, execution.id), settled);
+    const assessment = await service.assess(coordinator, { id: 'settled-assessment', scope, targetIds: ['fixture-node'], profileId: 'fixture-profile', profileVersion: '1', deadline: later() });
+    await tick(service, 'fixture-settled-assessment', new AbortController().signal);
+    const job = await db.job.findUniqueOrThrow({ where: { id: assessment } }); const ledger = z.object({ operations: z.array(z.object({ request: z.unknown(), operationId: z.string(), requestDigest: z.string() }).passthrough()) }).parse(job.result); const entry = ledger.operations[0]; assert.ok(entry);
+    await db.job.update({ where: { id: assessment }, data: { status: 'unknown' } });
+    let reads = 0; magnus.receipt = async () => { reads++; return { ...settled, operationId: entry.operationId, requestDigest: entry.requestDigest }; };
+    const before = digest(await service.findings(operator)); const observation = await service.reconcileJob(operator, assessment); await tick(service, 'fixture-settled-observer', new AbortController().signal);
+    const observed = await service.job(operator, observation); assert.equal(observed.error, 'OWNER_SETTLED_ORIGINAL_OUTCOME_UNKNOWN'); assert.equal(observed.status, 'unknown'); assert.equal(reads, 1); assert.equal((await service.job(operator, assessment)).status, 'unknown'); assert.equal(digest(await service.findings(operator)), before); assert.equal(magnus.requests.length, 2);
   });
 
 });

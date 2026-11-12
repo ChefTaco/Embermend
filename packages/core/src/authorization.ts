@@ -37,6 +37,7 @@ export const parameterSchemas = {
   'restart-service.v1': z.object({ resourceId: ref, beforeDigest: hash }).strict(),
   'reboot.v1': z.object({ beforeBootId: ref, managementProbeId: ref }).strict(),
   'configuration-recover.v1': z.object({ originalOperationId: ref, recoveryArtifactId: ref, beforeDigest: hash }).strict(),
+  'execution-settle.v1': z.object({ originalOperationId: ref, originalRequestDigest: hash, nativeCommandId: ref, nativeRequestDigest: hash, evidenceId: ref, evidenceDigest: hash, disposition: z.enum(['effects_verified', 'no_effect_verified']), originalOutcome: z.literal('unknown') }).strict(),
 } as const;
 const definitions = {
   'image-vulnerabilities.v1': { class: 'assess', kinds: ['host'] },
@@ -60,9 +61,10 @@ const definitions = {
   'restart-service.v1': { class: 'restart', kinds: ['host', 'container'] },
   'reboot.v1': { class: 'reboot', kinds: ['host'] },
   'configuration-recover.v1': { class: 'recovery', kinds: ['host'] },
+  'execution-settle.v1': { class: 'recovery', kinds: ['host'] },
 } as const;
 export type ActionVersion = keyof typeof parameterSchemas;
-export const actionVersionSchema = z.enum(['image-vulnerabilities.v1', 'ubuntu-oval.v1', 'inventory.v1', 'security-update.v1', 'security-update-preview.v1', 'file-mode.v1', 'ssh-policy.v1', 'firewall-rule.v1', 'service-state.v1', 'repository-source.v1', 'repository-scan.v1', 'repository-prepare.v1', 'repository-validate.v1', 'repository-pr.v1', 'repository-merge.v1', 'artifact-build.v1', 'artifact-publish.v1', 'compose-deploy.v1', 'restart-service.v1', 'reboot.v1', 'configuration-recover.v1']);
+export const actionVersionSchema = z.enum(['image-vulnerabilities.v1', 'ubuntu-oval.v1', 'inventory.v1', 'security-update.v1', 'security-update-preview.v1', 'file-mode.v1', 'ssh-policy.v1', 'firewall-rule.v1', 'service-state.v1', 'repository-source.v1', 'repository-scan.v1', 'repository-prepare.v1', 'repository-validate.v1', 'repository-pr.v1', 'repository-merge.v1', 'artifact-build.v1', 'artifact-publish.v1', 'compose-deploy.v1', 'restart-service.v1', 'reboot.v1', 'configuration-recover.v1', 'execution-settle.v1']);
 export function validateAction(action: Action): void {
   if (Buffer.byteLength(JSON.stringify({ actionJson: JSON.stringify(action) })) > 80 * 1024) throw new DomainError('ACTION_EXCEEDS_MANAGED_REQUEST_BUDGET', 413);
   const version = actionVersionSchema.parse(action.version); const definition = definitions[version];
@@ -77,6 +79,7 @@ export function policyCovers(policy: Policy, plan: Plan, targets: readonly Entit
   if (!policy.enabled || !within(policy.scope, plan.scope) || Date.parse(policy.notBefore) > now.getTime() || Date.parse(policy.expiresAt) <= now.getTime()) return false;
   if (new Set(plan.actions.map(action => action.targetId)).size > policy.maxTargets) return false;
   return plan.actions.every(action => {
+    if (action.version === 'execution-settle.v1') return false;
     if (!policy.actionVersions?.includes(action.version) || !policy.actionClasses.includes(action.class) || !policy.disruptions.includes(action.disruption)) return false;
     const environment = action.preconditions['environment'];
     if (typeof environment !== 'string' || environment === 'unknown' || !policy.environments.includes(environment)) return false;

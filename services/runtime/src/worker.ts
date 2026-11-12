@@ -48,10 +48,11 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
         if (combined.aborted) throw new DomainError('CAMPAIGN_INTERRUPTED_RECONCILE_IN_FLIGHT');
         const next = remaining.find(action => action.dependsOn.every(id => done.has(id))); if (!next) throw new DomainError('DEPENDENCY_NOT_READY');
         let receipt = await service.dispatchForJob(actor, plan.id, next.id, { jobId: id, owner });
-        while ((['queued', 'running', 'unknown'].includes(receipt.state) || receipt.state === 'completed' && !receipt.ownershipReleased) && !combined.aborted) {
+        while ((['queued', 'running', 'unknown'].includes(receipt.state) || receipt.state === 'completed' && !receipt.ownershipReleased) && !(receipt.state === 'unknown' && receipt.ownershipReleased && receipt.result['ownershipSettled'] === true) && !combined.aborted) {
           await service.db.job.update({ where: { id }, data: { result: json({ operationId: receipt.operationId, actionId: next.id, state: receipt.state }) } });
           await setTimeout(1000, undefined, { signal: combined }); receipt = await service.reconcile(actor, receipt.operationId);
         }
+        if (receipt.state === 'unknown' && receipt.ownershipReleased && receipt.result['ownershipSettled'] === true) throw new DomainError('OWNER_SETTLED_ORIGINAL_OUTCOME_UNKNOWN');
         if (receipt.state !== 'completed' || !receipt.ownershipReleased) throw new DomainError('EXECUTION_AWAITING_RECONCILIATION_OR_VERIFICATION');
         done.add(next.id); remaining.splice(remaining.indexOf(next), 1);
         await service.db.job.update({ where: { id }, data: { progress: done.size / plan.actions.length } });

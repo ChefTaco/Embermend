@@ -9,6 +9,7 @@ import { DomainError, requirePermission, requireActionPermission, validateAction
 import { prioritize } from './priority.js';
 import { verifiedOccurrence } from './verification.js';
 
+import { admitOwnershipRecovery } from './ownership-recovery.js';
 import { admitDeployment } from './deployment.js';
 import { Records } from './records.js';
 import { Builds } from './builds.js';
@@ -247,6 +248,7 @@ export class Embermend {
       if (Date.parse(plan.notBefore) > Date.now() || Date.parse(plan.expiresAt) <= Date.now()) throw new DomainError('OUTSIDE_EXECUTION_WINDOW');
       const authorization = await tx.authorization.findFirst({ where: { planId: plan.id, revision: plan.revision, digest: digest(plan), revoked: false, expiresAt: { gt: new Date() } }, orderBy: { createdAt: 'desc' } });
       if (!authorization) throw new DomainError('CURRENT_AUTHORIZATION_REQUIRED');
+      await admitOwnershipRecovery(tx, plan, action, actor.id, authorization.kind === 'explicit' ? authorization.actorId : null);
       if (authorization.policyId) {
         const row = await tx.policy.findUnique({ where: { id: authorization.policyId } });
         const policy = row ? policySchema.parse(row.data) : null;
@@ -297,6 +299,7 @@ export class Embermend {
         if (!policy || policy.revision !== authorization.policyRevision || !policyCovers(policy, plan, targets, new Date(), await this.recoveryEvidence(tx, plan))) throw new DomainError('POLICY_CHANGED_BEFORE_DISPATCH');
       }
       await admitDeployment(tx, plan, action);
+      await admitOwnershipRecovery(tx, plan, action, actor.id, authorization.kind === 'explicit' ? authorization.actorId : null);
       const request = z.object({ operationId: z.string() }).passthrough().parse(execution.request);
       let receipt: Receipt;
       try {
@@ -384,7 +387,7 @@ export class Embermend {
       await lock(tx, `execution-observation:${operationId}`);
       const current = await tx.execution.findUnique({ where: { id: operationId } });
       const prior = current?.receipt ? receiptSchema.parse(current.receipt) : null;
-      if (prior && ['completed', 'failed', 'not-dispatched'].includes(prior.state) && prior.ownershipReleased) {
+      if (prior && prior.ownershipReleased && (['completed', 'failed', 'not-dispatched'].includes(prior.state) || prior.state === 'unknown' && prior.result['ownershipSettled'] === true)) {
         if (receipt.state !== prior.state || !receipt.ownershipReleased) return prior;
         const facts = (value: Receipt): string => digest({ state: value.state, result: value.result, evidenceIds: value.evidenceIds, ownershipReleased: value.ownershipReleased });
         if (facts(receipt) !== facts(prior)) throw new DomainError('EXECUTION_TERMINAL_RECEIPT_CONFLICT');
@@ -532,6 +535,7 @@ export class Embermend {
       if (Date.parse(plan.notBefore) > Date.now() || Date.parse(plan.expiresAt) <= Date.now()) throw new DomainError('OUTSIDE_EXECUTION_WINDOW');
       const authorization = await tx.authorization.findFirst({ where: { planId: plan.id, revision: plan.revision, digest: digest(plan), revoked: false, expiresAt: { gt: new Date() } } });
       if (!authorization) throw new DomainError('CURRENT_AUTHORIZATION_REQUIRED');
+      await admitOwnershipRecovery(tx, plan, action, actor.id, authorization.kind === 'explicit' ? authorization.actorId : null);
       if (authorization.policyId) { const row = await tx.policy.findUnique({ where: { id: authorization.policyId } }); const policy = row ? policySchema.parse(row.data) : null; const targets = (await tx.entity.findMany({ where: { id: { in: plan.actions.map(item => item.targetId) } } })).map(item => entitySchema.parse(item.data)); if (!policy || policy.revision !== authorization.policyRevision || !policyCovers(policy, plan, targets, new Date(), await this.recoveryEvidence(tx, plan))) throw new DomainError('POLICY_CHANGED'); }
       for (const id of action.dependsOn) {
         const predecessor = plan.actions.find(item => item.id === id);

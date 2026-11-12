@@ -108,3 +108,40 @@ Repeated observations preserve the existing relationship identity and its first
 provenance; new evidence is retained as scoped corroboration observations.
 Relationship reads and corroboration both check the original relationship scope,
 even when its endpoints are visible more broadly.
+
+
+## Explicit settlement of an unknown owner
+
+`execution-settle.v1` is a recovery action for expired native reboot, Ubuntu OVAL
+and repository scan operations. It settles the original execution slot through
+Magnus's existing signed operator reconciliation protocol. It never runs the
+original handler again, creates a replacement command or changes a security finding.
+The original receipt remains `unknown` with `ownershipReleased: true`; its result
+explicitly records `originalOutcome: unknown` and the retained reconciliation.
+Only the separately approved recovery operation completes.
+
+Admission requires scoped execute and recovery authority, a published exact plan,
+a different operator's explicit approval and a fresh independent technical review
+from a third actor. Standing policy cannot authorize this action. The review must
+bind the original product operation/request and native command/request digests,
+confirm an empty execution group, no reboot schedule, no rootless container and
+no workspace mount, and record the current boot identity. Review evidence must be
+included in the plan and remain within five minutes at both dispatch checks.
+The reviewed supported effects must already be quiescent. Active or unsupported
+work remains held and requires a separately implemented cleanup action; this
+settlement action cannot terminate work or assert its own absence.
+
+Magnus confirms the original enrolled node, target, expired request and native
+lease. It retains the exact signed decision before sending it to the existing
+native reconciliation endpoint. A lost acknowledgement is recovered by reading
+that same decision; observation cannot mint or resend one. Historical request
+bytes, original deadlines, cancellation, missing coverage and verification history
+are retained. A settled unknown result stops polling without creating a clean
+assessment or resuming its campaign.
+
+The protocol's existing `effects_verified` and `no_effect_verified` dispositions
+refer to the independent review of current effects. They do not establish the
+historical operation's exit code, attribute an unrelated boot to an old request,
+or validate a missing scan. The plan and returned product result explicitly keep
+that historical outcome unknown. This operator-attested settlement is distinct
+from automatic native completion proof.

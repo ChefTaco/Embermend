@@ -13,6 +13,7 @@ export async function observeCampaign(service: Embermend, actor: Actor, original
     const execution = await service.db.execution.findUnique({ where: { planId_revision_actionId: { planId: plan.id, revision: plan.revision, actionId: action.id } } });
     if (!execution) throw new DomainError('CAMPAIGN_ACTION_NOT_DISPATCHED_OBSERVATION_ONLY');
     const receipt = await service.reconcile(actor, execution.id);
+    if (receipt.state === 'unknown' && receipt.ownershipReleased && receipt.result['ownershipSettled'] === true) throw new DomainError('OWNER_SETTLED_ORIGINAL_OUTCOME_UNKNOWN');
     if (receipt.state === 'failed' && receipt.ownershipReleased) throw new DomainError('CAMPAIGN_FAILED_CONFIRMED');
     if (receipt.state !== 'completed' || !receipt.ownershipReleased) throw new DomainError('CAMPAIGN_ORIGINAL_OUTCOME_UNKNOWN');
     operations.push({ actionId: action.id, operationId: execution.id, state: receipt.state, ownershipReleased: true });

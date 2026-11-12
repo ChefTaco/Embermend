@@ -48,7 +48,8 @@ export async function runAssessment(service: Embermend, actor: Actor, job: { id:
       receipt = await service.magnus.dispatch(operation, signal);
     }
     await ledger.receipt(entry, targetId, receipt);
-    while ((['queued', 'running', 'unknown'].includes(receipt.state) || receipt.state === 'completed' && !receipt.ownershipReleased) && !signal.aborted) { await setTimeout(1000, undefined, { signal }); receipt = await service.magnus.receipt(operationId, signal); await ledger.receipt(entry, targetId, receipt); }
+    while ((['queued', 'running', 'unknown'].includes(receipt.state) || receipt.state === 'completed' && !receipt.ownershipReleased) && !(receipt.state === 'unknown' && receipt.ownershipReleased && receipt.result['ownershipSettled'] === true) && !signal.aborted) { await setTimeout(1000, undefined, { signal }); receipt = await service.magnus.receipt(operationId, signal); await ledger.receipt(entry, targetId, receipt); }
+    if (receipt.state === 'unknown' && receipt.ownershipReleased && receipt.result['ownershipSettled'] === true) throw new DomainError('OWNER_SETTLED_ORIGINAL_OUTCOME_UNKNOWN');
     if (receipt.state === 'failed' && receipt.ownershipReleased) throw new DomainError('ASSESSMENT_FAILED_CONFIRMED');
     if (receipt.state !== 'completed' || !receipt.ownershipReleased) throw new DomainError('ASSESSMENT_OUTCOME_UNKNOWN_OR_FAILED');
     let assessed: unknown;
