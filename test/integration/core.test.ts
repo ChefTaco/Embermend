@@ -613,15 +613,18 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const valid = await propose(makePlan('owner-valid'));
     const refusedActors: Actor[] = [coordinator, { ...operator, permissions: new Set(['read', 'execute']) }, { ...coordinator, permissions: new Set([...coordinator.permissions, 'recover']) }];
     for (const actor of refusedActors) await assert.rejects(service.dispatch(actor, valid.id, 'settle'), /SCOPE_OR_PERMISSION_DENIED|OPERATOR_AUTHORITY_REQUIRED/);
-    const self = await propose(makePlan('owner-self-approval'), operator); await assert.rejects(service.dispatch(operator, self.id, 'settle'), /SEPARATE_EXPLICIT/);
+    const self = await propose(makePlan('owner-existing-operator-approval'), operator);
     const wrong = await propose(makePlan('owner-wrong-digest', review.id, 'd'.repeat(64))); await assert.rejects(service.dispatch(operator, wrong.id, 'settle'), /FRESH_INDEPENDENT/);
     await service.evidence(operator, { ...review, id: 'owner-self-review' });
-    const selfReview = await propose(makePlan('owner-self-review-plan', 'owner-self-review')); await assert.rejects(service.dispatch(operator, selfReview.id, 'settle'), /INDEPENDENT_OWNER_REVIEW/);
+    const selfReview = await propose(makePlan('owner-operator-technical-review', 'owner-self-review'), operator);
     const staleReview = { ...review, id: 'owner-stale-review', observedAt: new Date(Date.now() - 301000).toISOString() }; await service.evidence(independent, staleReview);
     const stale = await propose(makePlan('owner-stale', staleReview.id)); await assert.rejects(service.dispatch(operator, stale.id, 'settle'), /FRESH_INDEPENDENT/);
     assert.equal(magnus.requests.length, 0);
     const before = digest(await service.findings(operator)); const receipt = await service.dispatch(operator, valid.id, 'settle'); assert.equal(receipt.state, 'completed'); assert.equal(magnus.requests.length, 1); assert.equal(digest(await service.findings(operator)), before);
     await service.dispatch(operator, valid.id, 'settle'); assert.equal(magnus.requests.length, 1);
+    assert.equal((await service.dispatch(operator, self.id, 'settle')).state, 'completed');
+    assert.equal((await service.dispatch(operator, selfReview.id, 'settle')).state, 'completed');
+    assert.equal(magnus.requests.length, 3);
   });
 
   await t.test('settled unknown outcomes stop observation without inventing clean results or restoring held ownership', async () => {
@@ -638,6 +641,16 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     let reads = 0; magnus.receipt = async () => { reads++; return { ...settled, operationId: entry.operationId, requestDigest: entry.requestDigest }; };
     const before = digest(await service.findings(operator)); const observation = await service.reconcileJob(operator, assessment); await tick(service, 'fixture-settled-observer', new AbortController().signal);
     const observed = await service.job(operator, observation); assert.equal(observed.error, 'OWNER_SETTLED_ORIGINAL_OUTCOME_UNKNOWN'); assert.equal(observed.status, 'unknown'); assert.equal(reads, 1); assert.equal((await service.job(operator, assessment)).status, 'unknown'); assert.equal(digest(await service.findings(operator)), before); assert.equal(magnus.requests.length, 2);
+  });
+
+  await t.test('confirmed failed campaign observation is terminal failure while preserving deadline and cancellation', async () => {
+    const { service, magnus } = await reset(); const p = plan(); const proposed = await service.propose(coordinator, p); await service.publish(coordinator, p.id, 1); await service.decide(operator, { planId: p.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: p.expiresAt }); magnus.loseReply = true;
+    const originalJob = await service.execute(coordinator, p.id, { revision: 1, digest: proposed.digest }); await tick(service, 'fixture-lost-campaign', new AbortController().signal);
+    assert.equal((await service.job(operator, originalJob)).status, 'unknown'); const execution = await db.execution.findFirstOrThrow(); const retained = magnus.receipts.get(execution.id); assert.ok(retained);
+    await db.job.update({ where: { id: originalJob }, data: { deadline: new Date(0), cancelRequested: true } });
+    magnus.receipt = async () => ({ ...retained, state: 'failed', ownershipReleased: true, result: { superseded: true, originalOutcome: 'unknown' } });
+    const observation = await service.reconcileJob(operator, originalJob); await tick(service, 'fixture-confirmed-failure', new AbortController().signal);
+    assert.equal((await service.job(operator, observation)).status, 'failed'); const original = await service.job(operator, originalJob); assert.equal(original.status, 'failed'); assert.equal(original.error, 'CAMPAIGN_FAILED_CONFIRMED'); assert.equal(original.cancelRequested, true); assert.equal(original.deadline, new Date(0).toISOString()); assert.equal(magnus.requests.length, 1);
   });
 
 });

@@ -92,6 +92,7 @@ export function policyCovers(policy: Policy, plan: Plan, targets: readonly Entit
 }
 export function assertTarget(action: Action, target: Entity, now = new Date()): void {
   validateAction(action);
+  if (action.targetId !== target.id) throw new DomainError('TARGET_IDENTITY_MISMATCH');
   if (!['assess', 'prepare'].includes(action.class) && (target.kind !== 'target' && target.kind !== 'repository' || action.preconditions['environment'] !== (target.environment ?? 'unknown'))) throw new DomainError('AUTHORITATIVE_ENVIRONMENT_MISMATCH');
   if (action.targetKind === 'repository') { if (target.kind !== 'repository') throw new DomainError('REPOSITORY_TARGET_REQUIRED'); return; }
   if (target.kind !== 'target' || !(target.targetKind === action.targetKind || target.targetKind === 'host' && action.targetKind === 'worker') || target.lifecycle !== 'active' || target.enrollment !== 'enrolled' || (now.getTime() - Date.parse(target.lastSeenAt) > 120000 || now.getTime() - Date.parse(target.lastSeenAt) < -120000)) throw new DomainError('TARGET_NOT_ELIGIBLE');

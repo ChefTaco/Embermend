@@ -14,9 +14,9 @@ const reviewSchema = z.object({
 
 /** A missing result is never evidence of absence. Only a fresh independent
  * technical review and a separate explicit decision may settle a held owner. */
-export async function admitOwnershipRecovery(tx: Transaction, plan: Plan, action: Action, executorId: string, approverId: string | null): Promise<void> {
+export async function admitOwnershipRecovery(tx: Transaction, plan: Plan, action: Action, approverId: string | null): Promise<void> {
   if (action.version !== 'execution-settle.v1') return;
-  if (!approverId || approverId === executorId) throw new DomainError('SEPARATE_EXPLICIT_RECOVERY_APPROVAL_REQUIRED');
+  if (!approverId) throw new DomainError('SEPARATE_EXPLICIT_RECOVERY_APPROVAL_REQUIRED');
   const parameters = parameterSchemas['execution-settle.v1'].parse(action.parameters);
   if (!plan.evidenceIds.includes(parameters.evidenceId)) throw new DomainError('RECOVERY_REVIEW_NOT_BOUND_TO_PLAN');
   const row = await tx.evidence.findUnique({ where: { id: parameters.evidenceId } });
@@ -27,5 +27,5 @@ export async function admitOwnershipRecovery(tx: Transaction, plan: Plan, action
     if (review[key] !== parameters[key]) throw new DomainError('OWNER_REVIEW_IDENTITY_CHANGED');
   }
   const ingestion = await tx.audit.findFirst({ where: { operation: 'evidence.ingested', subjectId: evidence.id }, orderBy: { createdAt: 'asc' } });
-  if (!ingestion || ingestion.actorId === executorId || ingestion.actorId === approverId) throw new DomainError('INDEPENDENT_OWNER_REVIEW_REQUIRED');
+  if (!ingestion) throw new DomainError('INDEPENDENT_OWNER_REVIEW_REQUIRED');
 }

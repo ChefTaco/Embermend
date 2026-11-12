@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve confirmed campaign failure as a terminal observation, validate future container-agent scope/identity contracts, and let an existing authorized human operator make a separate exact recovery decision without requiring another human identity.
+
 - Add separately approved unknown-owner settlement with fresh independent effect review, exact native request/fence binding and read-only adoption after lost acknowledgement. Ownership release preserves the unknown historical outcome and does not close findings or resume campaigns.
 
 - Reuse retained completed assessment receipts after interrupted result checkpoints, preserving immutable evidence and original request binding without redispatch. Older interrupted observers also retain the already-ingested evidence timestamp while all other immutable fields must still match.

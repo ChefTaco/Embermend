@@ -121,13 +121,12 @@ explicitly records `originalOutcome: unknown` and the retained reconciliation.
 Only the separately approved recovery operation completes.
 
 Admission requires scoped execute and recovery authority, a published exact plan,
-a different operator's explicit approval and a fresh independent technical review
-from a third actor. Standing policy cannot authorize this action. The review must
+a separate explicit recovery approval and a fresh independent technical review. Standing policy cannot authorize this action. The review must
 bind the original product operation/request and native command/request digests,
 confirm an empty execution group, no reboot schedule, no rootless container and
 no workspace mount, and record the current boot identity. Review evidence must be
 included in the plan and remain within five minutes at both dispatch checks.
-The reviewed supported effects must already be quiescent. Active or unsupported
+An existing human operator may review, approve and execute when each required permission is present; the approval is a separate decision from authorization of the original operation. Coordinator self-approval remains forbidden. The reviewed supported effects must already be quiescent. Active or unsupported
 work remains held and requires a separately implemented cleanup action; this
 settlement action cannot terminate work or assert its own absence.
 
