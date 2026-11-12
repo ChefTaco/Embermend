@@ -4,7 +4,8 @@ Embermend 0.1.0 has passed all AC-01–AC-24 acceptance journeys in the supporte
 reference environment, the signed-suite installation/restore, and authorized
 production inventory/assessment. The [acceptance ledger](ACCEPTANCE.md) and
 [production evidence](acceptance/2026-11-12-production-assessment.json) distinguish
-those scopes. Production mutation policies remain disabled.
+those scopes. Production mutation policies remain disabled. Embermend 0.2.0 is
+the current release; it adds the HiveEvent v1 feed at `GET /api/v1/hive/events`.
 
 The authoritative core implements strict TypeScript 6.0.3 workspaces, PostgreSQL
 records, additive migrations, append-only audit history, scoped authorization,
@@ -67,7 +68,7 @@ and runtime restrictions. All configured health checks pass in an internal
 namespace without published ports or fleet/provider access. Guest disks and
 external provider/CLI sign-ins are outside that controller backup scope.
 
-Oathweave 2.2.0, Magnus 2.5.0, HiveXUI 0.3.0 and Embermend 0.1.0 are published. Hive offers
+Oathweave 2.2.0, Magnus 2.5.0, HiveXUI 0.3.0 and Embermend 0.2.0 are published. Hive offers
 Embermend as an explicit optional selection with required Magnus 2.5 bridge
 admission, initialization, identity, ingress, Registry and shared API/worker image
 contracts. Candidate builds include its isolated scanner. Existing signed release

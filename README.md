@@ -5,9 +5,10 @@ infrastructure and applications. Embermend owns security findings, revisioned
 recommendations, authorization policies, and verified outcomes. Magnus owns
 host enrollment, managed execution, resource ownership, and signed receipts.
 
-**Embermend 0.1.0 is released.** All AC-01–AC-24 reference acceptance journeys
-have retained proof in the [acceptance ledger](docs/ACCEPTANCE.md), including
-native fault recovery, the source-to-deployment workflow and combined-store restore.
+**Embermend 0.2.0 is released.** It adds the Hive:Magnus event feed. All
+AC-01–AC-24 reference acceptance journeys, recorded against 0.1.0, have retained
+proof in the [acceptance ledger](docs/ACCEPTANCE.md), including native fault
+recovery, the source-to-deployment workflow and combined-store restore.
 The configured production suite has completed scoped assessment; Ubuntu coverage
 remains explicitly partial. Production mutation policies stay disabled.
 There is no standalone host-management mode or direct SSH execution path.

@@ -99,7 +99,7 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
   }
   const incomplete = excluded.some(value => !['outside-application-scope'].includes(value.reason)) || failures.length > 0 || examined.length === 0;
   const canceled = signal.aborted || failures.includes('canceled-or-deadline');
-  return scanResultSchema.parse({ scannerVersion: '0.1.0', profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
+  return scanResultSchema.parse({ scannerVersion: '0.2.0', profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
     coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [JSON.stringify([candidate.fingerprint, candidate.path, candidate.line]), candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
 }
 
