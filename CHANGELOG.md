@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add gated native multi-architecture runtime and scanner releases with exact scanned configurations, SBOMs, provenance, compatibility metadata and attested public package tarballs.
+- Retain extended disposable campaign, source-to-image, credential, exception, outage, hostile worker and temporary-container acceptance evidence.
+
 - Preserve the reviewed worker executable alias when using the patched shared runtime, and exercise source/preparation entry commands in image CI.
 
 - Keep application-wide finding and campaign-report reads within the reader's runtime subject scope; verification history follows only visible occurrences.

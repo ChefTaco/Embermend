@@ -6,30 +6,30 @@ until all required journeys and failure cases have retained proof.
 
 | Criterion | Implementation and verification checkpoint | Integrated acceptance |
 |---|---|---|
-| AC-01 | Required Magnus adapter, capability gating, degraded inspection | Pending |
-| AC-02 | Scoped entities, immutable identities, provenance, repository rename regression | Pending |
-| AC-03 | Versioned profiles; actual fixture hardening, recovery and recurrence on disposable guests | Partial fixture proof; broader hardening pending |
-| AC-04 | Actual vendor OVAL/update, controlled-consumer restart and separately approved reboot with independent configured userspace ELF mapping verification | Partial; namespace/file-view attribution, other activation classes and package fault cases pending |
-| AC-05 | Real model analysis through durable product jobs and a Magnus-enrolled rootless worker; three provider routes | Partial managed controlled-corpus proof; full journey pending |
-| AC-06 | Real candidates; isolated SQLite and ownership probes; two validated findings and a disputed abstract-store finding; partial-scan regressions | Partial controlled-corpus proof |
-| AC-07 | Application/source bindings and semantic anchors | Pending |
-| AC-08 | Durable explanation before actual PR writing; coordinator self-approval refusal, separate operator decisions and standing-policy regressions | Partial authenticated host workflow; broader source/provider journey pending |
-| AC-09 | Actual changed GitHub source head refused before provider writes; revision and revocation regressions | Partial stale-head and actual browser-session revocation proof; broader authority revocation pending |
-| AC-10 | Actual Magnus preparation, linked GitHub PR, lost-reply adoption, required checks and separate non-bypass merge | Partial controlled source workflow proof; full authenticated journey pending |
-| AC-11 | Independent immutable maintained-branch readback/probes for a source-only application; other branch occurrences remain open | Partial source-only branch proof; deployed-artifact cases pending |
-| AC-12 | Actual immutable OCI rollout, reviewed local build evidence, independent image/container/application verification and actual durable hosted workflow-attempt tracking | Partial; isolated build/publication and signed provenance pending |
-| AC-13 | Campaign dependency, canary, disruption and pause boundaries; actual browser pause before dispatch | Partial pause proof; staged campaigns pending |
-| AC-14 | Independent managed permission readback and fresh host-agent health after browser-authorized change | Partial fixture proof; application health cases pending |
-| AC-15 | Worker/control/rootless loss, reboot recovery after expiry, queue/receipt/result commit cuts, power loss and forward/backward clocks | Original-identity recovery demonstrated, including all five previously held owners; further fault coverage remains tracked |
-| AC-16 | Browser pause/resume, cancellation ownership, held leases across restart and separately approved original-inode recovery with independent verification | Actual browser original-artifact recovery and retained-outcome observation passed; broader recovery classes remain tracked |
-| AC-17 | Actual Compose replacement and reboot instances, immutable artifact links and retained historical inventory | Partial; broader replacement and future contract fixtures pending |
-| AC-18 | Scoped enrollment, identity, assessment and operation-routing contract fixtures; host actions and replacement identities refused | Passed contract demonstration |
-| AC-19 | Actual scoped disposable exception expiry, durable expiry event, coordinator refusal and unchanged finding state | Partial fixture proof; broader operator lifecycle pending |
-| AC-20 | Actual hostile repository validation denies credentials, sockets, egress and root writes; model/output redaction retained | Passed bounded isolation demonstration |
-| AC-21 | Durable jobs, duplicate native delivery, worker/control recovery and isolated combined controller-suite restore with existing authentication, exact stores and history guards | Restart, duplicate delivery, hostile work and current controller-suite restore demonstrated; signed-installation restore pending |
-| AC-22 | Real Oathweave sign-in, scoped recommendations, evidence access, decisions, pause/resume, native hardening and package-activation reboot with independently verified outcomes | Partial authenticated fixture proof; wider operator journeys pending |
-| AC-23 | Scoped exports and retained actual source-campaign report; completion/reporting work remains | Partial controlled report proof |
-| AC-24 | Credential invalidation and consumer-migration verification regression | Pending |
+| AC-01 | Required Magnus compatibility/capability gates; actual outage preserves history and refuses new dispatch | Reference outage passed; compatible signed installation pending |
+| AC-02 | Immutable repository rename, application/source/artifact/deployment/agent and old/new instance reconciliation | Passed supported reference demonstration |
+| AC-03 | Versioned Ubuntu hardening, independently verified configuration change and recurrence | Passed supported reference demonstration |
+| AC-04 | Real vendor OVAL and bounded security update, explicit activation/restart/reboot with independent running-state checks | Passed supported reference package demonstration |
+| AC-05 | Actual approved Qwen analysis on enrolled rootless workers; Codex and Claude local routes separately exercised | Passed supported controlled-corpus demonstration |
+| AC-06 | Candidate, independently validated and disputed results; partial scans retain unexamined work | Passed supported controlled-corpus demonstration |
+| AC-07 | Monorepo scope, actual same-owner rename, repeated scans and distinct identical-classification locations | Passed supported reference demonstration |
+| AC-08 | Isolated draft/probe; durable explanation; separate explicit decisions and bounded standing-policy staged execution | Passed supported reference demonstration |
+| AC-09 | Changed provider head, revoked/changed policy, stale plan, capability and queued source-admission regressions | Passed supported refusal demonstrations |
+| AC-10 | Actual isolated preparation, protected linked PR/checks and separate non-bypass merge authority | Passed authenticated source journey |
+| AC-11 | Maintained source-only/branch proof; affected runtime stays open until its own artifact verification | Passed supported source/runtime/branch demonstrations |
+| AC-12 | Actual signed multi-architecture hosted build, immutable publication and deployment with independent image/security/HTTP health proof | Passed supported reference artifact journey |
+| AC-13 | Actual three-target staged campaign, canary failure, separate recovery and sequential independent verification | Passed supported staged campaign |
+| AC-14 | Successful mutation with failed security verification stops progression; offline assessment remains unknown | Passed supported negative verification demonstrations |
+| AC-15 | Original-identity fault reconciliation; all five held owners released by signed review with historical unknown outcomes preserved | Passed retained native fault/recovery matrix |
+| AC-16 | Actual browser pause/cancel/in-flight behavior and separately authorized original-artifact recovery | Passed supported operator recovery journeys |
+| AC-17 | New instance/history retained; container-only overlay cannot permanently close an affected controlling image; separate permanent rollout | Passed actual negative/positive container journey |
+| AC-18 | Future container-agent scoped enrollment, identity, assessment and routing fixtures refuse host action and replacement identities | Passed contract demonstration |
+| AC-19 | Owned scoped exception expires once; actual Ardent/Qwen renews one assessment without changing the code candidate | Passed supported exception lifecycle |
+| AC-20 | Actual native rootless hostile validation denies sibling source/Git history, credentials, sockets, egress and root writes; redaction retained | Passed bounded isolation/redaction demonstration |
+| AC-21 | Restart/duplicate original-identity invariants and exact combined-store restoration | Passed current-candidate combined restore; signed-installation restore pending |
+| AC-22 | Existing Oathweave sign-in and HiveXUI recommendation/decision/pause/evidence/recovery/source/publication/deployment/outcome journeys | Passed disposable authenticated browser journeys |
+| AC-23 | One typed five-execution campaign report preserves verified source/runtime changes, mitigation history, expired exception, remaining candidates and explicit coverage | Passed coherent authoritative report; model truncation disclosed |
+| AC-24 | Real fictional owning-system invalidation and consumer migration; source deletion and incomplete migration both refuse closure | Passed controlled credential lifecycle |
 
 ## Retained development evidence
 
@@ -334,3 +334,35 @@ Both PostgreSQL databases, both SQLite stores, Redis values and expiries, existi
 authentication, scoped history and runtime restrictions match in an isolated
 network. Zero held native owners and five unknown historical outcomes survive.
 Signed-installation and complete product acceptance remain separate gates.
+
+
+The [extended reference workflows](acceptance/2026-11-12-reference-workflows.json)
+cover the staged campaign, monorepo rename, protected source-to-image journey,
+negative container-overlay case, exception renewal, credential invalidation,
+dependency/offline behavior, hostile native validation and coherent campaign
+report. Native validation now physically excludes sibling application source and
+Git history before executed repository code starts. Application-level finding
+reads and reports retain only runtime occurrences within the reader's scope.
+
+The report records five completed, separately explained and authorized effects
+across source writing, merge, artifact publication and two deployments. Remaining
+header-trust and conditional injection candidates stay open. A complete typed API
+report is authoritative; the local model explicitly disclosed context truncation
+when explaining its partial view. Neither that explanation nor a successful build
+or live-container probe establishes permanent security closure.
+
+These bounded reference demonstrations satisfy their listed criterion journeys.
+The compatible signed installation and real-fleet assessment
+still gate operational completion and production announcement. Existing production
+mutation authority has not been expanded.
+
+
+The [current workflow-state restore](acceptance/2026-11-12-current-workflows-restore.json)
+retains the completed source/image/credential/exception journeys and both current
+product/native fixes. All 138 PostgreSQL tables and both SQLite stores match
+before writers start. Acknowledged Redis snapshots preserve logical values and
+absolute expiries. Existing authentication serves matching finding, timeline and
+Registry records; unordered occurrence collections are compared by identity.
+All captured runtime restrictions and configured health checks pass. Five original
+unknown outcomes, zero held owners, one retained disabled policy and the audit
+guard survive in an internal namespace with no published ports or fleet access.

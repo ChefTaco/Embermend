@@ -1,206 +1,81 @@
 # Implementation status
 
-Embermend remains a development preview. The full product and release are not
-accepted. The AC-01–AC-24 ledger is the completion authority.
+Embermend is a development preview pending the compatible signed-suite installation
+and real-fleet assessment. The [acceptance ledger](ACCEPTANCE.md) records each
+AC-01–AC-24 demonstration and the remaining release gates. Production mutation
+policies remain disabled.
 
-The current implementation includes the strict TypeScript workspaces, PostgreSQL
-schema and append-only history guards, typed API/OpenAPI, scoped Oathweave
-verification, durable jobs and schedules, recommendation publication, revisioned
-policy/decision checks, native Magnus operation tracking, a working syntax/model
-scanner implementation, isolated preparation/source readers, and bounded GitHub
-provider phases. Profiles cover selected Ubuntu, Docker and HiveMagnus posture;
-Ubuntu OVAL and Trivy adapters retain vendor evidence, with dated threat signals.
+The authoritative core implements strict TypeScript 6.0.3 workspaces, PostgreSQL
+records, additive migrations, append-only audit history, scoped authorization,
+evidence controls, typed API/OpenAPI, durable jobs, schedules and restart recovery.
+Applications, immutable repositories/revisions, artifacts, deployments, hosts,
+instances and managing agents retain separate identities and provenance. Findings,
+occurrences, coverage, source/runtime verification, mitigation and exceptions remain
+independent facts.
 
-[Build tracking](BUILD_TRACKING.md) now reads existing GitHub Actions attempts
-through durable jobs, scoped source/workflow admission and append-only evidence.
-Reruns retain separate identities; stale responses, cancellation and lost worker
-leases cannot replace newer facts. Workflow success leaves artifact provenance
-unestablished. Authorized build dispatch and publication remain outstanding.
-Real hosted reads, worker SIGKILL/restart recovery, existing authenticated
-operator reads and scoped refusals now have retained development evidence.
+Magnus owns enrollment, capabilities, privileged actions, supervised execution,
+resource ownership and signed receipts. The 2.5.0 prerequisite is merged and its
+publication is in progress after passing both supported Node CI/upgrade paths.
+Actual reboot/cancellation/clock/crash/commit-cut tests preserve original identities.
+All five formerly held owners have separately authorized signed settlement; their
+historical outcomes remain unknown. Reviewed recovery restores original artifact
+state only under its own exact authorization and independent verification.
 
-Native package proof now includes a real Ubuntu security-pocket update, a native
-agent daemon SIGKILL during preview, and a separately authorized controlled
-consumer restart. The installed library and loaded process library were observed
-as different facts. That guest's host finding stays open because other consumers
-were unexamined. A fresh guest now has bounded configured userspace ELF mapping
-proof: seven stale mappings after installation, then current mappings, fresh
-vendor applicability and consumer health after a separately browser-approved
-reboot. Independent technical review verified only that package occurrence.
-Namespace/file-view attribution, other activation classes and the complete
-package and native crash/reboot matrix remain outstanding. See the
-[package activation evidence](acceptance/2026-11-10-package-activation.json).
+The custom TypeScript/JavaScript scanner performs real syntax/context analysis
+with the configured Qwen model through Magnus-enrolled rootless workers. Codex and
+Claude local CLI routes also have controlled-corpus evidence. Candidates,
+independently validated defects, disputed findings, partial coverage and repeated
+locations remain explicit. Monorepo ownership survives an actual same-owner
+repository rename. Native execution physically removes unadmitted source and Git
+history; hostile validation cannot read management credentials or sockets, reach
+the network or write the root filesystem. Credentialed brokers stay outside
+executed repository code.
 
-Verified host findings retain matching historical native captures when an older
-snapshot arrives in a fresh envelope. Unfamiliar captures with ambiguous ordering
-require review; genuinely new observations can reopen work while preserving the
-earlier verification. Occurrence writes serialize with verification updates.
+The supported workflow now has actual isolated original/draft validation, a
+protected GitHub PR with required checks and separate merge, a rootless hosted
+multi-architecture build with verified signed archive/SBOM/provenance, separately
+approved immutable publication and two Magnus Compose rollouts. Independent source
+proof does not close an affected deployment. A temporary container-only repair is
+recorded as mitigation and cannot permanently close a defect in its controlling
+image. Both immutable platform images and actual running security/HTTP health have
+independent proof. Header-trust and conditional injection candidates stay open.
 
-The [native reboot/cancellation matrix](REBOOT_FAULT_MATRIX.md) now includes
-actual queued cancellation, an acknowledged reboot surviving product cancellation,
-campaign pause and native agent SIGKILL, and a cancelled schedule followed by an
-unrelated boot. The last case remains unknown with its original lease held,
-including across control restart. Reboot adoption now requires exact trusted
-previous-boot shutdown proof. Campaign-job cancellation, deadlines, lease ownership
-and immutable binding are rechecked transactionally before native and provider
-effects; a delayed heartbeat cannot authorize new work. The current product
-passes 57 unit and 53 PostgreSQL tests. Complete fault coverage remains pending.
+An actual three-target campaign stops after a failed canary and progresses only
+after each independent verification. Separate recovery and bounded standing policy
+have positive proof; the policy remains retained and disabled. Dependency loss
+keeps history available while refusing new dispatch. An offline assessment leaves
+unknown verification and an affected finding. A scoped exception expires once,
+and actual Ardent/Qwen renews one assessment without repairing the code candidate.
+Fictional credential source deletion and invalidation without consumer migration
+both refuse closure; owning-system invalidation and healthy migration complete
+that separate lifecycle.
 
-A separate fresh guest now retains actual detached native supervisor SIGKILL
-proof during vendor assessment. Missing owner completion evidence keeps the
-original assessment and its single bounded observation unknown after deadline,
-despite an empty cgroup and healthy host agent. Existing findings remain affected.
-This guest and the cancelled-reboot guest each retain their own held lease.
-Later rootless owner loss, power loss and a forward clock step now add three
-more held unknown operations. All five subsequently pass separately authorized ownership settlement; their original outcomes remain unknown.
+Existing human and coordinator authentication supports the disposable HiveXUI
+recommendation/decision/evidence/pause/recovery/source/publication/deployment
+journeys. Permissions are evaluated individually; an ADMIN role name alone grants
+or denies nothing. The coordinator cannot self-approve, change policy, recover,
+merge, publish artifacts or deploy. One coherent typed campaign report retains
+five completed effects, exact publications/identities, independent outcomes,
+remaining candidates, expired exception and explicit coverage. Its complete API
+record remains authoritative when a model discloses a truncated context view.
 
-The [rootless fault proof](acceptance/2026-11-11-rootless-worker-loss.json)
-distinguishes a failed scanner container with confirmed cleanup from lost owner
-completion evidence while its container remains active. Three real-model
-candidates remain unchanged after owner loss. Further
-[native faults](acceptance/2026-11-11-native-fault-continuation.json) cover control
-loss through original expiry, failed first terminal-result persistence, power
-loss before shutdown and a forward clock step. All preserve original identities.
+The latest combined controller-suite rehearsal verifies all 138 PostgreSQL tables,
+both SQLite stores, acknowledged Redis persistence/expiries, existing authentication,
+logical finding/timeline/Registry records, UI access, history guards, exact mounts
+and runtime restrictions. All configured health checks pass in an internal
+namespace without published ports or fleet/provider access. Guest disks and
+external provider/CLI sign-ins are outside that controller backup scope.
 
-[Further acceptance](acceptance/2026-11-12-clock-interruption-recovery.json)
-now covers backward clock steps, failed control queue claims, product receipt
-commits and post-ingestion result checkpoints. The latter exposed a recovery bug:
-a new receipt envelope could conflict with already-ingested immutable evidence.
-The deployed fix reuses retained completed receipts and original evidence time,
-while preserving full content, scope and request-binding checks. Live recovery
-completed the same interrupted operation without another dispatch.
+Oathweave 2.2.0 is published; the HiveXUI 0.3.0 integration is merged. Hive offers
+Embermend as an explicit optional selection with required Magnus 2.5 bridge
+admission, initialization, identity, ingress, Registry and shared API/worker image
+contracts. Candidate builds include its isolated scanner. Existing signed release
+bytes are unchanged. Embermend's release workflow and [release guide](RELEASING.md)
+provide native multi-architecture image checks, vulnerability gates, immutable
+version indexes, SBOM/provenance, compatibility metadata and attested package assets.
 
-A separately approved configuration recovery now restores the exact original
-inode mode, refuses ordinary/coordinator authority and stale preconditions, and
-passes independent mode and consumer-health verification. It uses reviewed scoped
-core actors with existing native service authentication. A later existing-human browser journey also restores and independently verifies the original mode. All five earlier uncertain owners are now released through signed recovery without changing their unknown historical outcomes.
-
-A [combined controller-suite restore](acceptance/2026-11-11-combined-suite-restore.json)
-now restores both PostgreSQL databases, Oathweave and Registry SQLite, both Redis
-stores, existing credentials, TLS, configuration and runtime artifacts into an
-isolated network. All 138 PostgreSQL tables and both SQLite stores match before
-startup. Redis values and absolute expiries are checked before application
-writers start. Existing authentication serves matching findings, recommendations
-and Registry data, with the captured ownership state and the audit history guard preserved. A fresh post-recovery rehearsal preserves zero held owners and all five historical unknown outcomes.
-Managed guest disks, external inference/CLI sign-ins and a compatible signed
-installation remain separate acceptance boundaries.
-The [current-runtime restore](acceptance/2026-11-12-suite-runtime-restore.json)
-also checks captured users, read-only roots, capabilities, security/resource
-limits, tmpfs, restart policy and health overrides. The earlier harness omitted
-those overrides; a fresh corrected restore has healthy configured probes and
-matching stores/authentication without mounting source state.
-
-Adjacent changes add the constrained Magnus bridge and reviewed host/worker
-handlers, a compact HiveXUI module, and optional Hive product contracts. Their
-release and combined acceptance remain pending. Selecting the product requires
-the forthcoming compatible Magnus release; no existing signed release is edited.
-Fresh initialization grants no target access or mutation authority by default.
-
-Component verification includes strict compiler checks, security/scanner/provider
-unit tests, PostgreSQL integration checks, focused Magnus tests, sixteen HiveXUI
-interaction tests, real scoped Oathweave/browser operation and outcome inspection,
-and an actual Ardent/Qwen read-only plugin task. These establish the bounded
-disposable journey recorded in the acceptance ledger. The dated evidence record
-now retains narrow live fixture mutations on three enrolled Ubuntu guests,
-independent readback, duplicate delivery, response-loss recovery, recurrence,
-a real OpenSCAP assessment and an exact database-only restore rehearsal.
-
-Outstanding work includes complete coordinator event delivery, the complete native crash/reboot fault matrix, complete build/publication tracking, broader graph reconciliation and
-deployment verification, comprehensive cancellation/recovery, live authority revocation,
-remaining acceptance fault injection, signed-installation restore proof, release artifacts and signatures, and
-real-fleet assessment. The configured local Qwen model and both CLI routes have completed real controlled-corpus scanner analysis; the managed worker and authenticated browser fixture have retained proof. Broader model and campaign acceptance remains pending. Production mutation policies stay disabled.
-
-Inference now includes an Embermend-owned broker for approved network llama.cpp,
-Codex local CLI and Claude local CLI, with no tool access or automatic fallback.
-Cloud-backed CLI routes require remote-source permission. See
-[provider configuration](INFERENCE.md) and the dated inference evidence.
-
-Managed source proof now includes a real Qwen scan through Magnus and rootless
-Docker, same-harness original/draft security probes, two validated fixture
-findings and one disputed finding, and actual stale GitHub head refusal before
-provider writes. That initial preparation did not establish source remediation
-or deployment closure. Magnus
-now retains inner supervisor identities for read-only original receipt adoption;
-that implementation passes regression tests. Native agent daemon SIGKILL now has
-actual preview-operation proof. Detached native supervisor SIGKILL now also has
-vendor-assessment proof. Separate live rootless container and supervisor-loss
-proof now distinguishes confirmed failed cleanup from unknown original ownership.
-
-Actual product-worker SIGKILL and disposable control-service restart now have
-retained proof during an isolated preparation. The original lease and deadline
-expired naturally; an observation-only principal obtained the same completed
-native command receipt and ownership release through one GET. It did not renew
-the original grant, clear cancellation or dispatch again. Native agent daemon
-SIGKILL during package preview and detached native supervisor loss are recorded
-separately. Rootless worker loss, control loss through original expiry, terminal
-receipt-persistence failure, power loss and a forward clock step now have bounded
-live proof. The complete crash/reboot fault matrix remains pending. Actual reboot
-continuation is recorded below. See
-[recovery semantics](RECOVERY.md) and the dated worker recovery evidence.
-
-GitHub merge admission now evaluates live rules and checks without a repository
-role whitelist, and explicitly requests no rule bypass through the versioned
-asynchronous API. Durable request identities and pending/queue/merged distinctions
-have unit and PostgreSQL regression coverage. Existing operator authentication
-can be used when its actual scope and repository access suffice; an optional
-unattended App proposal is documented in [provider authorization](GITHUB_PROVIDER_AUTH.md).
-Actual controlled GitHub creation and merge now have retained proof on a dedicated
-protected acceptance branch. The creation reply was lost and the original PR was
-adopted through reads; separate merge authority and rule enforcement were tested.
-Independent immutable readback and isolated probes source-verified the two
-conditional SQL/owner findings on that branch. Other maintained-branch occurrences
-remain open, and the path finding remains disputed. This does not establish
-artifact publication, deployment closure or the full operator acceptance matrix.
-
-
-Authenticated browser acceptance now includes a separately published/approved host
-change, pause and resume, evidence access, durable job status, and independently
-verified runtime outcome. Scope-limited coordinator credentials cannot approve or
-edit standing policy. Current Magnus eligibility is checked independently of the
-age of cached inventory, while execution identity and scope changes fail closed.
-An older plan revision cannot expose wider historical execution data through a
-newer narrower revision. Existing GitHub operator authentication remains usable;
-no production runtime identity or mutation policy was changed.
-
-The approved Oathweave integration worktree supplies the Embermend audience in
-fresh bootstrap and strict TypeScript 6.0.3 throughout its affected workspaces.
-The real browser fixture uses that candidate with actual Registry and ingress
-images. It is an explicit manual candidate connection, not an installed signed
-Hive release. Shared Hive and Ardent checkouts remain isolated from this work.
-
-The isolated Hive integration now incorporates current 3.1.1 changes and offers
-Embermend through `hive.sh`, defaulting to off. Signed release metadata must
-explicitly declare the Magnus bridge protocol; a 2.4.x version alone is
-insufficient. The affected launcher/release workspaces use strict TypeScript
-6.0.3. Installer, initialization, compatibility, full local repository and privacy
-checks pass. The [installer integration](acceptance/2026-11-11-hive-installer.json)
-is merged in Hive after the full hosted checks, with existing signed 3.1.1 release
-bytes unchanged. Production installation still requires a future compatible signed
-release; portfolio and website updates follow production rollout.
-
-
-Native reboot continuation now has actual disposable proof after the original
-admission deadline, with the same operation, a subsequent kernel boot, preserved
-cancellation, released ownership and a separately bounded observation job. The
-observer cannot dispatch an unstarted campaign action. Concurrent stale native
-observations cannot overwrite terminal completion or ownership release.
-
-Artifact deployment now requires registered deployment/configuration binding,
-immutable artifact/source identity and matching non-model build evidence. A real
-controlled digest rollout completed through Magnus, followed by independent
-container/image inventory and live consumer authorization/health probes. Native
-inventory reconciles separate instances and historical artifact/host/agent links;
-unknown images and unsupported resources stay visible and never close findings.
-The controlled runtime outcome is verified while source remediation stays open.
-These locally built fixtures do not establish signed release provenance or the
-complete build/publication lifecycle. Read-only hosted build-attempt tracking
-has separate retained proof above.
-
-
-[Authorized ownership recovery and operator proof](acceptance/2026-11-12-authorized-owner-recovery.json)
-now include all five held operations, a real rootless hostile-work probe and scoped
-future container-agent contracts. The existing operator identity has an audited,
-scoped recovery permission; no additional identity or credentials are required.
-The [fresh post-recovery restore](acceptance/2026-11-12-post-recovery-suite-restore.json)
-checks current images, browser artifacts, all mounted state and acknowledged
-Redis persistence. Original uncertain outcomes remain visible after restore.
+The next operational gates are prerequisite publication, a tested compatible signed
+Hive combination, installation/restore through that controller and authorized
+real-fleet inventory/assessment. Portfolio and website publication follows actual
+production rollout. Further platforms, broader assessment coverage and unsupported
+actions remain explicit coverage limits rather than implied capabilities.
