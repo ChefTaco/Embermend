@@ -56,7 +56,7 @@ const definitions = {
   'repository-pr.v1': { class: 'repository-write', kinds: ['repository'] },
   'repository-merge.v1': { class: 'merge', kinds: ['repository'] },
   'artifact-build.v1': { class: 'build', kinds: ['worker'] },
-  'artifact-publish.v1': { class: 'artifact-publish', kinds: ['worker'] },
+  'artifact-publish.v1': { class: 'artifact-publish', kinds: ['repository'] },
   'compose-deploy.v1': { class: 'deploy', kinds: ['host'] },
   'restart-service.v1': { class: 'restart', kinds: ['host', 'container'] },
   'reboot.v1': { class: 'reboot', kinds: ['host'] },

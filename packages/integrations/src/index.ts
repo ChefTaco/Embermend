@@ -117,3 +117,4 @@ export { GitHubClient, githubMergeOperationSchema, type GitHubRepositoryGrant, t
 
 export * from './threat-feeds.js';
 export * from './inference/index.js';
+export * from './registry.js';

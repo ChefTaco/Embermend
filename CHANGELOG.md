@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Publish independently reviewed OCI artifacts through a separate scoped decision, preserving platform and attestation digests; reconcile lost registry replies through reads without replaying writes.
+
 - Scope source findings and scanner evidence to their application independently of worker hosts, retaining versioned execution references so supported findings survive worker replacement without granting access to host evidence.
 
 - Recheck repository identity and current disclosure, execution and path policy immediately before queued source work is admitted; record known refusals without dispatch or invented unknown ownership.

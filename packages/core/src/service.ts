@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { z } from 'zod';
 import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt, type ScanRequest, type Preparation, type SourceRequest, type Finding, type Evidence } from '@hivemagnus/embermend-contracts';
 import { audit, digest, enqueue, json, lock, within, Prisma, type Database, type Transaction } from '@hivemagnus/embermend-store';
-import { redactObject, redact, IntegrationError, githubMergeOperationSchema, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
+import { redactObject, redact, IntegrationError, githubMergeOperationSchema, publicationDescriptorSchema, publicationResultSchema, type ArtifactPublisher, type PublicationDescriptor, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
 import { matchesPath, safePath } from '@hivemagnus/embermend-scanner';
 import { DomainError, requirePermission, requireActionPermission, validateAction, policyCovers, assertTarget } from './authorization.js';
 import { prioritize } from './priority.js';
@@ -14,6 +14,7 @@ import { admitDeployment } from './deployment.js';
 import { Records } from './records.js';
 import { Builds } from './builds.js';
 import { retainHostCapture } from './finding-history.js';
+import { admitPublication } from './publication.js';
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 function findingEvidenceScope(finding: Finding, evidence: Evidence, subjectId: string): boolean {
@@ -24,7 +25,7 @@ export class Embermend {
   private readonly dispatchJob = new AsyncLocalStorage<{ jobId: string; owner: string }>();
   public readonly records: Records;
   public readonly builds: Builds;
-  constructor(public readonly db: Database, public readonly magnus: Magnus, public readonly github?: GitHubClient) { this.records = new Records(db); this.builds = new Builds(db, github); }
+  constructor(public readonly db: Database, public readonly magnus: Magnus, public readonly github?: GitHubClient, public readonly publisher?: ArtifactPublisher) { this.records = new Records(db); this.builds = new Builds(db, github); }
   async entity(actor: Actor, input: unknown): Promise<Entity> {
     const value = entitySchema.parse(input);
     if (Date.parse(value.provenance.observedAt) > Date.now() + 120000) throw new DomainError('FUTURE_INVENTORY_PROVENANCE');
@@ -232,6 +233,7 @@ export class Embermend {
     const plan = await this.plan(actor, planId); requirePermission(actor, 'execute', plan.scope);
     const action = plan.actions.find(value => value.id === actionId); if (!action) throw new DomainError('ACTION_NOT_FOUND');
     requireActionPermission(actor, action, plan.scope);
+    if (action.class === 'artifact-publish') return this.dispatchArtifactPublication(actor, plan, action);
     if (action.targetKind === 'repository') return this.dispatchRepository(actor, plan, action);
     const capabilities = await this.magnus.capabilities();
     const storedTarget = await this.db.entity.findUnique({ where: { id: action.targetId } });
@@ -371,6 +373,7 @@ export class Embermend {
         requirePermission(actor, 'recover', plan.scope);
         const released = await this.releaseUnreservedProviderOperation(actor, execution); if (released) return released;
       }
+      if (request.action['class'] === 'artifact-publish') return this.reconcileArtifactPublication(actor, execution);
       const action = z.object({ class: z.string(), parameters: z.object({ changeId: z.string() }).passthrough() }).passthrough().parse(request.action);
       if (action.class === 'repository-write' && this.github) {
         const observed = await this.reconcileRepositoryWrite(actor, execution, action.parameters.changeId);
@@ -564,6 +567,17 @@ export class Embermend {
       if (Date.parse(plan.notBefore) > Date.now() || Date.parse(plan.expiresAt) <= Date.now()) throw new DomainError('OUTSIDE_EXECUTION_WINDOW');
       const authorization = await tx.authorization.findFirst({ where: { planId: plan.id, revision: plan.revision, digest: digest(plan), revoked: false, expiresAt: { gt: new Date() } } });
       if (!authorization) throw new DomainError('CURRENT_AUTHORIZATION_REQUIRED');
+      if (action.class === 'artifact-publish') {
+        if (!this.publisher) throw new DomainError('ARTIFACT_PUBLICATION_UNCONFIGURED');
+        const parameters = z.object({ artifactId: z.string(), digest: z.string(), destinationId: z.string() }).parse(action.parameters);
+        await admitPublication(tx, plan, action, publicationDescriptorSchema.parse(this.publisher.describe(parameters.artifactId, parameters.digest, parameters.destinationId)));
+        const repositoryRow = await tx.entity.findUnique({ where: { id: action.targetId } }); const repository = repositoryRow ? entitySchema.parse(repositoryRow.data) : null;
+        if (!repository || repository.kind !== 'repository' || !within(plan.scope, repository.scope)) throw new DomainError('PUBLICATION_REPOSITORY_REQUIRED');
+        assertTarget(action, repository);
+        const branch = action.preconditions['branch'];
+        if (!this.github || typeof branch !== 'string') throw new DomainError('PUBLICATION_SOURCE_PROVIDER_REQUIRED');
+        if (await this.github.resolve(repository.providerId, branch) !== action.expectedRevision) throw new DomainError('PUBLICATION_SOURCE_HEAD_CHANGED');
+      }
       await admitOwnershipRecovery(tx, plan, action, authorization.kind === 'explicit' ? authorization.actorId : null);
       if (authorization.policyId) { const row = await tx.policy.findUnique({ where: { id: authorization.policyId } }); const policy = row ? policySchema.parse(row.data) : null; const targets = (await tx.entity.findMany({ where: { id: { in: plan.actions.map(item => item.targetId) } } })).map(item => entitySchema.parse(item.data)); if (!policy || policy.revision !== authorization.policyRevision || !policyCovers(policy, plan, targets, new Date(), await this.recoveryEvidence(tx, plan))) throw new DomainError('POLICY_CHANGED'); }
       for (const id of action.dependsOn) {
@@ -657,6 +671,50 @@ export class Embermend {
       await tx.repositoryChange.upsert({ where: { id: preparation.id }, create: { id: preparation.id, installationId: repository.scope.installationId, planId: execution.planId, revision: execution.revision, repositoryId: repository.id, baseCommit: preparation.baseCommit, patchDigest: prepared.patchDigest, state: pull.state === 'open' ? 'pull-request' : 'closed', providerIdentity: String(pull.number), data: json(result) }, update: {} });
       await tx.execution.update({ where: { id: execution.id }, data: { state: 'completed', receipt: json(receipt) } });
       await audit(tx, actor, 'provider.pull-request.observed', execution.id, { phaseId: phase.id, pullNumber: pull.number }); return receipt;
+    });
+  }
+  private async dispatchArtifactPublication(actor: Actor, plan: Plan, action: Action): Promise<Receipt> {
+    const publisher = this.publisher; if (!publisher) throw new DomainError('ARTIFACT_PUBLICATION_UNCONFIGURED');
+    const parameters = z.object({ artifactId: z.string(), digest: z.string(), destinationId: z.string() }).parse(action.parameters);
+    const expected = publicationDescriptorSchema.parse(publisher.describe(parameters.artifactId, parameters.digest, parameters.destinationId));
+    const row = await this.db.entity.findUnique({ where: { id: action.targetId } }); const repository = row ? entitySchema.parse(row.data) : null;
+    if (!repository || repository.kind !== 'repository' || !within(plan.scope, repository.scope)) throw new DomainError('PUBLICATION_REPOSITORY_REQUIRED');
+    assertTarget(action, repository);
+    await this.authorized(actor, plan, action, async () => undefined);
+    await publisher.validate(expected);
+    const operationId = digest([plan.id, plan.revision, action.id]); const request = { planId: plan.id, revision: plan.revision, planDigest: digest(plan), action, publication: expected };
+    const terminal = await this.authorized(actor, plan, action, async tx => {
+      const prior = await tx.execution.findUnique({ where: { id: operationId } });
+      if (prior && prior.requestDigest !== digest(request)) throw new DomainError('PUBLICATION_OPERATION_IDENTITY_CONFLICT');
+      if (prior?.receipt && ['completed', 'failed', 'not-dispatched'].includes(prior.state)) return receiptSchema.parse(prior.receipt);
+      if (!prior) await tx.execution.create({ data: { id: operationId, planId: plan.id, revision: plan.revision, actionId: action.id, targetId: repository.id, requestDigest: digest(request), request: json(request), state: 'unknown', dispatchGeneration: 0 } });
+      return null;
+    });
+    if (terminal) return terminal;
+    const result = publicationResultSchema.parse(await this.providerEffect(actor, plan, action, 'artifact-publication', expected, () => publisher.publish(expected)));
+    return this.retainArtifactPublication({ id: operationId, requestDigest: digest(request), targetId: repository.id }, expected, result);
+  }
+  private async reconcileArtifactPublication(actor: Actor, execution: { id: string; planId: string; revision: number; actionId: string; targetId: string; requestDigest: string; request: unknown }): Promise<Receipt> {
+    const publisher = this.publisher; if (!publisher) throw new DomainError('ARTIFACT_PUBLICATION_UNCONFIGURED');
+    if (digest(execution.request) !== execution.requestDigest || execution.id !== digest([execution.planId, execution.revision, execution.actionId])) throw new DomainError('ORIGINAL_PUBLICATION_REQUEST_CHANGED');
+    const expected = z.object({ publication: publicationDescriptorSchema }).parse(execution.request).publication;
+    const phase = await this.db.providerEffect.findUnique({ where: { planId_revision_actionId_phase: { planId: execution.planId, revision: execution.revision, actionId: execution.actionId, phase: 'artifact-publication' } } });
+    if (!phase || phase.requestDigest !== digest(expected)) throw new DomainError('ORIGINAL_PUBLICATION_PHASE_REQUIRED');
+    const result = await publisher.observe(expected);
+    if (!result) return { operationId: execution.id, requestDigest: execution.requestDigest, targetId: execution.targetId, state: 'unknown', evidenceIds: [], result: { reason: 'Approved content-addressed publication is not yet established; no write replay is authorized' }, ownershipReleased: false, observedAt: new Date().toISOString() };
+    return this.retainArtifactPublication(execution, expected, publicationResultSchema.parse(result), { actor, phaseId: phase.id });
+  }
+  private async retainArtifactPublication(execution: { id: string; requestDigest: string; targetId: string }, expected: PublicationDescriptor, result: z.infer<typeof publicationResultSchema>, observation?: { actor: Actor; phaseId: string }): Promise<Receipt> {
+    const { providerOperationId, ...observed } = result;
+    if (digest(observed) !== digest(expected) || providerOperationId !== expected.imageRef) throw new DomainError('PUBLICATION_RECEIPT_BINDING_FAILED');
+    return this.db.$transaction(async tx => {
+      await lock(tx, `provider-publication-observation:${execution.id}`);
+      const current = await tx.execution.findUnique({ where: { id: execution.id } });
+      if (!current || current.requestDigest !== execution.requestDigest) throw new DomainError('PUBLICATION_OPERATION_IDENTITY_CONFLICT');
+      if (observation) { await tx.providerEffect.update({ where: { id: observation.phaseId }, data: { state: 'completed', result: json({ value: result }) } }); await audit(tx, observation.actor, 'provider.artifact-publication.observed', execution.id, { providerOperationId }); }
+      if (current.state === 'completed' && current.receipt) return receiptSchema.parse(current.receipt);
+      const receipt: Receipt = { operationId: execution.id, requestDigest: execution.requestDigest, targetId: execution.targetId, state: 'completed', evidenceIds: [expected.reviewEvidenceId], result, ownershipReleased: true, observedAt: new Date().toISOString() };
+      await tx.execution.update({ where: { id: execution.id }, data: { state: 'completed', receipt: json(receipt) } }); return receipt;
     });
   }
   private async dispatchRepository(actor: Actor, plan: Plan, action: Action): Promise<Receipt> {

@@ -3,7 +3,7 @@ import { createInferenceBroker } from './inference.js';
 import { serve } from '@hono/node-server';
 import { database } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
-import { MagnusClient, oathweaveAuthenticator, grantsSchema, GitHubClient } from '@hivemagnus/embermend-integrations';
+import { MagnusClient, oathweaveAuthenticator, grantsSchema, GitHubClient, OciRegistryPublisher } from '@hivemagnus/embermend-integrations';
 import { z } from 'zod';
 import { createApi } from './api.js';
 import { runWorker } from './worker.js';
@@ -28,7 +28,9 @@ if (process.argv[1]?.endsWith('/index.js')) {
     }
     const env = envSchema.parse(process.env); const db = database(env.DATABASE_URL); const magnus = new MagnusClient(env.MAGNUS_URL, env.MAGNUS_EMBERMEND_TOKEN);
     const github = env.EMBERMEND_GITHUB_TOKEN && env.EMBERMEND_GITHUB_GRANTS ? new GitHubClient(env.EMBERMEND_GITHUB_TOKEN, githubGrants.parse(JSON.parse(env.EMBERMEND_GITHUB_GRANTS))) : undefined;
-    const service = new Embermend(db, magnus, github);
+    const publicationConfig = z.string().min(1).optional().parse(process.env['EMBERMEND_PUBLICATION_CONFIG']);
+    const publisher = publicationConfig ? new OciRegistryPublisher(JSON.parse(await readFile(publicationConfig, 'utf8')), process.env) : undefined;
+    const service = new Embermend(db, magnus, github, publisher);
     const authenticate = oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants: grantsSchema.parse(JSON.parse(env.EMBERMEND_IDENTITY_GRANTS)) });
     const stop = new AbortController();
     if (process.argv[2] === 'worker') {

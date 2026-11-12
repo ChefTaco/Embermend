@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { database, digest, claim, enqueue, json } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
-import { IntegrationError, GitHubClient, type Magnus } from '@hivemagnus/embermend-integrations';
+import { IntegrationError, GitHubClient, type Magnus, type ArtifactPublisher } from '@hivemagnus/embermend-integrations';
 import { buildSchema, receiptSchema, scanRequestSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick } from '../../services/runtime/dist/worker.js';
@@ -472,6 +472,48 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await reset(); const id = await db.$transaction(tx => enqueue(tx, operator, 'assessment', 'retained-expired', { scope }, new Date(0)));
     await db.job.update({ where: { id }, data: { result: { operations: [{ operationId: 'fixture-held-effect' }] } } }); assert.equal(await claim(db, 'fixture-expiry'), null);
     assert.equal((await db.job.findUniqueOrThrow({ where: { id } })).status, 'unknown');
+  });
+
+  const publicationFixture = async () => {
+    const { service: records, magnus } = await reset(); const base = 'a'.repeat(40); const artifactDigest = 'd'.repeat(64); const appScope = { ...scope, targetIds: [] }; let head = base; let writes = 0; let published = false; let loseReply = false;
+    const expected = { artifactId: 'fixture-published-artifact', artifactDigest, sourceCommits: [base], reviewEvidenceId: 'fixture-publication-review', archiveDigest: 'b'.repeat(64), destinationId: 'fixture-registry', imageRef: 'registry.example.com/fixture/catalog@sha256:' + artifactDigest };
+    const publisher: ArtifactPublisher = { describe: (id, hash, destination) => { if (id !== expected.artifactId || hash !== expected.artifactDigest || destination !== expected.destinationId) throw new Error('CATALOG_ENTRY_REQUIRED'); return expected; }, validate: async value => { assert.deepEqual(value, expected); }, publish: async value => { assert.deepEqual(value, expected); writes++; published = true; if (loseReply) throw new Error('Fixture lost publication reply'); return { ...expected, providerOperationId: expected.imageRef }; }, observe: async value => { assert.deepEqual(value, expected); return published ? { ...expected, providerOperationId: expected.imageRef } : null; } };
+    const request: typeof fetch = async url => Response.json(new URL(String(url)).pathname.startsWith('/repositories/') ? { id: 123, owner: { login: 'fixture-owner' }, name: 'fixture-repository', full_name: 'fixture-owner/fixture-repository', default_branch: 'main' } : { sha: head, commit: { tree: { sha: base } } });
+    const github = new GitHubClient('fixture-read-token', [{ providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', allowedBranches: ['main'], workflowIds: ['7'] }], request); const service = new Embermend(db, magnus, github, publisher);
+    const provenance = { source: 'fixture-review', assurance: 'established', evidenceIds: [], observedAt: now() };
+    await records.entity(operator, { id: 'fixture-repository', kind: 'repository', scope: { ...appScope, applicationIds: [] }, label: 'Fixture repository', provenance, provider: 'github', providerInstance: 'https://github.com', providerId: '123', owner: 'fixture-owner', name: 'fixture-repository', environment: 'lab', accessRevision: 1 });
+    await records.entity(operator, { id: 'fixture-source-binding', kind: 'source-binding', scope: appScope, label: 'Fixture application', provenance, repositoryId: 'fixture-repository', applicationId: 'fixture-app', includedPaths: ['apps/api'], excludedPaths: [], maintainedBranches: ['main'], buildDefinitions: ['.github/workflows/build.yml'], modelPolicy: { providerRefs: [], allowRemote: false, allowExecution: false } });
+    await records.entity(operator, { id: 'fixture-source', kind: 'source-revision', scope: appScope, label: 'Fixture source', provenance, repositoryId: 'fixture-repository', commit: base, branch: 'main' });
+    const proof = { ...evidence(), id: expected.reviewEvidenceId, scope: appScope, subjectId: expected.artifactId, source: 'independent-build-review', content: { archiveDigest: expected.archiveDigest, artifactDigest, imageRef: expected.imageRef, sourceCommit: base, buildVerified: true, attestationVerified: true, providerRunId: 42, runAttempt: 1 } }; await records.evidence(operator, proof);
+    const build = buildSchema.parse({ id: 'fixture-build', scope: appScope, repositoryId: 'fixture-repository', applicationId: 'fixture-app', sourceRevisionId: 'fixture-source', sourceCommit: base, providerRunId: 42, runAttempt: 1, workflowId: 7, workflowPath: '.github/workflows/build.yml', status: 'completed', conclusion: 'success', providerUpdatedAt: now(), observedAt: now(), providerUrl: 'https://github.com/fixture-owner/fixture-repository/actions/runs/42', evidenceIds: [proof.id], artifactProvenance: 'unestablished' });
+    await db.build.create({ data: { id: build.id, installationId: scope.installationId, repositoryId: build.repositoryId, sourceCommit: base, providerRunId: '42', providerAttempt: 1, status: build.status, data: json(build) } });
+    await records.entity(operator, { id: expected.artifactId, kind: 'artifact', scope: appScope, label: 'Reviewed fixture image', provenance: { ...provenance, evidenceIds: [proof.id] }, digest: artifactDigest, sourceRevisionIds: ['fixture-source'], buildRunId: build.id, image: expected.imageRef });
+    const value = plan(); const previous = value.actions[0]; assert.ok(previous);
+    const proposedPlan = { ...value, evidenceIds: [proof.id], canaryTargetId: 'fixture-repository', actions: [{ ...previous, version: 'artifact-publish.v1', class: 'artifact-publish' as const, targetId: 'fixture-repository', targetKind: 'repository' as const, requiredCapabilities: ['embermend:artifact-publish.v1'], parameters: { artifactId: expected.artifactId, digest: artifactDigest, destinationId: expected.destinationId }, preconditions: { environment: 'lab', branch: 'main' }, expectedRevision: base, patchDigest: null }] };
+    const proposed = await service.propose(coordinator, proposedPlan); const writer = { ...coordinator, permissions: new Set([...coordinator.permissions, 'artifact-publish' as const]) };
+    return { service, magnus, expected, proposedPlan, proposed, writer, publishExplanation: () => service.publish(coordinator, proposedPlan.id, 1), approve: () => service.decide(operator, { planId: proposedPlan.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: proposedPlan.expiresAt }), writes: () => writes, loseReply: () => { loseReply = true; }, changeHead: () => { head = 'c'.repeat(40); } };
+  };
+  await t.test('publication needs its own permission, explanation, exact approval, successful build and reviewed attestation', async () => {
+    const f = await publicationFixture(); await assert.rejects(f.service.dispatch(coordinator, f.proposedPlan.id, 'fixture-action'), /PERMISSION/); await assert.rejects(f.service.dispatch(f.writer, f.proposedPlan.id, 'fixture-action'), /PUBLICATION/);
+    await f.publishExplanation(); await assert.rejects(f.service.dispatch(f.writer, f.proposedPlan.id, 'fixture-action'), /AUTHORIZATION/); await f.approve();
+    const result = await f.service.dispatch(f.writer, f.proposedPlan.id, 'fixture-action'); assert.equal(result.state, 'completed'); assert.equal(result.result['providerOperationId'], f.expected.imageRef); assert.equal(f.writes(), 1);
+    assert.deepEqual(await f.service.dispatch(f.writer, f.proposedPlan.id, 'fixture-action'), result); assert.equal(f.writes(), 1); assert.equal(f.magnus.requests.length, 0);
+  });
+  await t.test('lost publication replies preserve one external effect and reconcile after revocation using reads', async () => {
+    const f = await publicationFixture(); await f.publishExplanation(); await f.approve(); f.loseReply(); await assert.rejects(f.service.dispatch(f.writer, f.proposedPlan.id, 'fixture-action'), /lost publication/); assert.equal(f.writes(), 1);
+    const execution = await db.execution.findFirstOrThrow(); assert.equal(execution.state, 'unknown'); await db.authorization.updateMany({ data: { revoked: true, expiresAt: new Date(0) } });
+    const receipt = await f.service.reconcile(operator, execution.id); assert.equal(receipt.state, 'completed'); assert.equal(receipt.ownershipReleased, true); assert.equal(f.writes(), 1); assert.equal((await db.providerEffect.findFirstOrThrow()).state, 'completed'); assert.deepEqual(await f.service.reconcile(operator, execution.id), receipt);
+    assert.equal((await f.service.findings(operator))[0]?.occurrences[0]?.runtimeState, 'affected'); assert.equal(f.magnus.requests.length, 0);
+  });
+  await t.test('publication rechecks current source head, policy and immutable review before any external write', async () => {
+    for (const change of ['head', 'policy', 'review', 'build']) {
+      const f = await publicationFixture(); await f.publishExplanation(); await f.approve();
+      if (change === 'head') f.changeHead();
+      if (change === 'policy') { const row = await db.entity.findUniqueOrThrow({ where: { id: 'fixture-source-binding' } }); const value = z.object({ maintainedBranches: z.array(z.string()) }).passthrough().parse(row.data); await db.entity.update({ where: { id: row.id }, data: { data: json({ ...value, maintainedBranches: [] }) } }); }
+      if (change === 'review') { const row = await db.entity.findUniqueOrThrow({ where: { id: f.expected.artifactId } }); const value = z.object({ provenance: z.object({ evidenceIds: z.array(z.string()) }).passthrough() }).passthrough().parse(row.data); await db.entity.update({ where: { id: row.id }, data: { data: json({ ...value, provenance: { ...value.provenance, evidenceIds: [] } }) } }); }
+      if (change === 'build') { const row = await db.build.findUniqueOrThrow({ where: { id: 'fixture-build' } }); const build = buildSchema.parse(row.data); await db.build.update({ where: { id: row.id }, data: { data: json({ ...build, conclusion: 'failure' }) } }); }
+      await assert.rejects(f.service.dispatch(f.writer, f.proposedPlan.id, 'fixture-action'), /PUBLICATION_(SOURCE_HEAD_CHANGED|SOURCE_POLICY_CHANGED|ARTIFACT_REQUIRED|BUILD_REQUIRED)/); assert.equal(f.writes(), 0); assert.equal(await db.providerEffect.count(), 0);
+    }
   });
 
   await t.test('lost PR creation reply adopts one original PR through reads without repeating provider mutations', async () => {

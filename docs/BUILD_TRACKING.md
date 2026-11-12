@@ -41,8 +41,10 @@ context, image layer, source tree or public evidence record.
 
 ## Limits
 
-This is tracking of an existing workflow attempt. Authorized dispatch, isolated
-build execution, artifact retrieval and publication, signed provenance and the
-complete hosted-build-to-deployment journey remain separate acceptance work.
+This endpoint tracks an existing workflow attempt. It cannot dispatch a build.
+Artifact retrieval and cryptographic verification remain trusted operator import
+steps; [reviewed OCI publication](ARTIFACT_PUBLICATION.md) has a separate provider
+path and authorization. The acceptance ledger records which isolated builds,
+signed artifacts and deployment journeys have actual retained proof.
 Successful CI is evidence about that workflow, not proof that it built the
 approved artifact or repaired a security defect.
