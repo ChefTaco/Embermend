@@ -2,7 +2,13 @@
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-12
+
 - Serve the Hive:Magnus event feed at `GET /api/v1/hive/events`: HiveEvent v1 records derived from committed audit rows for new recommendations, decisions, campaign pauses and verification stops, and failed or unknown execution outcomes, with the recommendation read rules, 14-day retention, cursor paging and strict `@hivemagnus/hive-common` validation. The route is in the OpenAPI document and the browser contracts (`hiveEventSchema`, `hiveEventPageSchema`).
+
+- Document the completed reference acceptance, the signed-suite installation and restore, and the scoped production assessment rollout.
+
+## [0.1.0] - 2026-11-12
 
 - Add gated native multi-architecture runtime and scanner releases with exact scanned configurations, SBOMs, provenance, compatibility metadata and attested public package tarballs.
 - Retain extended disposable campaign, source-to-image, credential, exception, outage, hostile worker and temporary-container acceptance evidence.
