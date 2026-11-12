@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve the reviewed worker executable alias when using the patched shared runtime, and exercise source/preparation entry commands in image CI.
+
 - Keep application-wide finding and campaign-report reads within the reader's runtime subject scope; verification history follows only visible occurrences.
 
 - Require independent security evidence for the current immutable controlling artifact before code, dependency or image runtime closure; container-only repairs can remain recorded mitigations.
