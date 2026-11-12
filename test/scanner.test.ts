@@ -70,3 +70,14 @@ test('repeated credential exposure retains every location without exposing the l
   assert.equal(new Set(result.candidates.map(candidate => candidate.path)).size, 2);
   assert.ok(!JSON.stringify(result).includes(literal));
 });
+
+
+test('authorization anchors use source syntax independently of changing model explanations', async () => {
+  const body = 'export function visibleAccount(owner: string, id: string) {\n return records.find(record => record.id === id);\n}';
+  const probe = (path: string, line: number, explanation: string): Model => ({ ...model, analyze: async () => ({ candidates: [{ path, line, symbol: 'visibleAccount', weakness: 'authorization', title: 'Missing owner filter', evidence: explanation, assumptions: [], severity: 'high', confidence: 0.9 }] }) });
+  const first = await scan(request(), [sourceFile('apps/api/old.ts', body)], probe('apps/api/old.ts', 2, 'The supplied owner is not compared'), new AbortController().signal);
+  const moved = await scan(request(), [sourceFile('apps/api/moved.ts', '\n' + body)], probe('apps/api/moved.ts', 3, 'The lookup ignores the authenticated principal'), new AbortController().signal);
+  assert.equal(first.candidates.length, 1); assert.equal(moved.candidates.length, 1); assert.equal(first.candidates[0]?.fingerprint, moved.candidates[0]?.fingerprint);
+  const ambiguous = await scan(request(), [sourceFile('apps/api/old.ts', body), sourceFile('apps/api/copy.ts', body)], probe('apps/api/old.ts', 2, 'Different prose'), new AbortController().signal);
+  assert.ok(ambiguous.candidates[0]?.assumptions.some(value => value.includes('Ambiguous semantic anchor')));
+});

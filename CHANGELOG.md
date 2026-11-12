@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Derive authorization and other non-sink finding anchors from source syntax rather than variable model explanations, preserving supported file moves and flagging duplicate anchors for review.
+
 - Bind globally distinct deployment records to Magnus resources within the exact target namespace, preserving native identifiers and refusing ambiguous mappings before rollout.
 
 - Yield deliberate canary-verification waits durably so a single worker can run independent assessments, then resume the same campaign job without extending its deadline or replaying admitted actions.

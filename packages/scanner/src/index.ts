@@ -68,13 +68,18 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
         if (candidate.symbol !== '<module>' && !symbol) { failures.push(`invalid-model-symbol:${file.path}`); continue; }
         const normalized = file.source.split('\n')[candidate.line - 1]?.trim() ?? '';
         const anchors = file.hints.filter(hint => hint.line === candidate.line && hint.weakness === candidate.weakness);
-        const anchor = anchors.length === 1 ? anchors[0]?.syntaxDigest : sha(JSON.stringify([normalized, candidate.evidence]));
+        const anchor = anchors.length === 1 ? anchors[0]?.syntaxDigest : sha(normalized);
         const assumptions = candidate.assumptions.map(redact);
         if (anchors.length !== 1) assumptions.push('Semantic matching requires review when the evidence anchor changes');
         // Identical syntax in separate locations cannot establish a unique move.
         // Count indexed locations, including ones the model did not flag, so a
         // model omission cannot silently merge two independently reachable sinks.
-        const matchingLocations = symbol && anchors.length === 1 ? indexed.flatMap(other => other.symbols.filter(otherSymbol => otherSymbol.name === symbol.name && otherSymbol.syntaxDigest === symbol.syntaxDigest).flatMap(otherSymbol => other.hints.filter(hint => hint.syntaxDigest === anchor && hint.weakness === candidate.weakness && hint.line >= otherSymbol.line && hint.line <= otherSymbol.endLine).map(hint => `${other.path}:${hint.line}`))) : [];
+        const matchingLocations = indexed.flatMap(other => {
+          const symbols = symbol ? other.symbols.filter(otherSymbol => otherSymbol.name === symbol.name && otherSymbol.syntaxDigest === symbol.syntaxDigest) : [{ line: 1, endLine: other.source.split('\n').length }];
+          return symbols.flatMap(otherSymbol => anchors.length === 1
+            ? other.hints.filter(hint => hint.syntaxDigest === anchor && hint.weakness === candidate.weakness && hint.line >= otherSymbol.line && hint.line <= otherSymbol.endLine).map(hint => `${other.path}:${hint.line}`)
+            : other.source.split('\n').flatMap((line, index) => line.trim() === normalized && index + 1 >= otherSymbol.line && index + 1 <= otherSymbol.endLine ? [`${other.path}:${index + 1}`] : []));
+        });
         const ambiguous = new Set(matchingLocations).size > 1;
         if (ambiguous) assumptions.push('Ambiguous semantic anchor: location retained separately; cross-scan matching requires technical review');
         candidates.push({ ...candidate, evidence: redact(candidate.evidence), title: redact(candidate.title), assumptions, fingerprint: sha(JSON.stringify([request.providerId, request.applicationId, candidate.weakness, candidate.symbol, symbol?.syntaxDigest ?? sha(normalized), anchor, ...(ambiguous ? [candidate.path, candidate.line] : [])])), component: request.applicationId, validation: 'candidate' });
