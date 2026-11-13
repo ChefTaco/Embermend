@@ -1,6 +1,6 @@
 {
   "name": "@hivemagnus/embermend-ardent-plugin",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": false,
   "license": "Apache-2.0",
   "type": "module",
@@ -24,8 +24,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@hivemagnus/embermend-contracts": "0.3.0",
-    "@hivemagnus/embermend-integrations": "0.3.0",
+    "@hivemagnus/embermend-contracts": "0.3.1",
+    "@hivemagnus/embermend-integrations": "0.3.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
