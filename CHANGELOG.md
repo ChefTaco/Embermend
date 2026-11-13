@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep the `authorizationId` of a policy authorization in the suite audit export instead of masking it as a secret, and hold the 4 KB details bound after redaction.
+- Omit a source file that is not UTF-8 from a repository scan as `unsupported-encoding` (partial coverage) instead of failing the whole scan.
+
 ## [0.3.0] - 2026-11-12
 
 - Serve the suite audit export at `GET /api/v1/audit/export` for Cindertrace: every committed audit row as a strict HiveAuditRecord v1 (`hiveAuditRecordSchema`, `hiveAuditPageSchema`), oldest first by `(createdAt, id)` with opaque cursors and no retention window. It requires the new `embermend:audit:read` permission: service accounts read every installation, operators their own. Each page's `nextCursor` is its last record's cursor; it is `null` only when a page is empty. The optional `OATHWEAVE_NATIVE_ISSUERS` setting accepts native-issuer Oathweave service tokens, limited to `audit:read`. Migration `20261112000000_audit_export` adds an `Audit (createdAt, id)` index for the cross-installation scan and records the actor kind on new audit rows. The route is in the OpenAPI document and the browser contracts.
