@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.1';
 export const PROTOCOL = 1;
 export function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') { const encoded = JSON.stringify(value); if (encoded === undefined) throw new Error('JSON value required'); return encoded; }

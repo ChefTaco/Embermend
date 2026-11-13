@@ -1,6 +1,6 @@
 {
   "name": "@hivemagnus/embermend-integrations",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": false,
   "license": "Apache-2.0",
   "type": "module",
@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@hivemagnus/embermend-contracts": "0.3.0",
+    "@hivemagnus/embermend-contracts": "0.3.1",
     "jose": "6.2.13",
     "zod": "4.6.7"
   },

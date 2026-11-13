@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.3.1] - 2026-11-13
+
 - Keep the `authorizationId` of a policy authorization in the suite audit export instead of masking it as a secret, and hold the 4 KB details bound after redaction.
 - Omit a source file that is not UTF-8 from a repository scan as `unsupported-encoding` (partial coverage) instead of failing the whole scan.
 
