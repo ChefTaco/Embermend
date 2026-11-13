@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { scanRequestSchema, type ScanRequest } from '@hivemagnus/embermend-contracts';
 import { matchesPath, safePath, type SourceFile } from './index.js';
+/** Strict decoding that keeps a byte-order mark, so the text re-encodes to the bytes read. */
+const utf8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 export interface SourceRead { files: SourceFile[]; omitted: { path: string; reason: string }[] }
 /** Called on the immutable read-only checkout. Scope is applied before file IO and byte admission, including directory traversal. */
 export async function readScanSources(root: string, raw: ScanRequest): Promise<SourceRead> {
@@ -26,11 +28,14 @@ export async function readScanSources(root: string, raw: ScanRequest): Promise<S
       if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1) { omitted.push({ path, reason: 'source-hardlink-or-changed-kind' }); continue; }
       if (files.length >= request.maxFiles || info.size > 1024 * 1024 || bytes + info.size > request.maxBytes) { omitted.push({ path, reason: 'resource-budget' }); continue; }
       const fd = await open(join(root, path), constants.O_RDONLY | constants.O_NOFOLLOW);
+      let raw: Buffer;
+      try { const opened = await fd.stat(); if (!opened.isFile() || opened.nlink !== 1 || opened.dev !== info.dev || opened.ino !== info.ino || opened.size !== info.size) throw new Error('SOURCE_CHANGED_DURING_OPEN'); raw = await fd.readFile(); } finally { await fd.close(); }
+      if (raw.length !== info.size || bytes + raw.length > request.maxBytes) throw new Error('SOURCE_CHANGED_DURING_READ');
+      // A file that is not UTF-8 is unreadable source, not a changed checkout: omit it and let
+      // coverage report the gap instead of failing every other file in the scan.
       let content: string;
-      try { const opened = await fd.stat(); if (!opened.isFile() || opened.nlink !== 1 || opened.dev !== info.dev || opened.ino !== info.ino || opened.size !== info.size) throw new Error('SOURCE_CHANGED_DURING_OPEN'); content = await fd.readFile('utf8'); } finally { await fd.close(); }
-      const actualBytes = Buffer.byteLength(content);
-      if (actualBytes !== info.size || bytes + actualBytes > request.maxBytes) throw new Error('SOURCE_CHANGED_DURING_READ');
-      bytes += actualBytes; files.push({ path, content, sha256: createHash('sha256').update(content).digest('hex') });
+      try { content = utf8.decode(raw); } catch { omitted.push({ path, reason: 'unsupported-encoding' }); continue; }
+      bytes += raw.length; files.push({ path, content, sha256: createHash('sha256').update(content).digest('hex') });
     }
   }
   await walk(''); return { files, omitted };

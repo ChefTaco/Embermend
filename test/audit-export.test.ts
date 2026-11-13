@@ -53,6 +53,18 @@ test('details keep only flat identifiers, drop free text and secrets, and fit 4 
   assert.ok(hiveAuditRecordSchema.safeParse(auditRecord(row({ details: large }))).success);
 });
 
+test('record identifiers are exported even when their key resembles a secret name', () => {
+  // plan.policy-authorized records which authorization the policy created.
+  const record = auditRecord(row({ operation: 'plan.policy-authorized', details: { authorizationId: '00000000-0000-4000-8000-000000000002', policyId: 'fixture-policy', policyRevision: 3 } }));
+  assert.deepEqual(record.details, { installationId: 'fixture-installation', authorizationId: '00000000-0000-4000-8000-000000000002', policyId: 'fixture-policy', policyRevision: 3 });
+  // The identifier's value is still scrubbed as text, and real secrets under secret keys stay masked.
+  assert.equal(String(auditDetails({ installationId: 'i', details: { authorizationId: 'Bearer abcdefghijklmnop' } })['authorizationId']).includes('abcdefghijklmnop'), false);
+  assert.equal(auditDetails({ installationId: 'i', details: { authorization: 'fixture-not-a-real-value' } })['authorization'], '[REDACTED]');
+  // The 4 KB bound holds after masking lengthens short values.
+  const short = Object.fromEntries(Array.from({ length: 600 }, (_, index) => [`t${String(index).padStart(3, '0')}Token`, 'x']));
+  assert.ok(hiveAuditRecordSchema.safeParse(auditRecord(row({ details: short }))).success);
+});
+
 test('only audit:read grants export; services export every installation, operators their own', () => {
   const reader = (kind: Actor['kind'], permissions: Actor['permissions']): Actor => ({ id: 'fixture', kind, permissions, scope });
   assert.equal(auditExportInstallation(reader('integration', new Set(['audit:read']))), null);

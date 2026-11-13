@@ -1,5 +1,5 @@
 import type { Page } from '@hivemagnus/hive-common/contracts';
-import { redact } from '@hivemagnus/hive-common/log';
+import { redact, redactText } from '@hivemagnus/hive-common/log';
 import { hiveAuditRecordSchema, type Actor, type HiveAuditRecord } from '@hivemagnus/embermend-contracts';
 import type { Database } from '@hivemagnus/embermend-store';
 import { DomainError } from './authorization.js';
@@ -25,6 +25,8 @@ const MAX_DETAIL_STRING = 256;
 const NATIVE_ID = /^[A-Za-z0-9._:-]{1,200}$/;
 const MAX_DETAILS_BYTES = 4096;
 const SAFE_REASON = /^[A-Z][A-Z0-9_]{0,99}$/;
+/** Record identifiers whose key only resembles a secret name: kept, with the value scrubbed as text. */
+const IDENTIFIER_KEYS = new Set(['authorizationId']);
 const bytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value));
 
 /** Embermend operations are dotted lowercase; hyphens become underscores. */
@@ -54,7 +56,7 @@ function outcome(row: ExportedAuditRow): HiveAuditRecord['outcome'] {
 
 /** Flat scalar details: identifiers, digests, revisions and states only, redacted and within 4 KB. */
 export function auditDetails(row: Pick<ExportedAuditRow, 'details' | 'installationId'>): Record<string, string | number | boolean | null> {
-  const output: Record<string, string | number | boolean | null> = { installationId: row.installationId.slice(0, MAX_DETAIL_STRING) };
+  const output: Record<string, string | number | boolean | null> = { installationId: redactText(row.installationId.slice(0, MAX_DETAIL_STRING)) };
   const source = typeof row.details === 'object' && row.details !== null && !Array.isArray(row.details) ? Object.entries(row.details).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0) : [];
   for (const [key, value] of source) {
     if (key.length > 64 || key === 'installationId' || FREE_TEXT_KEYS.has(key) && !(typeof value === 'string' && SAFE_REASON.test(value))) continue;
@@ -62,11 +64,13 @@ export function auditDetails(row: Pick<ExportedAuditRow, 'details' | 'installati
     if (typeof value === 'string') scalar = value.length > MAX_DETAIL_STRING ? `${value.slice(0, MAX_DETAIL_STRING - 1)}…` : value;
     else if (typeof value === 'number' && Number.isFinite(value) || typeof value === 'boolean' || value === null) scalar = value;
     else continue;
-    const candidate = { ...output, [key]: scalar };
+    // Redact before measuring: masking can lengthen a short value.
+    const safe = IDENTIFIER_KEYS.has(key) && typeof scalar === 'string' ? redactText(scalar) : redact({ [key]: scalar })[key] ?? null;
+    const candidate = { ...output, [key]: safe };
     if (bytes(candidate) > MAX_DETAILS_BYTES) break;
-    output[key] = scalar;
+    output[key] = safe;
   }
-  return redact(output);
+  return output;
 }
 
 export function auditRecord(row: ExportedAuditRow, resolve?: AuditExportOptions['actorKind']): HiveAuditRecord {
