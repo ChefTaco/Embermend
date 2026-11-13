@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { VERSION } from '@hivemagnus/embermend-contracts';
 import type { Model } from '../index.js';
 import { candidateJsonSchema, type InferenceProvider } from './config.js';
 import { cliEnvironment, privateCredential, runBounded } from './process.js';
@@ -57,7 +58,7 @@ export class CodexCliInference implements Model {
         }
         if (method === 'turn/completed') { const result = z.object({ turn: z.object({ status: z.literal('completed') }) }).safeParse(params); if (!result.success) rejectTurn(new Error('CODEX_TURN_FAILED')); else resolveTurn(); }
       };
-      const initialize = async (server: Rpc): Promise<void> => { await server.request('initialize', { clientInfo: { name: 'embermend-inference', version: '0.3.0' }, capabilities: { experimentalApi: true } }); server.write({ method: 'initialized', params: {} }); };
+      const initialize = async (server: Rpc): Promise<void> => { await server.request('initialize', { clientInfo: { name: 'embermend-inference', version: VERSION }, capabilities: { experimentalApi: true } }); server.write({ method: 'initialized', params: {} }); };
       const loadedSchema = z.object({ config: z.object({ mcp_servers: z.record(z.string().max(200), z.object({ enabled: z.boolean().optional() }).passthrough()).default({}), features: z.record(z.string(), z.boolean().nullable()) }) });
       await initialize(rpc);
       const inherited = loadedSchema.parse(await rpc.request('config/read', { includeLayers: false }));

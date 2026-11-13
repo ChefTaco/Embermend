@@ -2,7 +2,7 @@ import ts from 'typescript';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { posix } from 'node:path';
-import { scanRequestSchema, scanResultSchema, scannerBrokerReplySchema, type ScanRequest, type ScanResult, type ScanCandidate } from '@hivemagnus/embermend-contracts';
+import { VERSION, scanRequestSchema, scanResultSchema, scannerBrokerReplySchema, type ScanRequest, type ScanResult, type ScanCandidate } from '@hivemagnus/embermend-contracts';
 import { redact, type Model } from '@hivemagnus/embermend-integrations';
 
 export const sourceFileSchema = z.object({ path: z.string().min(1).max(1000), content: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
@@ -99,7 +99,7 @@ export async function scan(input: ScanRequest, rawFiles: readonly SourceFile[], 
   }
   const incomplete = excluded.some(value => !['outside-application-scope'].includes(value.reason)) || failures.length > 0 || examined.length === 0;
   const canceled = signal.aborted || failures.includes('canceled-or-deadline');
-  return scanResultSchema.parse({ scannerVersion: '0.3.0', profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
+  return scanResultSchema.parse({ scannerVersion: VERSION, profile: request.profile, modelRef: model.ref, commit: request.commit, operationId: request.operationId,
     coverage: { status: canceled ? 'canceled' : incomplete ? 'partial' : 'complete', requested, examined, excluded, failures, mode: request.mode, observedAt: new Date().toISOString() }, candidates: [...new Map(candidates.map(candidate => [JSON.stringify([candidate.fingerprint, candidate.path, candidate.line]), candidate])).values()], languages: ['typescript', 'javascript'], assessedClasses: classes, state: canceled ? 'canceled' : incomplete ? 'partial' : 'completed' });
 }
 
