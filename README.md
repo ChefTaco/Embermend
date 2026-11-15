@@ -18,15 +18,16 @@ There is no standalone host-management mode or direct SSH execution path.
 ## Install
 
 Use signed Hive 3.2.2 or a later compatible combination with Magnus 2.5.0 or newer
-and its explicit Embermend bridge. In guided setup, opt into Embermend after
-selecting Magnus or configuring an existing external Magnus. The default is off.
+and its explicit Embermend bridge; Hive 3.9.1 pins Embermend 0.3.1 with Magnus 3.0.2.
+In guided setup, opt into Embermend after selecting Magnus or configuring an existing
+external Magnus. The default is off.
 
 ```sh
 git clone https://github.com/ChefTaco/hive.git && cd hive
 ./hive.sh --release latest
 ```
 
-Follow the [suite setup guide](https://github.com/ChefTaco/hive/blob/v3.2.2/deployment/EMBERMEND.md)
+Follow the [suite setup guide](https://github.com/ChefTaco/hive/blob/v3.9.1/deployment/EMBERMEND.md)
 and [scoped operations guide](docs/OPERATIONS.md). Existing installations use their
 own reviewed configuration, verified backup and restore rehearsal. Initial access
 needs only `read`, `evidence` and `assess` on exact authorized targets.

@@ -71,7 +71,9 @@ and runtime restrictions. All configured health checks pass in an internal
 namespace without published ports or fleet/provider access. Guest disks and
 external provider/CLI sign-ins are outside that controller backup scope.
 
-Oathweave 2.2.0, Magnus 2.5.0, HiveXUI 0.3.0 and Embermend 0.3.1 are published. Hive offers
+Embermend 0.3.1 and its minimum prerequisites (Oathweave 2.2.0, Magnus 2.5.0 and HiveXUI
+0.3.0) are published; signed Hive 3.9.1 pins Embermend 0.3.1 with Oathweave 2.3.0,
+Magnus 3.0.2 and HiveXUI 0.9.0. Hive offers
 Embermend as an explicit optional selection with required Magnus 2.5 bridge
 admission, initialization, identity, ingress, Registry and shared API/worker image
 contracts. Candidate builds include its isolated scanner. Existing signed release
@@ -81,7 +83,7 @@ version indexes, SBOM/provenance, compatibility metadata and attested package as
 
 The signed Hive 3.2.0 reference combination passed actual installation,
 authentication, coordinated backup, isolated rehearsal and same-host restore.
-The production suite now uses signed Hive 3.2.2, with 13 healthy services and one
+On 2026-11-12 the production suite used signed Hive 3.2.2, with 13 healthy services and one
 explicit inventory/assessment canary. All three profiles completed again after the upgrade: Magnus posture
 and Compose posture have complete coverage of their declared checks; the Ubuntu
 baseline retains three unassessed checks. No vendor host-vulnerability coverage is
