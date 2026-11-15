@@ -65,6 +65,14 @@ test('record identifiers are exported even when their key resembles a secret nam
   assert.ok(hiveAuditRecordSchema.safeParse(auditRecord(row({ details: short }))).success);
 });
 
+test('audit details mask URL credentials without a user or password and JWT, bearer and signature keys', () => {
+  const details = auditDetails({ installationId: 'i', details: { cacheUrl: 'redis://:fixture-pass-value@cache.example.com:6379', sourceUrl: 'https://fixture-url-token@git.example.com/repo', bearerValue: 'fixture-bearer-value', jwtHeader: 'fixture-jwt-value', requestSignature: 'fixture-signature-value', policyRevision: 3 } });
+  const text = JSON.stringify(details);
+  for (const value of ['fixture-pass-value', 'fixture-url-token', 'fixture-bearer-value', 'fixture-jwt-value', 'fixture-signature-value']) assert.equal(text.includes(value), false, value);
+  assert.equal(details['bearerValue'], '[REDACTED]'); assert.equal(details['jwtHeader'], '[REDACTED]'); assert.equal(details['requestSignature'], '[REDACTED]');
+  assert.equal(details['policyRevision'], 3);
+});
+
 test('only audit:read grants export; services export every installation, operators their own', () => {
   const reader = (kind: Actor['kind'], permissions: Actor['permissions']): Actor => ({ id: 'fixture', kind, permissions, scope });
   assert.equal(auditExportInstallation(reader('integration', new Set(['audit:read']))), null);

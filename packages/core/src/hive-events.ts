@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { validateHiveEvent, type HiveEvent, type HiveEventSeverity, type Page } from '@hivemagnus/hive-common/contracts';
+import { compareFeedPositions, isAfterFeedPosition, validateHiveEvent, type FeedPosition, type HiveEvent, type HiveEventSeverity, type Page } from '@hivemagnus/hive-common/contracts';
 import { decodeCursor, encodeCursor, feedPage } from '@hivemagnus/hive-common/events';
 import { entitySchema, findingSchema, planSchema, type Actor, type Finding, type Plan } from '@hivemagnus/embermend-contracts';
 import { within, type Database } from '@hivemagnus/embermend-store';
@@ -19,7 +19,7 @@ const NODE_ID = /^[a-z0-9_-]{2,32}$/;
 const KEY = /^[A-Za-z0-9._-]{1,40}$/;
 
 export interface AuditRow { id: string; operation: string; subjectId: string; installationId: string; details: unknown; createdAt: Date }
-export interface FeedPosition { occurredAt: string; id: string }
+export type { FeedPosition };
 const positionSchema = z.object({ t: z.iso.datetime(), i: z.string().min(1).max(200) }).strict();
 
 export function encodeFeedPosition(position: FeedPosition): string { return encodeCursor({ t: position.occurredAt, i: position.id }); }
@@ -30,7 +30,6 @@ export function decodeFeedPosition(cursor: string): FeedPosition {
   if (!parsed.success) throw new DomainError('INVALID_FEED_CURSOR', 400);
   return { occurredAt: parsed.data.t, id: parsed.data.i };
 }
-const compare = (a: FeedPosition, b: FeedPosition): number => Date.parse(a.occurredAt) - Date.parse(b.occurredAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /** An identifier segment that fits a HiveEvent ID: the record ID when safe, else a stable digest. */
 export function eventKey(value: string): string { return KEY.test(value) ? value : `h-${createHash('sha256').update(value).digest('hex').slice(0, 32)}`; }
@@ -194,7 +193,7 @@ export async function hiveEventFeed(db: Database, actor: Actor, options: HiveEve
       if (!candidate) continue;
       const result = validateHiveEvent(candidate, { strict: true });
       if (!result.ok) { drop({ operation: row.operation, issues: result.issues.length }); continue; }
-      if (!after || compare(result.value, after) > 0) events.push(result.value);
+      if (isAfterFeedPosition(result.value, after)) events.push(result.value);
     }
     const tail = rows.at(-1);
     if (rows.length < BATCH || !tail) { exhausted = true; break; }
@@ -202,7 +201,7 @@ export async function hiveEventFeed(db: Database, actor: Actor, options: HiveEve
     // Rows are read in audit order; only events before the newest timestamp read are complete.
     if (events.filter(event => Date.parse(event.occurredAt) < tail.createdAt.getTime()).length > options.limit) break;
   }
-  events.sort(compare);
+  events.sort(compareFeedPositions);
   const cursorOf = (event: HiveEvent): string => encodeFeedPosition(event);
   if (exhausted || !last) return feedPage(events.slice(0, options.limit + 1), options.limit, cursorOf);
   const horizon = last.createdAt.getTime();

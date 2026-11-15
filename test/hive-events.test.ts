@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateHiveEvent } from '@hivemagnus/hive-common/contracts';
+import { compareFeedPositions, isAfterFeedPosition, validateHiveEvent } from '@hivemagnus/hive-common/contracts';
 import { HIVE_EVENTS_PATH as SHARED_PATH } from '@hivemagnus/hive-common/events';
 import { HIVE_EVENTS_PATH, hiveEventSchema } from '@hivemagnus/embermend-contracts';
 import { decodeFeedPosition, encodeFeedPosition, eventKey, recommendationSeverity } from '@hivemagnus/embermend-core';
@@ -26,6 +26,19 @@ test('feed cursors round-trip and reject tampering with 400', () => {
   const position = { occurredAt: '2026-11-12T10:00:00.000Z', id: 'embermend:plan:p:r1:created' };
   assert.deepEqual(decodeFeedPosition(encodeFeedPosition(position)), position);
   for (const cursor of ['!!', 'e30', encodeFeedPosition({ occurredAt: 'yesterday', id: 'x' })]) assert.throws(() => decodeFeedPosition(cursor), (error: unknown) => error instanceof Error && error.message === 'INVALID_FEED_CURSOR');
+});
+
+test('feed order is (occurredAt, id) with ties broken by ID and a cursor excluding its own position', () => {
+  // The feed and the audit export sort and resume with the shared comparators; these are the
+  // semantics their cursors depend on.
+  const at = '2026-11-12T10:00:00.000Z';
+  const positions = [{ occurredAt: '2026-11-12T10:00:01.000Z', id: 'a' }, { occurredAt: at, id: 'b' }, { occurredAt: at, id: 'B' }, { occurredAt: at, id: 'a' }];
+  assert.deepEqual([...positions].sort(compareFeedPositions).map(position => `${position.occurredAt}/${position.id}`), [`${at}/B`, `${at}/a`, `${at}/b`, '2026-11-12T10:00:01.000Z/a']);
+  const cursor = decodeFeedPosition(encodeFeedPosition({ occurredAt: at, id: 'a' }));
+  assert.deepEqual(positions.filter(position => isAfterFeedPosition(position, cursor)).map(position => position.id), ['a', 'b']);
+  assert.equal(isAfterFeedPosition({ occurredAt: at, id: 'a' }, undefined), true);
+  // The horizon cursor the feed returns when its scan budget runs out sorts after every ID at that instant.
+  assert.equal(isAfterFeedPosition({ occurredAt: at, id: 'embermend:plan:p:r1:created' }, { occurredAt: at, id: '~' }), false);
 });
 
 test('browser contract agrees with the shared HiveEvent validator', () => {
