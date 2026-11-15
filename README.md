@@ -5,9 +5,11 @@ infrastructure and applications. Embermend owns security findings, revisioned
 recommendations, authorization policies, and verified outcomes. Magnus owns
 host enrollment, managed execution, resource ownership, and signed receipts.
 
-**Embermend 0.3.1 is released.** It fixes the suite audit export's
-`authorizationId` masking and scans with non-UTF-8 source files. Embermend 0.3.0
-added the suite audit export and the opt-in Emberpath inference preset. All
+**Embermend 0.3.2 is released.** It updates the shared suite kit to
+`@hivemagnus/hive-common` 0.5.0, which masks more credential forms in the suite
+audit export. Embermend 0.3.1 fixed the audit export's `authorizationId` masking and
+scans with non-UTF-8 source files; 0.3.0 added the suite audit export and the
+opt-in Emberpath inference preset. All
 AC-01–AC-24 reference acceptance journeys, recorded against 0.1.0, have retained
 proof in the [acceptance ledger](docs/ACCEPTANCE.md), including native fault
 recovery, the source-to-deployment workflow and combined-store restore.
