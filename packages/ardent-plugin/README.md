@@ -20,7 +20,9 @@ enter scanned repository code. Publication and execution stay
 separate operations. Configure only the permissions actually granted to the
 coordinator; enabling tools cannot expand its server-side authority.
 
-This is a development preview, pending the full product acceptance ledger.
+The package is released with Embermend as an attested tarball on each GitHub release
+(it is not on npm); see [releasing](../../docs/RELEASING.md). Its acceptance scope is in
+the [acceptance ledger](../../docs/ACCEPTANCE.md).
 
 The endpoint may be a native service origin or the Hive ingress prefix
 `https://suite.example.com/api/embermend`. Tool requests preserve that prefix.

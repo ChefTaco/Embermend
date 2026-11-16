@@ -5,5 +5,6 @@ contains no backend or infrastructure credential imports. The generated OpenAPI
 snapshot ships alongside its TypeScript declarations. External values remain
 untrusted until their runtime schemas validate them.
 
-This is a development preview. Contract availability does not establish live
-remediation capability; consult the repository's acceptance ledger.
+The package is released with Embermend as an attested tarball on each GitHub release
+(it is not on npm). Contract availability does not establish live remediation
+capability; consult the repository's acceptance ledger.
