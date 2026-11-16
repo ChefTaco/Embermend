@@ -5,11 +5,8 @@ infrastructure and applications. Embermend owns security findings, revisioned
 recommendations, authorization policies, and verified outcomes. Magnus owns
 host enrollment, managed execution, resource ownership, and signed receipts.
 
-**Embermend 0.3.2 is released.** It updates the shared suite kit to
-`@hivemagnus/hive-common` 0.5.0, which masks more credential forms in the suite
-audit export. Embermend 0.3.1 fixed the audit export's `authorizationId` masking and
-scans with non-UTF-8 source files; 0.3.0 added the suite audit export and the
-opt-in Emberpath inference preset. All
+The current release is **Embermend 0.3.2**; see the [changelog](CHANGELOG.md) for
+what each release changed. All
 AC-01–AC-24 reference acceptance journeys, recorded against 0.1.0, have retained
 proof in the [acceptance ledger](docs/ACCEPTANCE.md), including native fault
 recovery, the source-to-deployment workflow and combined-store restore.
@@ -20,7 +17,7 @@ There is no standalone host-management mode or direct SSH execution path.
 ## Install
 
 Use signed Hive 3.2.2 or a later compatible combination with Magnus 2.5.0 or newer
-and its explicit Embermend bridge; Hive 3.9.1 pins Embermend 0.3.1 with Magnus 3.0.2.
+and its explicit Embermend bridge; Hive 3.11.0 pins Embermend 0.3.2 with Magnus 3.1.1.
 In guided setup, opt into Embermend after selecting Magnus or configuring an existing
 external Magnus. The default is off.
 
@@ -29,7 +26,7 @@ git clone https://github.com/ChefTaco/hive.git && cd hive
 ./hive.sh --release latest
 ```
 
-Follow the [suite setup guide](https://github.com/ChefTaco/hive/blob/v3.9.1/deployment/EMBERMEND.md)
+Follow the [suite setup guide](https://github.com/ChefTaco/hive/blob/v3.11.0/deployment/EMBERMEND.md)
 and [scoped operations guide](docs/OPERATIONS.md). Existing installations use their
 own reviewed configuration, verified backup and restore rehearsal. Initial access
 needs only `read`, `evidence` and `assess` on exact authorized targets.
@@ -55,8 +52,17 @@ Never point them at product data. Prisma migration generation uses an explicit
 
 Configure the API and worker from `.env.example`; use environment injection or
 Node's `--env-file` flag. Both processes share the same PostgreSQL database.
-`npm start` starts the API; `npm run worker` starts durable work processing.
-Live and readiness endpoints distinguish process health from Magnus readiness.
+
+| Command | Process |
+|---|---|
+| `npm start` | API on `EMBERMEND_BIND`:`EMBERMEND_PORT` (default `127.0.0.1:4180`) |
+| `npm run worker` | Durable work processing |
+| `npm run inference` | Optional inference broker on `127.0.0.1:${EMBERMEND_INFERENCE_PORT:-4181}` ([provider guide](docs/INFERENCE.md)) |
+| `node services/runtime/dist/index.js migrate` | Apply database migrations (`verify-initialization` checks them) |
+
+`GET /health/live` reports process health and `GET /health/compatibility` the runtime and
+bridge protocol; the authenticated `GET /api/v1/readiness` reports Magnus and inventory
+readiness.
 
 ## Product boundaries
 
@@ -140,13 +146,19 @@ outgoing history with checksum-pinned Gitleaks. Do not bypass them.
 Use the owning system's credential-invalidation evidence before closing an
 exposed-secret occurrence; deleting the literal is insufficient.
 
+## Documentation
+
+- [Operations](docs/OPERATIONS.md): scoped operator access, operational observations and an
+  optional unattended identity proposal
+- [Inference providers](docs/INFERENCE.md): provider setup and CLI isolation
+- [GitHub provider authorization](docs/GITHUB_PROVIDER_AUTH.md) and
+  [provider boundaries](docs/PROVIDER_BOUNDARIES.md)
+- [Artifact publication](docs/ARTIFACT_PUBLICATION.md) and [build tracking](docs/BUILD_TRACKING.md)
+- [Recovery](docs/RECOVERY.md): managed job observation and cancellation
+- [Reboot and deployment](docs/REBOOT_AND_DEPLOYMENT.md) and the
+  [reboot fault matrix](docs/REBOOT_FAULT_MATRIX.md)
+- [Releasing](docs/RELEASING.md), [implementation status](docs/IMPLEMENTATION_STATUS.md),
+  [acceptance ledger](docs/ACCEPTANCE.md) and the
+  [product specification](docs/PRODUCT_SPECIFICATION.md)
+
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
-
-Inference setup and CLI isolation are described in [the provider guide](docs/INFERENCE.md).
-GitHub permissions, merge enforcement and the optional unattended App setup are
-described in [provider authorization](docs/GITHUB_PROVIDER_AUTH.md).
-Managed job observation and cancellation semantics are documented in
-[recovery](docs/RECOVERY.md).
-
-Scoped operator access, operational observations and a concrete optional unattended
-identity proposal are described in [operations](docs/OPERATIONS.md).
