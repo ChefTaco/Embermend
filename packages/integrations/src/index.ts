@@ -84,8 +84,30 @@ export class ResourceTokenProvider {
     this.cached = { token: value.access_token, expiresAt: Date.now() + value.expires_in * 1000 }; return value.access_token;
   }
 }
+/** The end of a `-----BEGIN|END <label>PRIVATE KEY-----` marker at `at`, where the label holds no `-`; -1 when there is none. */
+function pemMarkerEnd(text: string, at: number, prefix: string): number {
+  const label = at + prefix.length; const dash = text.indexOf('-', label);
+  return dash - label >= 11 && text.startsWith('PRIVATE KEY-----', dash - 11) ? dash + 5 : -1;
+}
+/**
+ * Replace each private-key block with a placeholder that keeps its line count. A linear scan with the same matches as
+ * /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g, which is quadratic on repeated BEGIN markers.
+ */
+function redactPrivateKeyBlocks(text: string): string {
+  const begin = '-----BEGIN ', end = '-----END '; let output = '', copied = 0;
+  for (let at = text.indexOf(begin); at !== -1; at = text.indexOf(begin, at + 1)) {
+    const header = pemMarkerEnd(text, at, begin); if (header === -1) continue;
+    let footer = -1;
+    for (let close = text.indexOf(end, header); close !== -1 && footer === -1; close = text.indexOf(end, close + 1)) footer = pemMarkerEnd(text, close, end);
+    // No closing marker follows this one, so none follows any later opening marker either.
+    if (footer === -1) break;
+    const block = text.slice(at, footer); output += text.slice(copied, at) + '[REDACTED PRIVATE KEY]' + '\n'.repeat(block.split('\n').length - 1);
+    copied = footer; at = footer - 1;
+  }
+  return output + text.slice(copied);
+}
 export function redact(text: string): string {
-  return text.replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g, value => '[REDACTED PRIVATE KEY]' + '\n'.repeat(value.split('\n').length - 1))
+  return redactPrivateKeyBlocks(text)
     .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{16,}|sk-[A-Za-z0-9_-]{16,}|AKIA[A-Z0-9]{16})\b/g, '[REDACTED CREDENTIAL]')
     .replace(/(authorization["']?\s*[=:]\s*["']?)(?:(?:bearer|basic)\s+)?[^\s"',;}]+/gi, '$1[REDACTED]')
     .replace(/((?:password|passwd|secret|token|api[_-]?key)["']?\s*[=:]\s*["']?)([^\s"',;}]{4,})/gi, '$1[REDACTED]');
