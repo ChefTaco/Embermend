@@ -71,8 +71,8 @@ namespace without published ports or fleet/provider access. Guest disks and
 external provider/CLI sign-ins are outside that controller backup scope.
 
 Embermend 0.3.2 and its minimum prerequisites (Oathweave 2.2.0, Magnus 2.5.0 and HiveXUI
-0.3.0) are published; signed Hive 3.12.2 pins Embermend 0.3.2 with Oathweave 2.3.1,
-Magnus 3.1.3 and HiveXUI 0.10.0. Hive offers
+0.3.0) are published; signed Hive 3.12.3 pins Embermend 0.3.2 with Oathweave 2.3.1,
+Magnus 3.1.3 and HiveXUI 0.10.1. Hive offers
 Embermend as an explicit optional selection with required Magnus 2.5 bridge
 admission, initialization, identity, ingress, Registry and shared API/worker image
 contracts. Candidate builds include its isolated scanner. Existing signed release
