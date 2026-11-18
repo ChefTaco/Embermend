@@ -59,6 +59,18 @@ test('removing a secret from source does not prove invalidation', () => {
   const proof = { ...evidence(), source: 'credential-owner', content: { credentialInvalidated: true, consumerMigrationVerified: true, findingIdentity: hash } };
   const result = verifiedOccurrence({ ...finding(), kind: 'credential-exposure' }, occurrence(), { ...verification(), dimension: 'credential-invalidation', consumerMigrationVerified: true }, [proof]); assert.equal(result.runtimeState, 'verified-resolved');
 });
+test('private-key blocks are redacted with their line count kept, in linear time on adversarial input', () => {
+  // Markers are assembled so the secret scanners never see a literal key block in this file.
+  const marker = (kind: 'BEGIN' | 'END', label: string) => `-----${kind} ${label}PRIVATE KEY-----`;
+  const block = (label: string, body: string) => `${marker('BEGIN', label)}\n${body}\n${marker('END', label)}`;
+  assert.equal(redact(`a ${block('RSA ', 'AAAA\nBBBB')} b ${block('', 'CCCC')} c`), 'a [REDACTED PRIVATE KEY]\n\n\n b [REDACTED PRIVATE KEY]\n\n c');
+  for (const text of [marker('BEGIN', 'RSA ') + '\nAAAA', marker('BEGIN', 'X-Y ') + '\nA\n' + marker('END', 'RSA ')]) assert.equal(redact(text), text);
+  assert.equal(redact('-----BEGIN ' + marker('BEGIN', 'EC ') + '\n-----END x' + marker('END', 'EC ') + ' z'), '-----BEGIN [REDACTED PRIVATE KEY]\n z');
+  // The former regex took tens of seconds on these (quadratic in the number of unmatched markers).
+  const started = performance.now();
+  for (const text of ['-----BEGIN '.repeat(100_000), marker('BEGIN', 'RSA ').repeat(100_000), marker('BEGIN', 'RSA ') + '-----END x'.repeat(100_000)]) assert.equal(redact(text), text);
+  assert.ok(performance.now() - started < 500);
+});
 test('endpoint verification refuses insecure remote URLs and credential-bearing URLs', () => {
   for (const url of ['http://example.com', 'https://user:password@example.com', 'https://example.com/?token=value']) assert.throws(() => endpoint(url));
 });

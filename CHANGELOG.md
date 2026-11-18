@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Redact private-key blocks with a linear scan instead of a regex that took quadratic time on text with many unmatched `-----BEGIN …PRIVATE KEY-----` markers (CodeQL `js/polynomial-redos`). The same blocks are redacted, with their line count kept.
+
 ## [0.3.2] - 2026-11-15
 
 - Update `@hivemagnus/hive-common` to 0.5.0. Through its log redaction, the suite audit export now also masks URL credentials without a user or without a password (`scheme://:password@host`, `scheme://token@host`) and detail values under keys containing `jwt`, `bearer` or `signature`. The HiveEvent feed sorts and resumes with the shared `(occurredAt, id)` comparators, which order events exactly as before.
