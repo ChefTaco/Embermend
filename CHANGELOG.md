@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.3.3] - 2026-11-20
 
 - Redact private-key blocks with a linear scan instead of a regex that took quadratic time on text with many unmatched `-----BEGIN …PRIVATE KEY-----` markers (CodeQL `js/polynomial-redos`). The same blocks are redacted, with their line count kept.
 
