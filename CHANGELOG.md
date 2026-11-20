@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.4] - 2026-11-20
+
+- Security: force `effect` to 3.22.1 through an npm override, fixing CVE-2026-121707 (ReDoS in `Schema.TemplateLiteral`) in the container images. Its only consumer is the Prisma CLI configuration loader used for migrations, not request handling. No migration.
+
 ## [0.3.3] - 2026-11-20
 
 - Redact private-key blocks with a linear scan instead of a regex that took quadratic time on text with many unmatched `-----BEGIN …PRIVATE KEY-----` markers (CodeQL `js/polynomial-redos`). The same blocks are redacted, with their line count kept.
