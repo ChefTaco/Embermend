@@ -2,9 +2,18 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-26
+
+Fixes npm publication in the release workflow; the first release whose packages the workflow publishes to npm. Runtime code is unchanged from 0.6.0.
+
 ### Fixed
 
 - The release workflow's `npm` job passed each tarball to `npm publish` as a relative path (`release-assets/<file>.tgz`), which npm reads as a GitHub `owner/repo` shorthand, so it tried to clone a repository and failed. The 0.6.0 images and GitHub release were published, but its npm packages were not. The script now passes absolute paths, covered by `test/publish-npm.test.ts`.
+
+### Upgrade notes
+
+- Use 0.6.1 rather than 0.6.0: the images carry the same runtime code, and `@hivemagnus/embermend-contracts`, `-integrations` and `-ardent-plugin` 0.6.1 are on npm with provenance (0.6.0 is only on the GitHub release).
+- Upgrading from 0.5.0, the 0.6.0 notes below apply: nothing changes until an operator sets `EMBERMEND_AUTHORITY_SOURCE=oathweave`; no migration, so suite upgrades do not need `--allow-migrations`, and rolling back to 0.6.0 or 0.5.0 is safe (restore the operator grants first if you switched to Oathweave roles).
 
 ## [0.6.0] - 2026-11-26
 

@@ -5,7 +5,7 @@ infrastructure and applications. Embermend owns security findings, revisioned
 recommendations, authorization policies, and verified outcomes. Magnus owns
 host enrollment, managed execution, resource ownership, and signed receipts.
 
-The current release is **Embermend 0.6.0**; see the [changelog](CHANGELOG.md) for
+The current release is **Embermend 0.6.1**; see the [changelog](CHANGELOG.md) for
 what each release changed. All
 AC-01–AC-24 reference acceptance journeys, recorded against 0.1.0, have retained
 proof in the [acceptance ledger](docs/ACCEPTANCE.md), including native fault
