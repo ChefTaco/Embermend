@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { z } from 'zod';
-import { database, digest, claim, enqueue, json } from '@hivemagnus/embermend-store';
+import { database, digest, claim, enqueue, json, serializeActor } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus, type ArtifactPublisher } from '@hivemagnus/embermend-integrations';
 import { buildSchema, receiptSchema, scanRequestSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
-import { tick } from '../../services/runtime/dist/worker.js';
+import { tick, maintenance, deliverSchedules, runWorker } from '../../services/runtime/dist/worker.js';
+import { grantAuthority, type Grants } from '../../services/runtime/dist/authority.js';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
 import { reconcileDeploymentInventory } from '../../services/runtime/dist/deployment-inventory.js';
 import { createApi } from '../../services/runtime/dist/api.js';
@@ -850,6 +851,54 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await service.dispatch(operator, self.id, 'settle')).state, 'completed');
     assert.equal((await service.dispatch(operator, selfReview.id, 'settle')).state, 'completed');
     assert.equal(magnus.requests.length, 3);
+  });
+
+  await t.test('queued jobs and schedules run only with the authority current grants still give', async () => {
+    const { service, magnus } = await reset(); const signal = new AbortController().signal;
+    const grant = (actor: Actor, changes: Partial<Grants[number]> = {}): Grants[number] => ({ subject: actor.id, kind: actor.kind, permissions: [...actor.permissions], scope: actor.scope, ...changes });
+    const assessment = (name: string) => service.assess(operator, { id: name, scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });
+    const cases: Array<[string, Grants, string, string]> = [
+      ['grant-removed', [grant(coordinator)], 'ACTOR_GRANT_REVOKED', 'job.authority-revoked'],
+      ['grant-duplicated', [grant(operator), grant(operator)], 'ACTOR_GRANT_REVOKED', 'job.authority-revoked'],
+      ['kind-changed', [grant(operator, { kind: 'coordinator' })], 'ACTOR_KIND_CHANGED', 'job.authority-revoked'],
+      ['scope-narrowed', [grant(operator, { scope: { ...scope, targetIds: [] } })], 'ACTOR_SCOPE_REVOKED', 'job.authority-revoked'],
+      // Narrowed below what an assessment needs: normal admission refuses it.
+      ['permission-narrowed', [grant(operator, { permissions: ['read'] })], 'SCOPE_OR_PERMISSION_DENIED', 'job.authority-narrowed'],
+    ];
+    for (const [name, grants, error, operation] of cases) {
+      const id = await assessment('authority-' + name);
+      await tick(service, 'fixture-authority-' + name, signal, grantAuthority(grants));
+      const job = await service.job(operator, id); assert.equal(job.status, 'failed', name); assert.equal(job.error, error, name);
+      assert.equal(await db.audit.count({ where: { subjectId: id, operation } }), 1, name);
+    }
+    assert.equal(magnus.requests.length, 0);
+
+    const schedule = async (name: string) => {
+      await db.schedule.create({ data: { id: name, installationId: scope.installationId, actor: serializeActor(operator), kind: 'assessment', payload: json({ scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1' }), intervalSeconds: 3600, nextAt: new Date(Date.now() - 1000) } });
+      await maintenance(service); return db.outbox.findFirstOrThrow({ where: { subjectId: name, kind: 'schedule.assess' } });
+    };
+    const jobs = await db.job.count();
+    const revoked = await schedule('fixture-revoked-schedule'); await deliverSchedules(service, grantAuthority([grant(coordinator)]));
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: revoked.id } })).status, 'blocked');
+    const blocked = await db.audit.findFirstOrThrow({ where: { subjectId: 'fixture-revoked-schedule', operation: 'schedule.blocked' } });
+    assert.equal(z.object({ reason: z.string() }).passthrough().parse(blocked.details).reason, 'ACTOR_GRANT_REVOKED');
+    const narrowed = await schedule('fixture-narrowed-schedule'); await deliverSchedules(service, grantAuthority([grant(operator, { permissions: ['read'] })]));
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: narrowed.id } })).status, 'blocked');
+    assert.equal(await db.job.count(), jobs);
+    // An unchanged grant still delivers, and the job carries no more than the grant allows.
+    const kept = await schedule('fixture-kept-schedule'); await deliverSchedules(service, grantAuthority([grant(operator, { permissions: ['read', 'assess', 'evidence'] })]));
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: kept.id } })).status, 'delivered');
+    const created = await db.job.findFirstOrThrow({ where: { kind: 'assessment', dedupeKey: { contains: 'fixture-kept-schedule' } } });
+    assert.deepEqual(z.object({ permissions: z.array(z.string()) }).passthrough().parse(created.actor).permissions.sort(), ['assess', 'evidence', 'read']);
+  });
+
+  await t.test('the worker loop survives database outages and stops on its signal', async () => {
+    const unreachable = new URL(url); unreachable.port = '1';
+    const offline = database(unreachable.href); const stop = new AbortController(); const errors: string[] = [];
+    const writes = t.mock.method(process.stderr, 'write', (chunk: unknown): boolean => { if (String(chunk).includes('worker.loop_failed')) { errors.push(String(chunk)); if (errors.length >= 2) stop.abort(); } return true; });
+    try { await runWorker(new Embermend(offline, new FixtureMagnus()), stop.signal, grantAuthority([]), { maxBackoffMs: 20 }); }
+    finally { writes.mock.restore(); await offline.$disconnect(); }
+    assert.equal(errors.length, 2); assert.doesNotMatch(errors.join(''), /fixture-ci-password|postgresql:/);
   });
 
   await t.test('settled unknown outcomes stop observation without inventing clean results or restoring held ownership', async () => {

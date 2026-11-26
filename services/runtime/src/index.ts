@@ -8,6 +8,7 @@ import { MagnusClient, oathweaveAuthenticator, grantsSchema, GitHubClient, OciRe
 import { z } from 'zod';
 import { createApi } from './api.js';
 import { runWorker } from './worker.js';
+import { grantAuthority } from './authority.js';
 import { migrate, verifyMigrations } from './migrations.js';
 import { VERSION } from '@hivemagnus/embermend-contracts';
 export { createApi } from './api.js';
@@ -37,7 +38,7 @@ if (process.argv[1]?.endsWith('/index.js')) {
     const stop = new AbortController();
     if (process.argv[2] === 'worker') {
       process.once('SIGTERM', () => stop.abort()); process.once('SIGINT', () => stop.abort());
-      await runWorker(service, stop.signal); await db.$disconnect();
+      await runWorker(service, stop.signal, grantAuthority(grants)); await db.$disconnect();
     } else if (process.argv[2] === 'api') {
       const server = serve({ fetch: createApi(service, authenticate, { auditActorKind: actorId => grants.find(grant => grant.subject === actorId)?.kind }).fetch, hostname: env.EMBERMEND_BIND, port: env.EMBERMEND_PORT });
       const close = (): void => { server.close(() => { void db.$disconnect(); }); };

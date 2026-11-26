@@ -24,6 +24,14 @@ when that operator should read its own installation's audit trail.
 Keep the API and worker's protected grant configuration identical. Apply changes
 through the owning installer and verify their effective environments; restarting
 an already created container does not reload its Compose environment file.
+The worker checks each queued job and scheduled delivery against the grants it was
+started with before acting on it. A job whose creator no longer has exactly one grant
+of the same kind covering the job's scope fails with `ACTOR_GRANT_REVOKED`,
+`ACTOR_KIND_CHANGED` or `ACTOR_SCOPE_REVOKED` (audit `job.authority-revoked`); a
+scheduled occurrence is blocked (audit `schedule.blocked` with the same reason) until
+an operator re-creates the schedule. Narrowed permissions are intersected with the
+grant (audit `job.authority-narrowed` or `schedule.authority-narrowed`), so work
+continues only while it still holds the permission its normal admission requires.
 Production mutation policies stay disabled until explicitly authorized.
 
 ## Operational observations

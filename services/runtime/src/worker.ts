@@ -6,18 +6,30 @@ import { claim, json, audit, lock } from '@hivemagnus/embermend-store';
 import { DomainError, type Embermend } from '@hivemagnus/embermend-core';
 import { observeCampaign } from './campaign-observation.js';
 import { runAssessment } from './assessment.js';
+import { REVOKED_AUTHORITY_CODES, unverifiedStoredAuthority, type StoredAuthority } from './authority.js';
+import { errorFields, logger } from './log.js';
 
 const actorSchema = z.object({ id: z.string(), kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema });
-export async function tick(service: Embermend, owner: string, signal: AbortSignal): Promise<boolean> {
+/**
+ * Run one claimed job. `authority` checks the job's stored actor against the identity grants
+ * in force now (see authority.ts); runWorker always passes it.
+ */
+export async function tick(service: Embermend, owner: string, signal: AbortSignal, authority: StoredAuthority = unverifiedStoredAuthority): Promise<boolean> {
   const id = await claim(service.db, owner); if (!id) return false;
   const job = await service.db.job.findUnique({ where: { id } }); if (!job) return false;
-  const parsed = actorSchema.parse(job.actor); const actor: Actor = { ...parsed, permissions: new Set(parsed.permissions) };
+  const parsed = actorSchema.parse(job.actor); const stored: Actor = { ...parsed, permissions: new Set(parsed.permissions) };
+  let actor: Actor = stored;
   const controller = new AbortController(); const combined = AbortSignal.any([signal, controller.signal, AbortSignal.timeout(Math.max(1, job.deadline.getTime() - Date.now()))]);
   const heartbeat = setInterval(() => {
     void service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { leaseUntil: new Date(Date.now() + 60000) } }).then(async result => { const state = await service.db.job.findUnique({ where: { id } }); if (!result.count || state?.cancelRequested) controller.abort(); }).catch(() => controller.abort());
   }, 10000);
   let result: unknown = { completed: true };
   try {
+    // Nothing of this job is in flight at a claim: campaigns yield only between actions.
+    const decision = authority(stored);
+    if (!decision.allowed) { await audit(service.db, stored, 'job.authority-revoked', id, { kind: job.kind, reason: decision.reason }); throw new DomainError(decision.reason); }
+    if (decision.removed.length) await audit(service.db, stored, 'job.authority-narrowed', id, { kind: job.kind, removed: decision.removed });
+    actor = decision.actor;
     if (job.kind === 'reconciliation') {
       const payload = z.object({ originalJobId: z.string(), scope: scopeSchema }).strict().parse(job.payload);
       const original = await service.db.job.findUnique({ where: { id: payload.originalJobId } });
@@ -77,12 +89,13 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
     await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: 'completed', progress: 1, result: json(result) } });
   } catch (error) {
     const code = error instanceof DomainError ? error.code : 'WORKER_FAILED_INSPECT_RETAINED_STATE';
+    if (!(error instanceof DomainError)) logger.error('worker.job_failed', { jobId: id, kind: job.kind, ...errorFields(error) });
     const retained = await service.db.job.findUnique({ where: { id } });
-    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: ['ASSESSMENT_FAILED_CONFIRMED', 'CAMPAIGN_FAILED_CONFIRMED', 'SOURCE_ADMISSION_CHANGED_BEFORE_DISPATCH'].includes(code) ? 'failed' : ['campaign', 'reconciliation'].includes(job.kind) || retained?.result !== null ? 'unknown' : 'failed', error: code } });
+    await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: ['ASSESSMENT_FAILED_CONFIRMED', 'CAMPAIGN_FAILED_CONFIRMED', 'SOURCE_ADMISSION_CHANGED_BEFORE_DISPATCH', ...REVOKED_AUTHORITY_CODES].includes(code) ? 'failed' : ['campaign', 'reconciliation'].includes(job.kind) || retained?.result !== null ? 'unknown' : 'failed', error: code } });
   } finally { clearInterval(heartbeat); }
   return true;
 }
-async function maintenance(service: Embermend): Promise<void> {
+export async function maintenance(service: Embermend): Promise<void> {
   await service.db.$transaction(async tx => {
     await lock(tx, 'maintenance');
     const exceptions = await tx.exception.findMany({ where: { status: 'active', expiresAt: { lte: new Date() } } });
@@ -100,13 +113,22 @@ async function maintenance(service: Embermend): Promise<void> {
     }
   });
 }
-async function deliverSchedules(service: Embermend): Promise<void> {
+export async function deliverSchedules(service: Embermend, authority: StoredAuthority): Promise<void> {
   const rows = await service.db.outbox.findMany({ where: { status: 'queued', kind: 'schedule.assess' }, orderBy: { createdAt: 'asc' }, take: 20 });
   for (const row of rows) {
     const value = z.object({ kind: z.enum(['assessment', 'vulnerabilities', 'scan']), request: z.unknown(), actor: actorSchema }).strict().parse(row.payload);
     const configured = await service.db.schedule.findUnique({ where: { id: row.subjectId } });
     if (!configured?.enabled) { await service.db.outbox.update({ where: { id: row.id }, data: { status: 'canceled' } }); continue; }
-    const actor: Actor = { ...value.actor, permissions: new Set(value.actor.permissions) };
+    const stored: Actor = { ...value.actor, permissions: new Set(value.actor.permissions) };
+    const decision = authority(stored);
+    if (!decision.allowed) {
+      // The schedule's owner lost the grant: no occurrence runs until an operator re-creates it.
+      await service.db.outbox.update({ where: { id: row.id }, data: { status: 'blocked' } });
+      await audit(service.db, stored, 'schedule.blocked', row.subjectId, { outboxId: row.id, reason: decision.reason });
+      continue;
+    }
+    const actor = decision.actor;
+    if (decision.removed.length) await audit(service.db, stored, 'schedule.authority-narrowed', row.subjectId, { outboxId: row.id, removed: decision.removed });
     try {
       if (value.kind === 'scan') await service.scan(actor, value.request);
       else if (value.kind === 'assessment') await service.assess(actor, value.request);
@@ -120,7 +142,18 @@ async function deliverSchedules(service: Embermend): Promise<void> {
     }
   }
 }
-export async function runWorker(service: Embermend, signal: AbortSignal): Promise<void> {
-  const owner = randomUUID();
-  while (!signal.aborted) { await maintenance(service); await deliverSchedules(service); if (!await tick(service, owner, signal)) await setTimeout(1000, undefined, { signal }).catch(() => undefined); }
+export async function runWorker(service: Embermend, signal: AbortSignal, authority: StoredAuthority, options: { maxBackoffMs?: number } = {}): Promise<void> {
+  const owner = randomUUID(); const maxBackoffMs = options.maxBackoffMs ?? 30000; let failures = 0;
+  while (!signal.aborted) {
+    try {
+      await maintenance(service); await deliverSchedules(service, authority);
+      const worked = await tick(service, owner, signal, authority); failures = 0;
+      if (!worked) await setTimeout(1000, undefined, { signal }).catch(() => undefined);
+    } catch (error) {
+      // A database outage must not end the worker; jobs keep their leases and state.
+      failures++; const delay = Math.min(maxBackoffMs, 1000 * 2 ** Math.min(failures - 1, 5));
+      logger.error('worker.loop_failed', { failures, retryInMs: delay, ...errorFields(error) });
+      await setTimeout(delay, undefined, { signal }).catch(() => undefined);
+    }
+  }
 }
