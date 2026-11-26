@@ -1145,4 +1145,30 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     await assert.rejects(runWorker(service, stop.signal, grants, { concurrency: 9 }), RangeError);
   });
 
+
+  await t.test('an unreadable schedule or occurrence fails visibly without stopping maintenance or later deliveries', async () => {
+    const { service } = await reset();
+    await service.profile(operator, { id: 'fixture-inventory', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Retain original inventory', capability: 'inventory.v1', field: 'exitCode', expected: 0, actionVersion: null }] });
+    const retired = { ...JSON.parse(JSON.stringify(serializeActor(operator))), permissions: ['read', 'retired-permission'] };
+    const payload = json({ scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1' });
+    const due = new Date(Date.now() - 1000);
+    await db.schedule.create({ data: { id: 'fixture-a-poisoned', installationId: scope.installationId, actor: json(retired), kind: 'assessment', payload, intervalSeconds: 3600, nextAt: due } });
+    await db.schedule.create({ data: { id: 'fixture-b-healthy', installationId: scope.installationId, actor: serializeActor(operator), kind: 'assessment', payload, intervalSeconds: 3600, nextAt: due } });
+    await db.exception.create({ data: { id: 'fixture-unreadable-exception', installationId: scope.installationId, expiresAt: due, status: 'active', data: json(['not', 'an', 'object']) } });
+    await maintenance(service);
+    assert.equal((await db.schedule.findUniqueOrThrow({ where: { id: 'fixture-a-poisoned' } })).enabled, false);
+    assert.equal(await db.audit.count({ where: { operation: 'schedule.disabled-invalid', subjectId: 'fixture-a-poisoned' } }), 1);
+    assert.equal((await db.exception.findUniqueOrThrow({ where: { id: 'fixture-unreadable-exception' } })).status, 'expired');
+    assert.equal(await db.outbox.count({ where: { kind: 'schedule.assess', subjectId: 'fixture-b-healthy' } }), 1);
+    // An occurrence queued before an upgrade retired one of its permissions, ahead of a healthy one.
+    const healthy = await db.outbox.findFirstOrThrow({ where: { kind: 'schedule.assess', subjectId: 'fixture-b-healthy' } });
+    const poisoned = await db.outbox.create({ data: { id: 'fixture-poisoned-occurrence', kind: 'schedule.assess', subjectId: 'fixture-b-healthy', payload: json({ ...z.record(z.string(), z.json()).parse(healthy.payload), actor: retired }), createdAt: new Date(healthy.createdAt.getTime() - 1000) } });
+    const writes = t.mock.method(process.stderr, 'write', () => true);
+    try { await deliverSchedules(service, grantAuthority([{ subject: operator.id, kind: operator.kind, permissions: [...operator.permissions], scope }])); } finally { writes.mock.restore(); }
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: poisoned.id } })).status, 'failed');
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: healthy.id } })).status, 'delivered');
+    const invalid = await db.audit.findFirstOrThrow({ where: { operation: 'schedule.delivery-invalid' } });
+    assert.equal(invalid.actorId, 'worker:maintenance'); assert.equal(z.object({ reason: z.string() }).passthrough().parse(invalid.details).reason, 'SCHEDULE_PAYLOAD_INVALID');
+  });
+
 });

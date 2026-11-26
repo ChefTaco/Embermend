@@ -107,12 +107,25 @@ export async function maintenance(service: Embermend): Promise<void> {
   await service.db.$transaction(async tx => {
     await lock(tx, 'maintenance');
     const exceptions = await tx.exception.findMany({ where: { status: 'active', expiresAt: { lte: new Date() } } });
-    for (const exception of exceptions) { const data = z.record(z.string(), z.json()).parse(exception.data); await tx.exception.update({ where: { id: exception.id }, data: { status: 'expired', data: json({ ...data, status: 'expired' }) } }); await tx.outbox.create({ data: { id: randomUUID(), kind: 'exception.expired', subjectId: exception.id, payload: json({ installationId: exception.installationId, findingIds: data['findingIds'] ?? [] }) } }); }
+    for (const exception of exceptions) {
+      // An unreadable stored record still expires; it must not stop every later expiry.
+      const stored = z.record(z.string(), z.json()).safeParse(exception.data); const data = stored.success ? stored.data : {};
+      await tx.exception.update({ where: { id: exception.id }, data: { status: 'expired', ...(stored.success ? { data: json({ ...data, status: 'expired' }) } : {}) } });
+      await tx.outbox.create({ data: { id: randomUUID(), kind: 'exception.expired', subjectId: exception.id, payload: json({ installationId: exception.installationId, findingIds: data['findingIds'] ?? [] }) } });
+    }
     const schedules = await tx.schedule.findMany({ where: { enabled: true, nextAt: { lte: new Date() } }, take: 100 });
     for (const schedule of schedules) {
-      const parsed = actorSchema.parse(schedule.actor); const actor: Actor = { ...parsed, permissions: new Set(parsed.permissions) };
+      const parsedActor = actorSchema.safeParse(schedule.actor); const parsedPayload = z.record(z.string(), z.json()).safeParse(schedule.payload);
+      if (!parsedActor.success || !parsedPayload.success) {
+        // For example an actor permission that no longer exists after an upgrade. Disable it
+        // visibly instead of failing every maintenance pass; an operator re-creates it.
+        await tx.schedule.update({ where: { id: schedule.id }, data: { enabled: false } });
+        await audit(tx, systemActor(schedule.installationId), 'schedule.disabled-invalid', schedule.id, { reason: 'SCHEDULE_RECORD_INVALID' });
+        continue;
+      }
+      const parsed = parsedActor.data; const actor: Actor = { ...parsed, permissions: new Set(parsed.permissions) };
       const key = `${schedule.id}:${schedule.nextAt.toISOString()}`;
-      const payload = z.record(z.string(), z.json()).parse(schedule.payload);
+      const payload = parsedPayload.data;
       const scheduled = { ...payload, ...(schedule.kind === 'scan' ? { operationId: key } : { id: key }), deadline: new Date(Math.max(Date.now(), schedule.nextAt.getTime()) + Math.min(schedule.intervalSeconds, 3600) * 1000).toISOString() };
       // Keep only fields belonging to this request kind; its normal application
       // scope and source policy admission will run again in the outbox consumer.
@@ -121,11 +134,22 @@ export async function maintenance(service: Embermend): Promise<void> {
     }
   });
 }
+const deliverySchema = z.object({ kind: z.enum(['assessment', 'vulnerabilities', 'scan']), request: z.unknown(), actor: actorSchema }).strict();
+/** The actor of audit rows the worker writes on its own behalf; exported as a `system` actor. */
+const systemActor = (installationId: string): Actor => ({ id: 'worker:maintenance', kind: 'integration', permissions: new Set(), scope: { installationId, applicationIds: [], targetIds: [] } });
 export async function deliverSchedules(service: Embermend, authority: StoredAuthority): Promise<void> {
   const rows = await service.db.outbox.findMany({ where: { status: 'queued', kind: 'schedule.assess' }, orderBy: { createdAt: 'asc' }, take: 20 });
   for (const row of rows) {
-    const value = z.object({ kind: z.enum(['assessment', 'vulnerabilities', 'scan']), request: z.unknown(), actor: actorSchema }).strict().parse(row.payload);
     const configured = await service.db.schedule.findUnique({ where: { id: row.subjectId } });
+    const parsed = deliverySchema.safeParse(row.payload);
+    if (!parsed.success) {
+      // One unreadable occurrence must not stop every later delivery: it fails visibly.
+      await service.db.outbox.update({ where: { id: row.id }, data: { status: 'failed' } });
+      await audit(service.db, systemActor(configured?.installationId ?? 'unknown'), 'schedule.delivery-invalid', row.subjectId, { outboxId: row.id, reason: 'SCHEDULE_PAYLOAD_INVALID' });
+      logger.error('worker.schedule_payload_invalid', { outboxId: row.id });
+      continue;
+    }
+    const value = parsed.data;
     if (!configured?.enabled) { await service.db.outbox.update({ where: { id: row.id }, data: { status: 'canceled' } }); continue; }
     const stored: Actor = { ...value.actor, permissions: new Set(value.actor.permissions) };
     const decision = authority(stored);
