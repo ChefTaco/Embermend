@@ -21,11 +21,18 @@ own permissions and matching authorization. A role name alone grants none of the
 service account, which then reads every installation, and to an operator only
 when that operator should read its own installation's audit trail.
 
-Keep the API and worker's protected grant configuration identical. Apply changes
-through the owning installer and verify their effective environments; restarting
-an already created container does not reload its Compose environment file.
-The worker checks each queued job and scheduled delivery against the grants it was
-started with before acting on it. A job whose creator no longer has exactly one grant
+Keep the API and worker's protected grant configuration identical. Grants come from
+exactly one of `EMBERMEND_IDENTITY_GRANTS` (a JSON array fixed at startup) or
+`EMBERMEND_IDENTITY_GRANTS_FILE` (a path to the same JSON, mounted read-only into both
+processes). A grants file is checked for changes at most every two seconds, so onboarding,
+narrowing or revoking a subject takes effect within seconds without a restart (log
+`grants.reloaded`). Replace it atomically (write a temporary file, then rename it). The file
+must be valid at startup; a later invalid version is logged as `grants.reload_failed` and
+the last valid grants stay in force until a valid file replaces it. With the environment
+variable, apply changes through the owning installer and verify the effective environments;
+restarting an already created container does not reload its Compose environment file.
+The worker checks each queued job and scheduled delivery against the grants in force at
+that moment before acting on it. A job whose creator no longer has exactly one grant
 of the same kind covering the job's scope fails with `ACTOR_GRANT_REVOKED`,
 `ACTOR_KIND_CHANGED` or `ACTOR_SCOPE_REVOKED` (audit `job.authority-revoked`); a
 scheduled occurrence is blocked (audit `schedule.blocked` with the same reason) until
