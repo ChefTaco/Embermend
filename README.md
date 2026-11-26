@@ -86,8 +86,11 @@ rather than sign out. `MAGNUS_URL` may carry a base path; Magnus routes are join
 ## Product boundaries
 
 - Oathweave resource tokens identify callers. Explicit product grants restrict
-  operations and applications/targets. Coordinator credentials cannot approve,
-  edit policy, accept exceptions, or authorize recovery.
+  operations and applications/targets, or, with `EMBERMEND_AUTHORITY_SOURCE=oathweave`,
+  operators' `embermend:*` permissions come from their current Oathweave roles and a
+  role-to-scope mapping (see [Operations](docs/OPERATIONS.md#operator-authority-from-oathweave-roles)).
+  Coordinator credentials cannot approve, edit policy, accept exceptions, or
+  authorize recovery.
 - Recommendations are published to the primary HiveXUI timeline before covered
   mutation. Delivery never implies approval. Standing policy can authorize an
   exact plan without requiring acknowledgement.

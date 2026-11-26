@@ -41,6 +41,103 @@ grant (audit `job.authority-narrowed` or `schedule.authority-narrowed`), so work
 continues only while it still holds the permission its normal admission requires.
 Production mutation policies stay disabled until explicitly authorized.
 
+## Operator authority from Oathweave roles
+
+`EMBERMEND_AUTHORITY_SOURCE` chooses where operator authority comes from. `grants` (the
+default, and the behaviour of every earlier release) reads every subject from the grants
+setting above. `oathweave` derives each operator's authority from its current Oathweave
+roles instead, so onboarding, narrowing and revoking an operator happen in Oathweave
+and no operator entry is kept in Embermend. Set the same mode and settings on the API
+and the worker.
+
+In `oathweave` mode:
+
+- **Permissions.** Embermend permission `p` is the Oathweave permission `embermend:p`:
+  `embermend:read`, `embermend:evidence`, `embermend:evidence-restricted`,
+  `embermend:assess`, `embermend:prepare`, `embermend:propose`,
+  `embermend:publish-explanation`, `embermend:execute`, `embermend:approve`,
+  `embermend:policy`, `embermend:repository-write`, `embermend:merge`,
+  `embermend:artifact-publish`, `embermend:deploy`, `embermend:exception`,
+  `embermend:recover`, `embermend:ingest` and `embermend:audit:read`. There are no
+  wildcards. An operator holds `p` while one of its roles, assigned directly or through a
+  group, carries `embermend:p`; a request also needs `embermend:p` on its token, so the
+  `hivexui-embermend` browser client's policy (`IAM_BROWSER_CLIENT_POLICIES`) still caps
+  what a browser session can use.
+- **Scope.** `EMBERMEND_OATHWEAVE_ROLE_SCOPES` (JSON) or
+  `EMBERMEND_OATHWEAVE_ROLE_SCOPES_FILE` (a path to the same JSON, re-read on change like the
+  grants file: `role_scopes.reloaded`, `role_scopes.reload_failed`) maps Oathweave role names
+  to scopes; configure exactly one:
+
+  ```json
+  [
+    { "role": "embermend-lab", "scope": { "installationId": "lab", "applicationIds": ["web"], "targetIds": ["node-1", "node-2"] } },
+    { "role": "embermend-lab-db", "scope": { "installationId": "lab", "applicationIds": ["db"], "targetIds": ["node-3"] } }
+  ]
+  ```
+
+  An operator's scope is the union of the scopes of its mapped roles (here both roles give
+  `web` and `db` on all three nodes). Roles without a mapping add permissions but no scope.
+  An operator with no mapped role is refused (`OATHWEAVE_ROLE_SCOPE_REQUIRED`), and one whose
+  mapped roles name more than one installation is refused (`OATHWEAVE_ROLE_SCOPE_AMBIGUOUS`):
+  an Embermend actor works in one installation, so a person who works on two needs an
+  account for each. A union of more than 1000 applications or targets is refused
+  (`OATHWEAVE_ROLE_SCOPE_TOO_LARGE`). A disabled or deleted Oathweave account is refused
+  (`OATHWEAVE_ACCOUNT_INACTIVE`).
+- **Live reads.** Embermend reads the operator's Oathweave account, direct roles and group
+  roles on every request and before the worker runs any of its queued jobs or scheduled
+  deliveries, through a machine client of the Oathweave admin API, with answers kept for
+  `EMBERMEND_OATHWEAVE_DIRECTORY_CACHE_MS` (0 to 60000, default 5000). Removing the role,
+  the group membership or the account in Oathweave therefore applies to the next request
+  and stops stored work: the job fails with `ACTOR_GRANT_REVOKED` (no mapped role left or
+  the account gone) or `ACTOR_SCOPE_REVOKED` (its scope no longer covered), audit
+  `job.authority-revoked`, and a scheduled occurrence is blocked; removed permissions are
+  intersected away as with grants. When Oathweave cannot be read the API answers
+  `503 IDENTITY_PROVIDER_UNAVAILABLE`, and the worker puts the job back in the queue (log
+  `worker.authority_unavailable`) or leaves the occurrence for the next pass; an outage
+  never revokes anything, and a job's deadline still applies.
+- **Service grants.** Coordinators and integrations (the Ardent coordinator, the Cindertrace
+  collector) keep their grants in `EMBERMEND_IDENTITY_GRANTS` or
+  `EMBERMEND_IDENTITY_GRANTS_FILE`, now optional; an `operator` entry there is refused
+  (`OPERATOR_GRANTS_COME_FROM_OATHWEAVE_ROLES`, at startup, or as `grants.reload_failed`).
+
+### Oathweave setup
+
+1. Create the machine client Embermend reads the directory with. In Oathweave's
+   environment add it to `IAM_MACHINE_CLIENT_POLICIES`, for example
+   `{"embermend-directory":{"audience":"oathweave","permissions":["iam:users:read","iam:groups:read"],"lifetimeSeconds":300,"rotationOwner":"embermend"}}`,
+   and its secret (32 to 512 characters) to `IAM_MACHINE_CLIENT_SECRETS`, then restart
+   Oathweave. Give it nothing else: these two read permissions let it read accounts,
+   roles and group memberships, not change them.
+2. Create roles that carry the `embermend:*` permissions each kind of operator needs, for
+   example `embermend-lab` with `embermend:read`, `embermend:evidence` and
+   `embermend:assess`, and a separate `embermend-lab-approver` with `embermend:approve`.
+   Keep standing `embermend:policy`, `embermend:exception` and `embermend:recover` in their
+   own roles and assign them only while needed.
+3. Make sure the `hivexui-embermend` browser client policy in `IAM_BROWSER_CLIENT_POLICIES`
+   lists every `embermend:*` permission operators should be able to use from HiveXUI.
+4. Assign the roles to people, directly or through a group.
+5. Configure Embermend's API and worker:
+
+   ```bash
+   EMBERMEND_AUTHORITY_SOURCE=oathweave
+   EMBERMEND_OATHWEAVE_ROLE_SCOPES_FILE=/run/embermend/role-scopes.json
+   EMBERMEND_OATHWEAVE_API_URL=https://identity.example.com/api/v1
+   EMBERMEND_OATHWEAVE_TOKEN_URL=https://identity.example.com/api/v1/oauth/token
+   EMBERMEND_OATHWEAVE_CLIENT_ID=embermend-directory
+   EMBERMEND_OATHWEAVE_CLIENT_SECRET=<the machine client secret>
+   # Service grants only (coordinators, integrations):
+   EMBERMEND_IDENTITY_GRANTS_FILE=/run/embermend/grants.json
+   ```
+
+   Both processes log `authority.source` with the mode at startup.
+
+To move an existing install over, create the roles and the mapping so every operator in
+the grants file gets the same permissions and scope, remove the operator entries from the
+grants setting, and switch the mode. Queued jobs and schedules created under a grant keep
+running when the subject's roles cover the same scope and permissions, and are revoked
+(or narrowed) otherwise, as when a grant changes. To go back, put the operator grants back
+and unset `EMBERMEND_AUTHORITY_SOURCE` (or set it to `grants`).
+
 ## Worker concurrency and shutdown
 
 `EMBERMEND_WORKER_CONCURRENCY` (1 to 8, default 1) sets how many jobs one worker runs at

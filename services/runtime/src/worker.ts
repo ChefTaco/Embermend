@@ -6,9 +6,12 @@ import { claim, json, audit, lock } from '@hivemagnus/embermend-store';
 import { DomainError, type Embermend } from '@hivemagnus/embermend-core';
 import { observeCampaign } from './campaign-observation.js';
 import { runAssessment } from './assessment.js';
-import { REVOKED_AUTHORITY_CODES, unverifiedStoredAuthority, type StoredAuthority } from './authority.js';
+import { identityProviderUnavailable } from '@hivemagnus/embermend-integrations';
+import { REVOKED_AUTHORITY_CODES, unverifiedStoredAuthority, type AuthorityDecision, type StoredAuthority } from './authority.js';
 import { errorFields, logger } from './log.js';
 
+/** How long a job waits before its authority is checked again after the identity provider could not be read. */
+export const AUTHORITY_RETRY_MS = 5000;
 const actorSchema = z.object({ id: z.string(), kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema });
 /**
  * Run one claimed job. `authority` checks the job's stored actor against the identity grants
@@ -29,7 +32,15 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
   let result: unknown = { completed: true };
   try {
     // Nothing of this job is in flight at a claim: campaigns yield only between actions.
-    const decision = authority(stored);
+    let decision: AuthorityDecision;
+    try { decision = await authority(stored); } catch (error) {
+      if (!identityProviderUnavailable(error)) throw error;
+      // The current authority cannot be read (identity provider outage): nothing ran, so the
+      // job goes back to the queue unchanged and is checked again; its deadline still applies.
+      logger.error('worker.authority_unavailable', { jobId: id, kind: job.kind, ...errorFields(error) });
+      await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: 'queued', availableAt: new Date(Date.now() + AUTHORITY_RETRY_MS), leaseOwner: null, leaseUntil: null } });
+      return true;
+    }
     if (!decision.allowed) { await audit(service.db, stored, 'job.authority-revoked', id, { kind: job.kind, reason: decision.reason }); throw new DomainError(decision.reason); }
     if (decision.removed.length) await audit(service.db, stored, 'job.authority-narrowed', id, { kind: job.kind, removed: decision.removed });
     actor = decision.actor;
@@ -152,7 +163,13 @@ export async function deliverSchedules(service: Embermend, authority: StoredAuth
     const value = parsed.data;
     if (!configured?.enabled) { await service.db.outbox.update({ where: { id: row.id }, data: { status: 'canceled' } }); continue; }
     const stored: Actor = { ...value.actor, permissions: new Set(value.actor.permissions) };
-    const decision = authority(stored);
+    let decision: AuthorityDecision;
+    try { decision = await authority(stored); } catch (error) {
+      if (!identityProviderUnavailable(error)) throw error;
+      // Left queued: the next pass checks it again. Later rows would hit the same outage.
+      logger.error('worker.authority_unavailable', { outboxId: row.id, ...errorFields(error) });
+      return;
+    }
     if (!decision.allowed) {
       // The schedule's owner lost the grant: no occurrence runs until an operator re-creates it.
       await service.db.outbox.update({ where: { id: row.id }, data: { status: 'blocked' } });
