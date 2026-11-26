@@ -145,7 +145,8 @@ export class Embermend {
       const persisted = { ...value, ...priority, id, validity: value.validity === 'candidate' && oldFinding ? oldFinding.validity : value.validity, evidenceIds: [...new Set([...(oldFinding?.evidenceIds ?? []), ...value.evidenceIds])] };
       await tx.finding.upsert({ where: { id }, create: { id, installationId: value.scope.installationId, identity: value.identity, data: json(persisted) }, update: { data: json(persisted) } });
       await tx.occurrence.upsert({ where: { id: next.id }, create: { id: next.id, findingId: id, subjectId: next.subjectId, data: json(next) }, update: { data: json(next) } });
-      await audit(tx, actor, recurrence ? 'finding.recurred' : 'finding.observed', id); return id;
+      // Severity and subject let the suite audit export (Cindertrace) correlate the finding with its host.
+      await audit(tx, actor, recurrence ? 'finding.recurred' : 'finding.observed', id, { severity: persisted.severity, kind: persisted.kind, priority: persisted.priority, occurrenceSubject: next.subjectId }); return id;
     });
   }
   /** The most recently updated findings, as the unpaginated list has always returned them. */
