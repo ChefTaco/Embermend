@@ -57,5 +57,7 @@ docs/ACCEPTANCE.md; passing fixtures do not establish live fleet support.
 A `vX.Y.Z` tag matching every workspace version runs `.github/workflows/release.yml`,
 which publishes `ghcr.io/cheftaco/embermend` (API and worker) and
 `ghcr.io/cheftaco/embermend-scanner`, plus attested tarballs of the contracts,
-integrations and Ardent plugin on the GitHub release. None of the packages is on npm.
+integrations and Ardent plugin on the GitHub release. Its `npm` job publishes those tarballs
+to npm with provenance only once the owner has enabled trusted publishing
+(`EMBERMEND_NPM_PUBLISH`); until then none of the packages is on npm.
 See [docs/RELEASING.md](docs/RELEASING.md); Hive's signed manifest then pins the digests.

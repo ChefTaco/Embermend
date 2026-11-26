@@ -203,3 +203,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" release-assets/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file release-assets/images.txt
+  # npm, once the owner has set up trusted publishing (docs/RELEASING.md) and set the
+  # repository variable EMBERMEND_NPM_PUBLISH to true. It publishes the exact attested tarballs
+  # of the GitHub release after approval on the protected npm-publish environment.
+  npm:
+    needs: [publish]
+    if: vars.EMBERMEND_NPM_PUBLISH == 'true'
+    runs-on: ubuntu-24.04
+    environment: npm-publish
+    permissions:
+      contents: read
+      actions: read # read environment protection before any publication
+      id-token: write # trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Require protected publication environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-publish-environment.mjs
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.22.3
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check npm supports provenance and trusted publishing
+        run: node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); if (a<11||(a===11&&(b<5||(b===5&&c<1)))) { console.error("npm >= 11.5.1 is required"); process.exit(1) }' "$(npm --version)"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: release-packages
+          path: release-assets
+      - name: Publish the contracts, integrations and Ardent plugin
+        run: node scripts/publish-npm.mjs release-assets

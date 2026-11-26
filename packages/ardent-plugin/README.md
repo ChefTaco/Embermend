@@ -22,6 +22,7 @@ enter scanned repository code. Publication and execution stay
 separate operations. Configure only the permissions actually granted to the
 coordinator; enabling tools cannot expand its server-side authority.
 
+<<<<<<< HEAD
 A refused request fails with Embermend's own error code as the tool result's `code`
 (`SCOPE_OR_PERMISSION_DENIED`, `PLAN_CHANGED`, `TARGET_NOT_ELIGIBLE` and so on; `HTTP_<status>`
 when the body names none) and a message `EMBERMEND_HTTP_<status>_<code>`. Only constant-style
@@ -30,6 +31,10 @@ an unknown job needs the operator-only `recover` permission, so it has no tool h
 
 The package is released with Embermend as an attested tarball on each GitHub release
 (it is not on npm); see [releasing](../../docs/RELEASING.md). Its acceptance scope is in
+=======
+The package is released with Embermend as an attested tarball on each GitHub release, and
+on npm with provenance once trusted publishing is enabled; see [releasing](../../docs/RELEASING.md). Its acceptance scope is in
+>>>>>>> e28440b (ci(release): publish the public packages to npm once trusted publishing is enabled)
 the [acceptance ledger](../../docs/ACCEPTANCE.md).
 
 The endpoint may be a native service origin or the Hive ingress prefix
