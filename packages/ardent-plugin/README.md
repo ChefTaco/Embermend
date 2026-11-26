@@ -28,8 +28,8 @@ when the body names none) and a message `EMBERMEND_HTTP_<status>_<code>`. Only c
 codes are passed on, never response text. A 401 drops the cached resource token. Reconciling
 an unknown job needs the operator-only `recover` permission, so it has no tool here.
 
-The package is released with Embermend as an attested tarball on each GitHub release
-(it is not on npm); see [releasing](../../docs/RELEASING.md). Its acceptance scope is in
+The package is released with Embermend as an attested tarball on each GitHub release, and
+on npm with provenance once trusted publishing is enabled; see [releasing](../../docs/RELEASING.md). Its acceptance scope is in
 the [acceptance ledger](../../docs/ACCEPTANCE.md).
 
 The endpoint may be a native service origin or the Hive ingress prefix

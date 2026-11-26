@@ -50,6 +50,21 @@ and `npm run test:integration`. Integration tests delete their fixture records.
 Never point them at product data. Prisma migration generation uses an explicit
 `--output` file; verify the emitted SQL before applying it.
 
+For a local stack without Hive, `compose.dev.yaml` runs PostgreSQL, migrations, the API,
+the worker and a fake Magnus and Oathweave (`scripts/dev/fake-suite.mjs`) over a generated
+development CA. The fake identity provider mints a token for any subject and every fake
+Magnus operation completes at once, so use it only on a workstation:
+
+```sh
+docker compose -f compose.dev.yaml up --build -d
+TOKEN=$(docker compose -f compose.dev.yaml exec -T fake-suite node /dev-tools/fake-suite.mjs token dev-operator)
+curl -s -H "authorization: Bearer $TOKEN" http://127.0.0.1:4180/api/v1/readiness
+docker compose -f compose.dev.yaml down -v   # removes the database and the CA
+```
+
+`dev-operator` and `dev-coordinator` (`fake-suite.mjs service dev-coordinator`) are granted
+the `dev-installation` scope with the `dev-app` application and the `dev-node` target.
+
 Configure the API and worker from `.env.example`; use environment injection or
 Node's `--env-file` flag. Both processes share the same PostgreSQL database.
 

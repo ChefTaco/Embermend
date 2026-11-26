@@ -1,0 +1,73 @@
+# Local development stack: PostgreSQL, migrations, the API, the worker and a fake Magnus and
+# Oathweave (scripts/dev/fake-suite.mjs) over a development CA. Lab use only: the fake identity
+# provider mints tokens for any subject, and every fake Magnus operation succeeds at once.
+#
+#   docker compose -f compose.dev.yaml up --build -d
+#   TOKEN=$(docker compose -f compose.dev.yaml exec -T fake-suite node /dev-tools/fake-suite.mjs token dev-operator)
+#   curl -s -H "authorization: Bearer $TOKEN" http://127.0.0.1:4180/api/v1/readiness
+#   docker compose -f compose.dev.yaml down -v    # also deletes the database and the CA
+name: embermend-dev
+
+x-embermend: &embermend
+  build: { context: ., target: runtime }
+  image: embermend-runtime:dev
+  restart: unless-stopped
+  depends_on:
+    migrate: { condition: service_completed_successfully }
+    fake-suite: { condition: service_started }
+  volumes: [certs:/certs:ro]
+  environment: &environment
+    DATABASE_URL: postgresql://embermend:embermend-dev-only@postgres:5432/embermend
+    MAGNUS_URL: https://fake-suite:8443
+    MAGNUS_EMBERMEND_TOKEN: embermend-dev-only-magnus-token-0000000000
+    OATHWEAVE_ISSUER: https://fake-suite:9443
+    OATHWEAVE_JWKS_URL: https://fake-suite:9443/jwks
+    OATHWEAVE_USERINFO_URL: https://fake-suite:9443/userinfo
+    NODE_EXTRA_CA_CERTS: /certs/ca.crt
+    # One operator and one coordinator for the fake installation. Edit and recreate to try others.
+    EMBERMEND_IDENTITY_GRANTS: >-
+      [{"subject":"dev-operator","kind":"operator","permissions":["read","evidence","evidence-restricted","assess","prepare","propose","publish-explanation","execute","approve","policy","exception","recover","ingest","audit:read"],"scope":{"installationId":"dev-installation","applicationIds":["dev-app"],"targetIds":["dev-node"]}},
+       {"subject":"dev-coordinator","kind":"coordinator","permissions":["read","evidence","assess","prepare","propose","publish-explanation","execute"],"scope":{"installationId":"dev-installation","applicationIds":["dev-app"],"targetIds":["dev-node"]}}]
+
+services:
+  postgres:
+    image: postgres:18.6-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
+    environment: { POSTGRES_USER: embermend, POSTGRES_PASSWORD: embermend-dev-only, POSTGRES_DB: embermend }
+    volumes: [postgres:/var/lib/postgresql]
+    healthcheck: { test: [CMD, pg_isready, -U, embermend], interval: 2s, retries: 30 }
+
+  certs:
+    build: { context: ., target: base }
+    image: embermend-dev-tools:dev
+    command: [sh, /dev-tools/certs.sh]
+    volumes: [certs:/certs, ./scripts/dev:/dev-tools:ro]
+
+  fake-suite:
+    image: embermend-dev-tools:dev
+    depends_on: { certs: { condition: service_completed_successfully } }
+    command: [node, /dev-tools/fake-suite.mjs, serve]
+    environment: { MAGNUS_EMBERMEND_TOKEN: embermend-dev-only-magnus-token-0000000000 }
+    volumes: [certs:/certs, ./scripts/dev:/dev-tools:ro]
+
+  migrate:
+    build: { context: ., target: runtime }
+    image: embermend-runtime:dev
+    command: [migrate]
+    environment: { DATABASE_URL: "postgresql://embermend:embermend-dev-only@postgres:5432/embermend" }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  api:
+    <<: *embermend
+    command: [api]
+    environment: { <<: *environment, EMBERMEND_BIND: 0.0.0.0 }
+    ports: ["127.0.0.1:4180:4180"]
+    healthcheck: { test: [CMD, node, healthcheck.mjs], interval: 5s, retries: 12 }
+
+  worker:
+    <<: *embermend
+    command: [worker]
+    stop_grace_period: 15s
+
+volumes:
+  postgres:
+  certs:

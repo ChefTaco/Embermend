@@ -5,7 +5,7 @@ import { entitySchema, hiveAuditRecordSchema, type Actor, type HiveAuditRecord }
 import type { Database } from '@hivemagnus/embermend-store';
 import { DomainError } from './authorization.js';
 import { createHash } from 'node:crypto';
-import { decodeFeedPosition, encodeFeedPosition } from './hive-events.js';
+import { auditExportPage, decodeAuditCursor, validateHiveAuditRecord } from '@hivemagnus/hive-common/audit';
 
 /**
  * The suite audit export. Every committed Embermend audit row becomes one HiveAuditRecord,
@@ -139,16 +139,23 @@ export function auditExportInstallation(actor: Actor): string | null {
 export async function auditExport(db: Database, actor: Actor, options: AuditExportOptions): Promise<Page<HiveAuditRecord>> {
   const installationId = auditExportInstallation(actor);
   if (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 200) throw new DomainError('INVALID_FEED_QUERY', 400);
-  const after = options.after === undefined ? undefined : decodeFeedPosition(options.after);
-  const position = after ? new Date(after.occurredAt) : undefined;
+  // hive-common's suite audit cursor: the same `{ t, i }` form Embermend has always issued.
+  const cursor = options.after === undefined ? undefined : decodeAuditCursor(options.after);
+  if (options.after !== undefined && (cursor?.at === undefined || typeof cursor.id !== 'string' || Number.isNaN(Date.parse(cursor.at)))) throw new DomainError('INVALID_FEED_CURSOR', 400);
+  const after = cursor?.at !== undefined && typeof cursor.id === 'string' ? { id: cursor.id, position: new Date(cursor.at) } : undefined;
   const rows: ExportedAuditRow[] = await db.audit.findMany({
-    where: { ...(installationId === null ? {} : { installationId }), ...(after && position ? { OR: [{ createdAt: { gt: position } }, { createdAt: position, id: { gt: after.id } }] } : {}) },
+    where: { ...(installationId === null ? {} : { installationId }), ...(after ? { OR: [{ createdAt: { gt: after.position } }, { createdAt: after.position, id: { gt: after.id } }] } : {}) },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: options.limit,
   });
-  const data = rows.slice(0, options.limit);
-  // The last record's cursor is returned even on the final page, so a collector resumes from it;
-  // null means nothing is newer than the cursor.
-  const last = data.at(-1);
-  const nodes = await rowNodes(db, data);
-  return { data: data.map(row => auditRecord(row, options.actorKind, nodes.get(row.id))), nextCursor: last ? encodeFeedPosition({ occurredAt: last.createdAt.toISOString(), id: last.id }) : null };
+  const nodes = await rowNodes(db, rows);
+  // auditExportPage validates every record strictly and skips one that does not form a valid
+  // record while moving the cursor past it, so one bad row never stalls the collector. The
+  // last row's cursor is returned even on the final page; null means nothing is newer.
+  const page = auditExportPage(rows, {
+    limit: options.limit,
+    toRecord: row => { try { const checked = validateHiveAuditRecord(auditRecord(row, options.actorKind, nodes.get(row.id)), { strict: true }); return checked.ok ? checked.value : null; } catch { return null; } },
+    position: row => ({ id: row.id, at: row.createdAt.toISOString() }),
+    onDropped: count => { console.warn(JSON.stringify({ event: 'audit_export_rows_dropped', count })); },
+  });
+  return { data: page.data.map(record => hiveAuditRecordSchema.parse(record)), nextCursor: page.nextCursor };
 }
