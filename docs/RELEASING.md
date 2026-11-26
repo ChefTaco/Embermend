@@ -42,7 +42,7 @@ The release workflow's `npm` job publishes the same three attested tarballs to n
 through npm trusted publishing (OIDC; no npm token is stored). It runs only when the
 repository variable `EMBERMEND_NPM_PUBLISH` is `true`, waits for approval on the
 `npm-publish` environment and refuses to run unless that environment has a required
-reviewer. A version already on npm is skipped. It is enabled (since 0.6.0): the variable is
+reviewer. A version already on npm is skipped. It is enabled (since 0.6.1): the variable is
 `true` and the three packages have trusted publishers. To set it up from scratch, an owner of
 the `@hivemagnus` npm organization:
 

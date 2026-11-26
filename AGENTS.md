@@ -59,5 +59,5 @@ which publishes `ghcr.io/cheftaco/embermend` (API and worker) and
 `ghcr.io/cheftaco/embermend-scanner`, plus attested tarballs of the contracts,
 integrations and Ardent plugin on the GitHub release. Its `npm` job publishes those tarballs
 to npm with provenance through trusted publishing while `EMBERMEND_NPM_PUBLISH` is `true`
-(enabled since 0.6.0), after approval on the `npm-publish` environment.
+(enabled since 0.6.1), after approval on the `npm-publish` environment.
 See [docs/RELEASING.md](docs/RELEASING.md); Hive's signed manifest then pins the digests.

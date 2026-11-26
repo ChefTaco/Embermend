@@ -4,7 +4,7 @@
 // overwritten. Used only by .github/workflows/release.yml.
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 
 const directory = process.argv[2] ?? 'release-assets';
 const version = (process.env.GITHUB_REF_NAME ?? '').replace(/^v/, '');
@@ -17,5 +17,7 @@ for (const name of ['contracts', 'integrations', 'ardent-plugin']) {
   let published = '';
   try { published = execFileSync('npm', ['view', spec, 'version'], { encoding: 'utf8' }).trim(); } catch { /* not published yet */ }
   if (published === version) { console.log(`${spec} is already on npm; skipped`); continue; }
-  execFileSync('npm', ['publish', join(directory, tarball), '--provenance', '--access', 'public'], { stdio: 'inherit' });
+  // An absolute path: npm reads a bare relative path such as `release-assets/x.tgz` as a
+  // GitHub `owner/repo` shorthand and tries to clone it.
+  execFileSync('npm', ['publish', resolve(directory, tarball), '--provenance', '--access', 'public'], { stdio: 'inherit' });
 }
