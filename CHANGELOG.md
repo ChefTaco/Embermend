@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- The release workflow can publish `@hivemagnus/embermend-contracts`, `-integrations` and `-ardent-plugin` to npm with provenance through trusted publishing, from the same attested tarballs as the GitHub release. It is off until the owner sets up trusted publishing and the `EMBERMEND_NPM_PUBLISH` repository variable (steps in `docs/RELEASING.md`), and it requires approval on a protected `npm-publish` environment.
+
 - List endpoints filter by scope inside the database query. `GET /api/v1/findings`, `/entities`, `/relationships`, `/profile-assignments`, `/exceptions` and `/builds` used to read the first 1000 (or 2000) rows of the installation and drop out-of-scope rows afterwards, so a narrowly scoped operator could get an incomplete list. `findings()` no longer runs one occurrence query per finding, and occurrence visibility reads subjects and evidence in batches.
 - The recommendations timeline (`GET /api/v1/recommendations`, also in `/api/v1/export`) is ordered by each plan's last change, newest first. It used to return an arbitrary 200 plans that could omit the newest. Its campaign jobs, publications, executions and campaigns are read once per page instead of several queries per plan.
 - Cursor pagination for those seven list endpoints: with `?limit=` (1-200, default 50) or `?after=<cursor>` the response is a `{ data, nextCursor }` page, like `/api/v1/hive/events`. Without either parameter the legacy array is returned, as before, with an `x-next-cursor` header when the list was cut at its legacy bound (200 recommendations, 2000 relationships, 1000 of the rest). An invalid query or cursor is `400 INVALID_LIST_QUERY` or `400 INVALID_LIST_CURSOR`. Findings and recommendations page newest first, the other lists by ID.

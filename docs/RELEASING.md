@@ -35,6 +35,31 @@ done
 npm install ./release-assets/*.tgz
 ```
 
+### npm (off until the owner enables it)
+
+The release workflow's `npm` job publishes the same three attested tarballs to npm as
+`@hivemagnus/embermend-contracts`, `-integrations` and `-ardent-plugin`, with provenance,
+through npm trusted publishing (OIDC; no npm token is stored). It runs only when the
+repository variable `EMBERMEND_NPM_PUBLISH` is `true`, waits for approval on the
+`npm-publish` environment and refuses to run unless that environment has a required
+reviewer. A version already on npm is skipped. To enable it, an owner of the `@hivemagnus`
+npm organization:
+
+1. Publishes each package once by hand, because npm configures a trusted publisher only for
+   an existing package: download and verify a release as above, then
+   `npm publish ./release-assets/hivemagnus-embermend-<name>-X.Y.Z.tgz --access public` for
+   `contracts`, then `integrations`, then `ardent-plugin`.
+2. On npmjs.com, for each package, opens Settings > Trusted publishing, chooses GitHub
+   Actions and enters organization or user `ChefTaco`, repository `Embermend`, workflow
+   filename `release.yml` and environment `npm-publish`. Optionally sets Publishing access to
+   "Require two-factor authentication and disallow tokens".
+3. In GitHub, Settings > Environments, creates `npm-publish` with at least one required
+   reviewer and deployment tags limited to `v*`.
+4. In GitHub, Settings > Secrets and variables > Actions > Variables, adds
+   `EMBERMEND_NPM_PUBLISH` = `true`.
+
+The next `vX.Y.Z` tag then publishes after the GitHub release, once a reviewer approves.
+
 Image verification uses the retained digest rather than the mutable locator:
 
 ```bash

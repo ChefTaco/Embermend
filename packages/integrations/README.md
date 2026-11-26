@@ -8,5 +8,5 @@ bundles. The browser surface uses the public contracts package instead.
 
 Adapters retain original operation identities and distinguish unknown outcomes
 from confirmed failure. The package is released with Embermend as an attested GitHub
-release tarball (it is not on npm). It does not by itself establish complete
+release tarball (on npm once trusted publishing is enabled). It does not by itself establish complete
 live-provider or remediation acceptance.
