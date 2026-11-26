@@ -16,6 +16,7 @@
 - The worker drains on SIGTERM instead of aborting at once: it stops claiming, lets running jobs finish their current receipt or verification wait for up to `EMBERMEND_WORKER_DRAIN_SECONDS` (default 8), and a campaign between actions returns to the queue to resume later instead of becoming `unknown`. A second signal, or the end of the drain time, interrupts as before.
 - `EMBERMEND_WORKER_CONCURRENCY` (1-8, default 1) runs that many jobs at once in one worker. Maintenance and schedule delivery now run in their own loop every second, so a long job no longer delays exception expiry or scheduled work.
 - Integration tests cover maintenance and schedule delivery: exception expiry and its outbox notice, one enqueue per due schedule, disabled and not-yet-due schedules, delivery, cancellation of a disabled schedule's occurrence, and an admission failure blocking delivery.
+- Contributors can run Embermend locally without Hive: `compose.dev.yaml` starts PostgreSQL, migrations, the API, the worker and a fake Magnus and Oathweave (`scripts/dev/fake-suite.mjs`) behind a generated development CA, with a token helper for a development operator and coordinator. CI validates the Compose file.
 
 ### Upgrade notes
 
