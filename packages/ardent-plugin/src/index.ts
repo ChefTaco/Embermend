@@ -1,7 +1,7 @@
 import { definePlugin } from '@hivemagnus/ardent';
 import { z } from 'zod';
 import { planSchema, scanRequestSchema, assessmentRequestSchema, findingSchema, occurrenceSchema, jobSchema, preparationSchema, sourceRequestSchema, entitySchema, evidenceSchema, policySchema, buildSchema, buildObservationRequestSchema, exceptionSchema, campaignReportSchema } from '@hivemagnus/embermend-contracts';
-import { endpoint, responseJson, ResourceTokenProvider } from '@hivemagnus/embermend-integrations';
+import { endpoint, responseJson, ResourceTokenProvider, withoutTrailingSlashes } from '@hivemagnus/embermend-integrations';
 
 export default definePlugin({
   name: 'embermend',
@@ -16,7 +16,7 @@ export default definePlugin({
     const call = async (path: string, method: string, signal: AbortSignal, body?: unknown): Promise<unknown> => {
       const access = oauth ? await oauth.token() : token;
       if (!access) throw new Error('Scoped resource credential unavailable');
-      const target = new URL(url); target.pathname = url.pathname.replace(/\/+$/, '') + path;
+      const target = new URL(url); target.pathname = withoutTrailingSlashes(url.pathname) + path;
       const response = await fetch(target, { method, signal, redirect: 'error', headers: { authorization: `Bearer ${access}`, 'content-type': 'application/json' }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       if (!response.ok) throw new Error(`EMBERMEND_HTTP_${response.status}_INSPECT_AUTHORITATIVE_STATE`);
       return responseJson(response);

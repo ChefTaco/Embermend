@@ -11,6 +11,11 @@ export function endpoint(value: string, allowLoopback = false): URL {
     throw new Error('Verified HTTPS endpoint required');
   return url;
 }
+/** `value` without trailing `/` characters, in linear time. */
+export function withoutTrailingSlashes(value: string): string {
+  let end = value.length; while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
+}
 export async function responseJson(response: Response): Promise<unknown> {
   const max = 8 * 1024 * 1024;
   if (Number(response.headers.get('content-length')) > max) throw new Error('RESPONSE_TOO_LARGE');
@@ -32,7 +37,7 @@ export class MagnusClient implements Magnus {
   private async call(path: string, method: string, payload?: unknown, signal?: AbortSignal): Promise<unknown> {
     try {
       // Join under the configured base path (`https://host/magnus` + `/api/v1/...`), as `endpoint()` allows one.
-      const target = new URL(this.base); target.pathname = this.base.pathname.replace(/\/+$/, '') + path;
+      const target = new URL(this.base); target.pathname = withoutTrailingSlashes(this.base.pathname) + path;
       const response = await this.request(target, { method, redirect: 'error', headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' }, signal: signal ?? AbortSignal.timeout(30000), ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) });
       if (!response.ok) throw new IntegrationError(`MAGNUS_HTTP_${response.status}`, method !== 'GET' && response.status >= 500);
       return await responseJson(response);
