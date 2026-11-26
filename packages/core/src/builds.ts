@@ -2,6 +2,7 @@ import { buildObservationRequestSchema, buildSchema, entitySchema, type Actor, t
 import { audit, digest, enqueue, json, lock, within, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import type { GitHubClient } from '@hivemagnus/embermend-integrations';
 import { DomainError, requirePermission } from './authorization.js';
+import { LEGACY_LIST_LIMITS, listPage, scopedPositions, type ListQuery, type Page } from './listing.js';
 
 export class Builds {
   constructor(private readonly db: Database, private readonly github?: GitHubClient) {}
@@ -29,9 +30,12 @@ export class Builds {
       await audit(tx, actor, 'build.observation-requested', request.id, { jobId: id, providerRunId: request.providerRunId, runAttempt: request.runAttempt }); return id;
     });
   }
-  async list(actor: Actor): Promise<Build[]> {
+  async list(actor: Actor): Promise<Build[]> { return [...(await this.page(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.builds })).data]; }
+  async page(actor: Actor, query: ListQuery): Promise<Page<Build>> {
     requirePermission(actor, 'read', actor.scope); requirePermission(actor, 'evidence', actor.scope);
-    return (await this.db.build.findMany({ where: { installationId: actor.scope.installationId }, orderBy: { id: 'asc' }, take: 1000 })).map(row => buildSchema.parse(row.data)).filter(build => within(actor.scope, build.scope));
+    const positions = await scopedPositions(this.db, 'Build', 'id', actor.scope, query);
+    const rows = await this.db.build.findMany({ where: { id: { in: positions.slice(0, query.limit).map(position => position.id) } } });
+    return listPage(positions, new Map(rows.map(row => [row.id, buildSchema.parse(row.data)] as const).filter(([, build]) => within(actor.scope, build.scope))), query, 'id');
   }
   /** Observation performs only provider GETs. It cannot dispatch, retry or cancel a build. */
   async observe(actor: Actor, raw: unknown, lease: { jobId: string; owner: string; observeOnly: boolean }, signal: AbortSignal): Promise<Build> {

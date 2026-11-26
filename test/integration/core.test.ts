@@ -994,4 +994,65 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.deepEqual(all.map(event => event.id), [...all].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).map(event => event.id));
   });
 
+
+  await t.test('list endpoints filter scope in the query, order recommendations by change and page with opaque cursors', async () => {
+    const { service } = await reset();
+    const api = (actor: Actor) => createApi(service, async () => actor);
+    const get = async (actor: Actor, path: string) => { const response = await api(actor).request(path, { headers: { authorization: 'Bearer fixture-product-token' } }); return { status: response.status, next: response.headers.get('x-next-cursor'), body: z.unknown().parse(await response.json()) }; };
+    const page = z.object({ data: z.array(z.unknown()), nextCursor: z.string().nullable() }).strict();
+    const wide = { ...scope, applicationIds: ['fixture-app', 'other-app'], targetIds: ['fixture-node', 'other-node'] };
+    const elsewhere = { ...scope, applicationIds: ['other-app'], targetIds: ['other-node'] };
+    const narrow: Actor = { ...operator, scope };
+    // Newer out-of-scope findings used to fill the page before the in-process filter ran.
+    for (let index = 0; index < 6; index++) await db.finding.create({ data: { id: `fixture-wide-${index}`, installationId: scope.installationId, identity: `wide-${index}`, data: json({ ...finding(), id: `fixture-wide-${index}`, identity: 'b'.repeat(64), scope: index % 2 ? wide : elsewhere }) } });
+    for (let index = 0; index < 2; index++) await db.finding.create({ data: { id: `fixture-mine-${index}`, installationId: scope.installationId, identity: `mine-${index}`, data: json({ ...finding(), id: `fixture-mine-${index}`, identity: 'c'.repeat(64) }) } });
+    const first = page.parse((await get(narrow, '/api/v1/findings?limit=2')).body);
+    assert.equal(first.data.length, 2); assert.ok(first.nextCursor);
+    const second = page.parse((await get(narrow, `/api/v1/findings?limit=2&after=${first.nextCursor}`)).body);
+    assert.equal(second.data.length, 1); assert.equal(second.nextCursor, null);
+    const ids = [...first.data, ...second.data].map(item => z.object({ finding: z.object({ id: z.string() }).passthrough() }).passthrough().parse(item).finding.id);
+    assert.deepEqual(ids, ['fixture-mine-1', 'fixture-mine-0', 'fixture-finding']);
+    const legacy = await get(narrow, '/api/v1/findings'); assert.ok(Array.isArray(legacy.body)); assert.equal(z.array(z.unknown()).parse(legacy.body).length, 3); assert.equal(legacy.next, null);
+    assert.equal(page.parse((await get({ ...operator, scope: wide }, '/api/v1/findings?limit=200')).body).data.length, 9);
+    for (const bad of ['after=not-a-cursor!', 'limit=0', 'limit=x', `after=${Buffer.from('{"t":1}').toString('base64url')}`]) assert.equal((await get(narrow, `/api/v1/findings?${bad}`)).status, 400, bad);
+    // A cursor of one order is refused by a list of the other.
+    assert.equal((await get(narrow, `/api/v1/entities?after=${first.nextCursor}`)).status, 400);
+
+    // Entities and relationships: both ends and the relationship itself must be within scope.
+    const host = (id: string, entityScope: typeof scope) => db.entity.create({ data: { id, kind: 'target', stableKey: `target:fixture:${id}`, installationId: scope.installationId, data: json({ ...target(), id, scope: entityScope }) } });
+    await host('fixture-other-host', elsewhere); await host('fixture-second-host', scope);
+    const relation = (id: string, toId: string, relationScope: typeof scope, kind = 'managed-by') => db.relationship.create({ data: { id, fromId: 'fixture-node', toId, kind, provenance: json({ id, scope: relationScope, fromId: 'fixture-node', toId, kind, provenance: { source: 'magnus', assurance: 'inferred', evidenceIds: [], observedAt: now() } }) } });
+    await relation('fixture-rel-mine', 'fixture-second-host', scope); await relation('fixture-rel-other-end', 'fixture-other-host', scope); await relation('fixture-rel-wide', 'fixture-second-host', wide, 'runs-on');
+    const entityIds = z.array(z.object({ id: z.string() }).passthrough()).parse((await get(narrow, '/api/v1/entities')).body).map(entity => entity.id);
+    assert.deepEqual(entityIds, ['fixture-node', 'fixture-second-host']);
+    const entityPage = page.parse((await get(narrow, '/api/v1/entities?limit=1')).body); assert.equal(entityPage.data.length, 1); assert.ok(entityPage.nextCursor);
+    assert.deepEqual(z.array(z.object({ id: z.string() }).passthrough()).parse((await get(narrow, '/api/v1/relationships')).body).map(item => item.id), ['fixture-rel-mine']);
+    assert.equal(page.parse((await get({ ...operator, scope: wide }, '/api/v1/relationships?limit=10')).body).data.length, 3);
+
+    // Recommendations: newest change first, beyond the legacy bound of 200, with batched relations.
+    const base = plan(); const created = Date.now() - 3600000;
+    await db.campaign.create({ data: { id: base.campaignId, installationId: scope.installationId } });
+    const rows = Array.from({ length: 205 }, (_, index) => ({ ...base, id: `fixture-bulk-plan-${String(index).padStart(3, '0')}` }));
+    await db.plan.createMany({ data: rows.map((row, index) => ({ id: row.id, installationId: scope.installationId, campaignId: row.campaignId, currentRevision: 1, updatedAt: new Date(created + index * 1000) })) });
+    await db.planRevision.createMany({ data: rows.map(row => ({ planId: row.id, revision: 1, digest: digest(row), data: json(row) })) });
+    const hidden = { ...base, id: 'fixture-hidden-plan', scope: elsewhere };
+    await db.plan.create({ data: { id: hidden.id, installationId: scope.installationId, campaignId: base.campaignId, currentRevision: 1, updatedAt: new Date() } });
+    await db.planRevision.create({ data: { planId: hidden.id, revision: 1, digest: digest(hidden), data: json(hidden) } });
+    const newest = rows.at(-1); if (!newest) throw new Error('Fixture plans required');
+    await enqueue(db, operator, 'campaign', 'fixture-bulk-campaign', { planId: newest.id, revision: 1, scope }, new Date(Date.now() + 600000));
+    await enqueue(db, operator, 'campaign', 'fixture-bulk-stale', { planId: newest.id, revision: 2, scope }, new Date(Date.now() + 600000));
+    const entry = z.object({ plan: z.object({ id: z.string() }).passthrough(), jobs: z.array(z.object({ kind: z.string() }).passthrough()), campaign: z.object({ id: z.string() }).passthrough().nullable() }).passthrough();
+    const timeline = await get(narrow, '/api/v1/recommendations');
+    const legacyPlans = z.array(entry).parse(timeline.body);
+    assert.equal(legacyPlans.length, 200); assert.ok(timeline.next);
+    assert.equal(legacyPlans[0]?.plan.id, newest.id); assert.equal(legacyPlans[0]?.jobs.length, 1); assert.equal(legacyPlans[0]?.campaign?.id, base.campaignId);
+    assert.ok(legacyPlans.every(item => item.plan.id !== hidden.id));
+    const rest = page.parse((await get(narrow, `/api/v1/recommendations?after=${timeline.next}`)).body);
+    const all = [...legacyPlans.map(item => item.plan.id), ...z.array(entry).parse(rest.data).map(item => item.plan.id)];
+    assert.equal(all.length, 205); assert.equal(new Set(all).size, 205); assert.equal(rest.nextCursor, null);
+    // Any change to a plan moves it to the front.
+    await db.plan.update({ where: { id: 'fixture-bulk-plan-000' }, data: { status: 'explained' } });
+    assert.equal(z.array(entry).parse(page.parse((await get(narrow, '/api/v1/recommendations?limit=1')).body).data)[0]?.plan.id, 'fixture-bulk-plan-000');
+  });
+
 });

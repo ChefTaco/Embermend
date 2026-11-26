@@ -14,6 +14,7 @@ model Entity {
   version Int @default(1)
   updatedAt DateTime @updatedAt
   @@index([installationId, kind])
+  @@index([installationId, id])
 }
 model Relationship {
   id String @id
@@ -50,6 +51,7 @@ model Finding {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@unique([installationId, identity])
+  @@index([installationId, updatedAt(sort: Desc), id(sort: Desc)])
 }
 model Occurrence {
   id String @id
@@ -71,6 +73,7 @@ model ProfileAssignment {
   profileId String
   profileVersion String
   data Json
+  @@index([installationId, id])
 }
 model Policy {
   id String @id
@@ -91,6 +94,8 @@ model Plan {
   campaignId String
   currentRevision Int
   status String @default("draft")
+  updatedAt DateTime @default(now()) @updatedAt
+  @@index([installationId, updatedAt(sort: Desc), id(sort: Desc)])
 }
 model PlanRevision {
   planId String
@@ -153,6 +158,7 @@ model Exception {
   expiresAt DateTime
   status String
   data Json
+  @@index([installationId, id])
 }
 model RepositoryChange {
   id String @id
@@ -198,6 +204,7 @@ model Build {
   status String
   data Json
   @@unique([repositoryId, providerRunId, providerAttempt])
+  @@index([installationId, id])
 }
 model Job {
   id String @id
@@ -218,6 +225,7 @@ model Job {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([status, availableAt])
+  // Also "Job_campaign_planId_idx" ON ((payload->>'planId')) WHERE kind = 'campaign' (migration 20261126000000_list_paging).
 }
 model Schedule {
   id String @id

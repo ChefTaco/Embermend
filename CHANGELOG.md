@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- List endpoints filter by scope inside the database query. `GET /api/v1/findings`, `/entities`, `/relationships`, `/profile-assignments`, `/exceptions` and `/builds` used to read the first 1000 (or 2000) rows of the installation and drop out-of-scope rows afterwards, so a narrowly scoped operator could get an incomplete list. `findings()` no longer runs one occurrence query per finding, and occurrence visibility reads subjects and evidence in batches.
+- The recommendations timeline (`GET /api/v1/recommendations`, also in `/api/v1/export`) is ordered by each plan's last change, newest first. It used to return an arbitrary 200 plans that could omit the newest. Its campaign jobs, publications, executions and campaigns are read once per page instead of several queries per plan.
+- Cursor pagination for those seven list endpoints: with `?limit=` (1-200, default 50) or `?after=<cursor>` the response is a `{ data, nextCursor }` page, like `/api/v1/hive/events`. Without either parameter the legacy array is returned, as before, with an `x-next-cursor` header when the list was cut at its legacy bound (200 recommendations, 2000 relationships, 1000 of the rest). An invalid query or cursor is `400 INVALID_LIST_QUERY` or `400 INVALID_LIST_CURSOR`. Findings and recommendations page newest first, the other lists by ID.
+
+### Upgrade notes
+
+- Migration `20261126000000_list_paging` adds `Plan.updatedAt` (backfilled from each plan's newest revision), list-order indexes on `Plan`, `Finding`, `Entity`, `Exception`, `ProfileAssignment` and `Build`, and a partial index on campaign jobs' `payload->>'planId'`. Suite upgrades need `--allow-migrations`.
+- Clients that read the plain arrays keep working unchanged. To read beyond the legacy bound, follow `x-next-cursor` or request pages with `limit`.
+
 ## [0.4.0] - 2026-11-26
 
 - Security: the worker checks the stored authority of every job and scheduled delivery against the current `EMBERMEND_IDENTITY_GRANTS` before acting. Removing an operator's grant, changing its kind or narrowing its scope used to leave queued or resumed campaigns and recurring scans and assessments running under the old grant. Such a job now fails with `ACTOR_GRANT_REVOKED`, `ACTOR_KIND_CHANGED` or `ACTOR_SCOPE_REVOKED` (audit `job.authority-revoked`), and a scheduled occurrence is blocked (audit `schedule.blocked`). Removed permissions are intersected away (audit `job.authority-narrowed` or `schedule.authority-narrowed`), so work continues only while it still has the permission its normal admission checks. No migration.

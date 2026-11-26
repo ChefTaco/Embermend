@@ -4,6 +4,11 @@ import { observationSchema, relationshipSchema, profileAssignmentSchema, profile
 import { audit, digest, json, lock, within, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { DomainError, requirePermission } from './authorization.js';
 import { visibleOccurrences } from './occurrence-access.js';
+import { LEGACY_LIST_LIMITS, listPage, scopedPositions, scopedRelationshipPositions, type ListQuery, type Page } from './listing.js';
+
+type Relationship = z.infer<typeof relationshipSchema>;
+type ProfileAssignment = z.infer<typeof profileAssignmentSchema>;
+type Exception = z.infer<typeof exceptionSchema>;
 
 export class Records {
   constructor(private readonly db: Database) {}
@@ -33,10 +38,13 @@ export class Records {
       await audit(tx, actor, 'relationship.recorded', value.id); return value.id;
     });
   }
-  async relationships(actor: Actor) {
+  async relationships(actor: Actor): Promise<Relationship[]> { return [...(await this.relationshipsPage(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.relationships })).data]; }
+  /** Relationships whose two entities and own scope the actor can read, by ascending ID. */
+  async relationshipsPage(actor: Actor, query: ListQuery): Promise<Page<Relationship>> {
     requirePermission(actor, 'read', actor.scope);
-    const ids = (await this.db.entity.findMany({ where: { installationId: actor.scope.installationId } })).map(row => entitySchema.parse(row.data)).filter(row => within(actor.scope, row.scope)).map(row => row.id);
-    return (await this.db.relationship.findMany({ where: { fromId: { in: ids }, toId: { in: ids } }, take: 2000 })).map(row => relationshipSchema.parse(row.provenance)).filter(row => within(actor.scope, row.scope));
+    const positions = await scopedRelationshipPositions(this.db, actor.scope, query);
+    const rows = await this.db.relationship.findMany({ where: { id: { in: positions.slice(0, query.limit).map(position => position.id) } } });
+    return listPage(positions, new Map(rows.map(row => [row.id, relationshipSchema.parse(row.provenance)] as const).filter(([, value]) => within(actor.scope, value.scope))), query, 'id');
   }
   async observation(actor: Actor, input: unknown): Promise<string> {
     const value = observationSchema.parse(input); requirePermission(actor, 'ingest', value.scope);
@@ -65,13 +73,19 @@ export class Records {
       await audit(tx, actor, 'profile.assigned', value.id, { impact: value.impact });
     }); return value.id;
   }
-  async assignments(actor: Actor) {
+  async assignments(actor: Actor): Promise<ProfileAssignment[]> { return [...(await this.assignmentsPage(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.assignments })).data]; }
+  async assignmentsPage(actor: Actor, query: ListQuery): Promise<Page<ProfileAssignment>> {
     requirePermission(actor, 'read', actor.scope);
-    return (await this.db.profileAssignment.findMany({ where: { installationId: actor.scope.installationId }, take: 1000 })).map(row => profileAssignmentSchema.parse(row.data)).filter(value => within(actor.scope, value.scope));
+    const positions = await scopedPositions(this.db, 'ProfileAssignment', 'id', actor.scope, query);
+    const rows = await this.db.profileAssignment.findMany({ where: { id: { in: positions.slice(0, query.limit).map(position => position.id) } } });
+    return listPage(positions, new Map(rows.map(row => [row.id, profileAssignmentSchema.parse(row.data)] as const).filter(([, value]) => within(actor.scope, value.scope))), query, 'id');
   }
-  async exceptions(actor: Actor) {
+  async exceptions(actor: Actor): Promise<Exception[]> { return [...(await this.exceptionsPage(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.exceptions })).data]; }
+  async exceptionsPage(actor: Actor, query: ListQuery): Promise<Page<Exception>> {
     requirePermission(actor, 'read', actor.scope);
-    return (await this.db.exception.findMany({ where: { installationId: actor.scope.installationId }, take: 1000 })).map(row => exceptionSchema.parse(row.data)).filter(value => within(actor.scope, value.scope));
+    const positions = await scopedPositions(this.db, 'Exception', 'id', actor.scope, query);
+    const rows = await this.db.exception.findMany({ where: { id: { in: positions.slice(0, query.limit).map(position => position.id) } } });
+    return listPage(positions, new Map(rows.map(row => [row.id, exceptionSchema.parse(row.data)] as const).filter(([, value]) => within(actor.scope, value.scope))), query, 'id');
   }
   async schedule(actor: Actor, input: unknown): Promise<string> {
     const value = scheduleSchema.parse(input); requirePermission(actor, 'policy', value.scope); requirePermission(actor, 'assess', value.scope);
