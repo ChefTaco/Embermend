@@ -34,6 +34,21 @@ grant (audit `job.authority-narrowed` or `schedule.authority-narrowed`), so work
 continues only while it still holds the permission its normal admission requires.
 Production mutation policies stay disabled until explicitly authorized.
 
+## Worker concurrency and shutdown
+
+`EMBERMEND_WORKER_CONCURRENCY` (1 to 8, default 1) sets how many jobs one worker runs at
+once, so a campaign waiting on receipts no longer holds up assessments. Lanes claim with
+`FOR UPDATE SKIP LOCKED`; maintenance (exception expiry, schedule enqueueing) and schedule
+delivery run in their own loop every second. Each lane can hold a database connection.
+
+On the first SIGTERM or SIGINT the worker stops claiming (`worker.draining`). A running
+assessment or receipt wait continues for up to `EMBERMEND_WORKER_DRAIN_SECONDS` (default 8);
+a campaign stops at its next action boundary, where nothing of it is in flight, and returns
+to the queue to resume later with its original authority and deadline. Whatever is still
+running when the drain time ends, or at a second signal, is interrupted as before and
+becomes `unknown` for reconciliation. Docker and Compose kill a container 10 seconds after
+SIGTERM by default: raise `stop_grace_period` above the drain time before raising it.
+
 ## Operational observations
 
 Track queue age and expired/unknown work, assessment freshness and coverage,

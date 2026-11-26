@@ -10,12 +10,16 @@
 - The API uses the hive-common server kit: every response, errors included, carries `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`, and a new unauthenticated `GET /health/ready` checks PostgreSQL (503 when it does not answer). The container healthcheck of the API probes `/health/ready`, so a lost database now marks the API unhealthy. `GET /health/live` keeps its body.
 - `MAGNUS_URL` may carry a base path (`https://gateway.example.com/magnus`): Magnus routes are joined under it instead of replacing it.
 - Dependencies: `@hono/node-server` 2.1.11 (its 2.1.7, 2.1.10 and 2.1.11 security fixes concern `serveStatic` and WebSocket upgrades, which Embermend does not use), `hono` 4.13.22, `@hivemagnus/hive-common` 0.6.1, and the Ardent plugin is tested against `@hivemagnus/ardent` 3.3.0.
+- The worker drains on SIGTERM instead of aborting at once: it stops claiming, lets running jobs finish their current receipt or verification wait for up to `EMBERMEND_WORKER_DRAIN_SECONDS` (default 8), and a campaign between actions returns to the queue to resume later instead of becoming `unknown`. A second signal, or the end of the drain time, interrupts as before.
+- `EMBERMEND_WORKER_CONCURRENCY` (1-8, default 1) runs that many jobs at once in one worker. Maintenance and schedule delivery now run in their own loop every second, so a long job no longer delays exception expiry or scheduled work.
+- Integration tests cover maintenance and schedule delivery: exception expiry and its outbox notice, one enqueue per due schedule, disabled and not-yet-due schedules, delivery, cancellation of a disabled schedule's occurrence, and an admission failure blocking delivery.
 
 ### Upgrade notes
 
 - Migration `20261126000000_list_paging` adds `Plan.updatedAt` (backfilled from each plan's newest revision), list-order indexes on `Plan`, `Finding`, `Entity`, `Exception`, `ProfileAssignment` and `Build`, and a partial index on campaign jobs' `payload->>'planId'`. Suite upgrades need `--allow-migrations`.
 - Clients that read the plain arrays keep working unchanged. To read beyond the legacy bound, follow `x-next-cursor` or request pages with `limit`.
 - Clients that treated every authentication failure as a sign-out should retry a 503. Monitoring that alerts on the API container's health now also fires when PostgreSQL is unreachable.
+- Docker and Compose send SIGKILL 10 seconds after SIGTERM unless `stop_grace_period` is longer, so keep `EMBERMEND_WORKER_DRAIN_SECONDS` below the worker container's grace period.
 
 ## [0.4.0] - 2026-11-26
 
