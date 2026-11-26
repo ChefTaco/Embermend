@@ -6,6 +6,8 @@ import type { Actor } from '@hivemagnus/embermend-contracts';
 import { VERSION } from '@hivemagnus/embermend-contracts';
 import { DomainError, auditExport, auditExportInstallation, hiveEventFeed, requirePermission, type Embermend } from '@hivemagnus/embermend-core';
 import { parseFeedQuery } from '@hivemagnus/hive-common/events';
+import { requestContext } from '@hivemagnus/hive-common/hono';
+import { errorFields, logger } from './log.js';
 
 export type Authenticate = (token: string) => Promise<Actor>;
 export interface ApiOptions {
@@ -14,12 +16,14 @@ export interface ApiOptions {
 }
 export function createApi(service: Embermend, authenticate: Authenticate, options: ApiOptions = {}): Hono<{ Variables: { actor: Actor } }> {
   const app = new Hono<{ Variables: { actor: Actor } }>();
+  app.use('*', requestContext());
   app.use('*', bodyLimit({ maxSize: 2 * 1024 * 1024, onError: c => c.json({ error: 'REQUEST_TOO_LARGE' }, 413) }));
   app.onError((error, c) => {
     if (error instanceof z.ZodError) return c.json({ error: 'SCHEMA_VALIDATION_FAILED' }, 400);
     if (error instanceof SyntaxError) return c.json({ error: 'INVALID_JSON' }, 400);
     if (error instanceof DomainError) return new Response(JSON.stringify({ error: error.code }), { status: error.status, headers: { 'content-type': 'application/json' } });
-    // Error messages can contain source, SQL, tokens or remote responses.
+    // Error messages can contain source, SQL, tokens or remote responses: log codes only.
+    logger.error('api.request_failed', { method: c.req.method, route: c.req.routePath, ...errorFields(error) });
     return c.json({ error: 'OPERATION_FAILED_INSPECT_RETAINED_STATE' }, 500);
   });
   app.get('/health/live', c => c.json({ status: 'alive', version: VERSION }));
@@ -27,7 +31,11 @@ export function createApi(service: Embermend, authenticate: Authenticate, option
   app.use('/api/*', async (c, next) => {
     const header = c.req.header('authorization');
     if (!header?.startsWith('Bearer ')) return c.json({ error: 'AUTHENTICATION_REQUIRED' }, 401);
-    try { c.set('actor', await authenticate(header.slice(7))); } catch { return c.json({ error: 'IDENTITY_OR_PRODUCT_ACCESS_DENIED' }, 401); }
+    try { c.set('actor', await authenticate(header.slice(7))); } catch (error) {
+      // An identity-provider outage looks like a refusal to the caller; the log tells them apart.
+      logger.warn('api.authentication_refused', { route: c.req.path.startsWith('/api/v1/') ? c.req.path.split('/').slice(0, 4).join('/') : '/api', ...errorFields(error) });
+      return c.json({ error: 'IDENTITY_OR_PRODUCT_ACCESS_DENIED' }, 401);
+    }
     await next();
   });
   app.get('/api/v1/readiness', async c => {
