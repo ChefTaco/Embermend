@@ -7,7 +7,9 @@ import { VERSION } from '@hivemagnus/embermend-contracts';
 import { DomainError, LEGACY_LIST_LIMITS, LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT, auditExport, auditExportInstallation, hiveEventFeed, requirePermission, type Embermend, type ListQuery, type Page } from '@hivemagnus/embermend-core';
 import type { Context } from 'hono';
 import { parseFeedQuery } from '@hivemagnus/hive-common/events';
-import { requestContext } from '@hivemagnus/hive-common/hono';
+import { registerHealthRoutes, requestContext, securityHeaders } from '@hivemagnus/hive-common/hono';
+import { isOathweaveError } from '@hivemagnus/hive-common/oathweave';
+import { identityProviderUnavailable } from '@hivemagnus/embermend-integrations';
 import { errorFields, logger } from './log.js';
 
 export type Authenticate = (token: string) => Promise<Actor>;
@@ -36,6 +38,8 @@ async function list<T>(c: Context, legacyLimit: number, page: (query: ListQuery)
 export function createApi(service: Embermend, authenticate: Authenticate, options: ApiOptions = {}): Hono<{ Variables: { actor: Actor } }> {
   const app = new Hono<{ Variables: { actor: Actor } }>();
   app.use('*', requestContext());
+  // Set after the handler, so every response, errors included, is nosniff and never cached.
+  app.use('*', securityHeaders({ apply: 'after', headers: { 'Cache-Control': 'no-store' } }));
   app.use('*', bodyLimit({ maxSize: 2 * 1024 * 1024, onError: c => c.json({ error: 'REQUEST_TOO_LARGE' }, 413) }));
   app.onError((error, c) => {
     if (error instanceof z.ZodError) return c.json({ error: 'SCHEMA_VALIDATION_FAILED' }, 400);
@@ -45,14 +49,22 @@ export function createApi(service: Embermend, authenticate: Authenticate, option
     logger.error('api.request_failed', { method: c.req.method, route: c.req.routePath, ...errorFields(error) });
     return c.json({ error: 'OPERATION_FAILED_INSPECT_RETAINED_STATE' }, 500);
   });
-  app.get('/health/live', c => c.json({ status: 'alive', version: VERSION }));
+  // Unauthenticated probes: liveness keeps its published body; readiness checks PostgreSQL.
+  registerHealthRoutes(app, { service: 'embermend', version: VERSION, liveBody: { status: 'alive', version: VERSION }, readyCacheMs: 1000, checks: [{ name: 'database', check: async () => { await service.db.$queryRaw`SELECT 1`; } }] });
   app.get('/health/compatibility', c => c.json({ product: 'embermend', version: VERSION, protocol: 1, magnusRequired: true, operatorSurface: 'hivexui', runtime: process.version, storage: 'postgresql', supportedTargets: ['ubuntu-24.04', 'github-typescript-javascript', 'docker-compose'] }));
   app.use('/api/*', async (c, next) => {
     const header = c.req.header('authorization');
     if (!header?.startsWith('Bearer ')) return c.json({ error: 'AUTHENTICATION_REQUIRED' }, 401);
     try { c.set('actor', await authenticate(header.slice(7))); } catch (error) {
-      // An identity-provider outage looks like a refusal to the caller; the log tells them apart.
-      logger.warn('api.authentication_refused', { route: c.req.path.startsWith('/api/v1/') ? c.req.path.split('/').slice(0, 4).join('/') : '/api', ...errorFields(error) });
+      const route = c.req.path.startsWith('/api/v1/') ? c.req.path.split('/').slice(0, 4).join('/') : '/api';
+      const reason = isOathweaveError(error) ? { reason: error.reason } : {};
+      if (identityProviderUnavailable(error)) {
+        // Verification could not run: the caller should retry, not sign out. Still fails closed.
+        logger.error('api.identity_provider_unavailable', { route, ...errorFields(error), ...reason });
+        c.header('retry-after', '1');
+        return c.json({ error: 'IDENTITY_PROVIDER_UNAVAILABLE' }, 503);
+      }
+      logger.warn('api.authentication_refused', { route, ...errorFields(error), ...reason });
       return c.json({ error: 'IDENTITY_OR_PRODUCT_ACCESS_DENIED' }, 401);
     }
     await next();

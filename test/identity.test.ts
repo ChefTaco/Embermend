@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPair, exportJWK, SignJWT, createLocalJWKSet } from 'jose';
-import { oathweaveAuthenticator, ResourceTokenProvider } from '@hivemagnus/embermend-integrations';
+import { isOathweaveError } from '@hivemagnus/hive-common/oathweave';
+import { identityProviderUnavailable, oathweaveAuthenticator, ResourceTokenProvider } from '@hivemagnus/embermend-integrations';
 import { scope } from './fixtures.js';
 
 test('Oathweave users and machine identities have separate non-escalating authority', async () => {
@@ -12,11 +13,11 @@ test('Oathweave users and machine identities have separate non-escalating author
   const sign = async (subject: string, extra: Record<string, unknown>, lifetime = 300) => new SignJWT({ permissions: ['embermend:read', 'embermend:approve', 'embermend:execute'], ...extra }).setProtectedHeader({ alg: 'RS256', kid: 'fixture-key' }).setIssuer('https://identity.example.com').setAudience('embermend').setSubject(subject).setJti('fixture-token-id').setIssuedAt().setExpirationTime(Math.floor(Date.now() / 1000) + lifetime).sign(pair.privateKey);
   const user = await sign('fixture-user', { actorType: 'USER', sessionId: 'fixture-session', clientId: 'hivexui-embermend', roles: [] });
   assert.equal((await auth(user)).permissions.has('approve'), true);
-  live = false; await assert.rejects(auth(user), /REVOKED/);
+  live = false; await assert.rejects(auth(user), (error: unknown) => isOathweaveError(error) && error.reason === 'session_inactive' && !identityProviderUnavailable(error));
   const machine = await sign('fixture-coordinator', { actorType: 'SERVICE_ACCOUNT', token_type: 'access', clientId: 'fixture-coordinator' });
   const actor = await auth(machine); assert.equal(actor.kind, 'coordinator'); assert.equal(actor.permissions.has('approve'), false);
   await assert.rejects(auth(await sign('fixture-coordinator', { actorType: 'SERVICE_ACCOUNT', token_type: 'access', clientId: 'fixture-coordinator', sessionId: 'forged-session' })));
-  await assert.rejects(auth(await sign('fixture-coordinator', { actorType: 'SERVICE_ACCOUNT', token_type: 'access', clientId: 'fixture-coordinator' }, 3600)), /LIFETIME/);
+  await assert.rejects(auth(await sign('fixture-coordinator', { actorType: 'SERVICE_ACCOUNT', token_type: 'access', clientId: 'fixture-coordinator' }, 3600)), (error: unknown) => isOathweaveError(error) && error.reason === 'invalid_lifetime');
 });
 test('service token refresh is shared and cannot silently use an unscoped fallback', async () => {
   let calls = 0; const request: typeof fetch = async (_url, init) => { calls++; assert.ok(String(init?.body).includes('client_credentials')); return Response.json({ access_token: 'fixture-resource-token', expires_in: 300, token_type: 'Bearer' }); };

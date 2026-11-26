@@ -1055,4 +1055,12 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal(z.array(entry).parse(page.parse((await get(narrow, '/api/v1/recommendations?limit=1')).body).data)[0]?.plan.id, 'fixture-bulk-plan-000');
   });
 
+  await t.test('readiness is unauthenticated and answers while PostgreSQL does', async () => {
+    const { service } = await reset();
+    const ready = await createApi(service, async () => { throw new Error('authentication is not consulted'); }).request('/health/ready');
+    assert.equal(ready.status, 200);
+    const body = z.object({ status: z.literal('ready'), service: z.literal('embermend'), checks: z.object({ database: z.object({ status: z.literal('up') }).passthrough() }) }).passthrough().parse(await ready.json());
+    assert.equal(body.service, 'embermend');
+  });
+
 });

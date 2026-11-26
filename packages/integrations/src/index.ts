@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import type { JWTVerifyGetKey } from 'jose';
+import { createOathweaveVerifier, createServiceTokenProvider, isOathweaveError, statusForReason, type ServiceTokenProvider } from '@hivemagnus/hive-common/oathweave';
 import { z } from 'zod';
 import { capabilitySchema, operationRequestSchema, receiptSchema, permissions, scopeSchema, jsonObject, type Actor, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
 
@@ -9,6 +10,11 @@ export function endpoint(value: string, allowLoopback = false): URL {
   if ((url.protocol !== 'https:' && !(allowLoopback && url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) || url.username || url.password || url.search || url.hash)
     throw new Error('Verified HTTPS endpoint required');
   return url;
+}
+/** `value` without trailing `/` characters, in linear time. */
+export function withoutTrailingSlashes(value: string): string {
+  let end = value.length; while (end > 0 && value.charCodeAt(end - 1) === 47) end--;
+  return value.slice(0, end);
 }
 export async function responseJson(response: Response): Promise<unknown> {
   const max = 8 * 1024 * 1024;
@@ -30,7 +36,9 @@ export class MagnusClient implements Magnus {
   constructor(base: string, private readonly token: string, private readonly request: typeof fetch = fetch, allowLoopback = false) { this.base = endpoint(base, allowLoopback); }
   private async call(path: string, method: string, payload?: unknown, signal?: AbortSignal): Promise<unknown> {
     try {
-      const response = await this.request(new URL(path, this.base), { method, redirect: 'error', headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' }, signal: signal ?? AbortSignal.timeout(30000), ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) });
+      // Join under the configured base path (`https://host/magnus` + `/api/v1/...`), as `endpoint()` allows one.
+      const target = new URL(this.base); target.pathname = withoutTrailingSlashes(this.base.pathname) + path;
+      const response = await this.request(target, { method, redirect: 'error', headers: { authorization: `Bearer ${this.token}`, 'content-type': 'application/json' }, signal: signal ?? AbortSignal.timeout(30000), ...(payload === undefined ? {} : { body: JSON.stringify(payload) }) });
       if (!response.ok) throw new IntegrationError(`MAGNUS_HTTP_${response.status}`, method !== 'GET' && response.status >= 500);
       return await responseJson(response);
     } catch (error) { if (error instanceof IntegrationError) throw error; throw new IntegrationError('MAGNUS_COMMUNICATION_OR_SCHEMA_FAILURE', method !== 'GET'); }
@@ -41,48 +49,54 @@ export class MagnusClient implements Magnus {
 }
 const grantSchema = z.object({ subject: z.string(), kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema }).strict();
 export const grantsSchema = z.array(grantSchema);
-const tokenClaims = z.object({ sub: z.string(), permissions: z.array(z.string()) });
-export function oathweaveAuthenticator(config: { issuer: string; jwksUrl: string; userinfoUrl: string; grants: z.infer<typeof grantsSchema> }, overrides: { keys?: JWTVerifyGetKey; request?: typeof fetch } = {}): (token: string) => Promise<Actor> {
+/**
+ * Oathweave resource-token authentication with the shared hive-common verifier: RS256 only,
+ * audience `embermend`, issuer, lifetime (at most 900 s) and `jti` checks, and an online userinfo
+ * check of every user token. Product authority comes only from the unique matching grant.
+ *
+ * Refusals are `OathweaveError`s (401) or plain errors naming the grant problem. An identity
+ * provider that cannot be reached, or answers 5xx, is an `OathweaveError` whose reason is
+ * `jwks_unavailable` or `identity_unavailable` (503): verification could not run, so the caller
+ * should retry rather than sign out. A userinfo 401 or 403 is a revoked session (401).
+ */
+export function oathweaveAuthenticator(config: { issuer: string; jwksUrl: string; userinfoUrl: string; grants: z.infer<typeof grantsSchema> | (() => z.infer<typeof grantsSchema>) }, overrides: { keys?: JWTVerifyGetKey; request?: typeof fetch } = {}): (token: string) => Promise<Actor> {
   endpoint(config.issuer); endpoint(config.jwksUrl); endpoint(config.userinfoUrl);
-  const keys = overrides.keys ?? createRemoteJWKSet(new URL(config.jwksUrl)); const request = overrides.request ?? fetch;
+  const verifier = createOathweaveVerifier({ issuer: config.issuer, audience: 'embermend', jwksUrl: config.jwksUrl, userinfoUrl: config.userinfoUrl, accept: 'any', clientIdClaim: 'clientId', sessionCacheTtlMs: 0, clockToleranceSec: 0, ...(overrides.keys ? { keys: overrides.keys } : {}), ...(overrides.request ? { fetch: overrides.request } : {}) });
+  // A function is read on every request, so grants can change without a restart.
+  const source = config.grants; const grants = typeof source === 'function' ? source : (): z.infer<typeof grantsSchema> => source;
   return async token => {
-    const verified = await jwtVerify(token, keys, { issuer: config.issuer, audience: 'embermend', algorithms: ['RS256'], requiredClaims: ['sub', 'iat', 'exp', 'jti'], maxTokenAge: '15m' });
-    if (verified.payload.aud !== 'embermend' || typeof verified.payload.iat !== 'number' || typeof verified.payload.exp !== 'number' || verified.payload.exp <= verified.payload.iat || verified.payload.exp - verified.payload.iat > 900) throw new Error('INVALID_RESOURCE_TOKEN_LIFETIME_OR_AUDIENCE');
-    const claims = tokenClaims.parse(verified.payload);
-    const matching = config.grants.filter(grant => grant.subject === claims.sub);
+    const principal = await verifier.verify(token);
+    const matching = grants().filter(grant => grant.subject === principal.subject);
     if (matching.length !== 1) throw new Error('EXPLICIT_UNIQUE_PRODUCT_GRANT_REQUIRED');
     const grant = matching[0]; if (!grant) throw new Error('PRODUCT_GRANT_REQUIRED');
     if (grant.kind === 'operator') {
-      z.object({ actorType: z.literal('USER'), sessionId: z.string().min(1), clientId: z.string().min(1), roles: z.array(z.string()) }).parse(verified.payload);
-      const response = await request(config.userinfoUrl, { headers: { authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.timeout(5000) });
-      if (!response.ok) throw new Error('IDENTITY_REVOKED_OR_UNAVAILABLE');
-      const identity = z.object({ sub: z.string() }).parse(await responseJson(response));
-      if (identity.sub !== grant.subject) throw new Error('IDENTITY_SUBJECT_MISMATCH');
-    } else {
-      const identity = z.object({ actorType: z.literal('SERVICE_ACCOUNT'), token_type: z.literal('access'), clientId: z.literal(grant.subject), sessionId: z.undefined().optional() }).parse(verified.payload);
-      if (identity.clientId !== claims.sub) throw new Error('SERVICE_SUBJECT_MISMATCH');
-    }
-    const allowed = grant.permissions.filter(permission => claims.permissions.includes(`embermend:${permission}`));
+      // A user token, its session checked online by the verifier; Oathweave always sends roles.
+      if (principal.kind !== 'user' || !Array.isArray(principal.claims['roles'])) throw new Error('OPERATOR_USER_TOKEN_REQUIRED');
+    } else if (principal.kind !== 'service' || principal.clientId !== grant.subject) throw new Error('SERVICE_SUBJECT_MISMATCH');
+    const allowed = grant.permissions.filter(permission => principal.permissions.includes(`embermend:${permission}`));
     if (grant.kind !== 'operator' && allowed.some(permission => ['approve', 'policy', 'exception', 'recover'].includes(permission))) throw new Error('NON_OPERATOR_AUTHORITY_ESCALATION');
     if (grant.kind === 'coordinator' && allowed.includes('ingest')) throw new Error('COORDINATOR_CANNOT_VALIDATE_ITS_OWN_EVIDENCE');
     return { id: grant.subject, kind: grant.kind, scope: grant.scope, permissions: new Set(allowed) };
   };
 }
+/** True when authentication could not run because the identity provider is unavailable. */
+export function identityProviderUnavailable(error: unknown): boolean {
+  return isOathweaveError(error) && statusForReason(error.reason) === 503;
+}
+/**
+ * A cached client-credentials token for one scoped resource, on the hive-common provider:
+ * concurrent callers share one request, a failure backs off briefly, and a token is cached for
+ * at most 15 minutes, the longest lifetime Embermend accepts.
+ */
 export class ResourceTokenProvider {
-  private cached: { token: string; expiresAt: number } | undefined;
-  private pending: Promise<string> | undefined;
-  constructor(private readonly config: { tokenUrl: string; clientId: string; clientSecret: string; scope: string }, private readonly request: typeof fetch = fetch) { endpoint(config.tokenUrl); }
-  async token(): Promise<string> {
-    if (this.cached && this.cached.expiresAt > Date.now() + 30000) return this.cached.token;
-    if (this.pending) return this.pending;
-    this.pending = this.refresh().finally(() => { this.pending = undefined; }); return this.pending;
+  private readonly provider: ServiceTokenProvider;
+  constructor(config: { tokenUrl: string; clientId: string; clientSecret: string; scope: string }, request: typeof fetch = fetch) {
+    endpoint(config.tokenUrl);
+    this.provider = createServiceTokenProvider({ tokenUrl: config.tokenUrl, clientId: config.clientId, clientSecret: config.clientSecret, scope: config.scope, fetch: request, maxLifetimeMs: 900000 });
   }
-  private async refresh(): Promise<string> {
-    const response = await this.request(this.config.tokenUrl, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000), headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'client_credentials', client_id: this.config.clientId, client_secret: this.config.clientSecret, scope: this.config.scope }) });
-    if (!response.ok) throw new Error('SCOPED_SERVICE_TOKEN_UNAVAILABLE');
-    const value = z.object({ access_token: z.string().min(1), expires_in: z.number().positive().max(900), token_type: z.string().regex(/^bearer$/i) }).parse(await responseJson(response));
-    this.cached = { token: value.access_token, expiresAt: Date.now() + value.expires_in * 1000 }; return value.access_token;
-  }
+  async token(): Promise<string> { return this.provider.token(); }
+  /** Forget the cached token, for example after the resource answered 401. */
+  invalidate(): void { this.provider.invalidate(); }
 }
 /** The end of a `-----BEGIN|END <label>PRIVATE KEY-----` marker at `at`, where the label holds no `-`; -1 when there is none. */
 function pemMarkerEnd(text: string, at: number, prefix: string): number {

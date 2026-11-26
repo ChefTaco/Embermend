@@ -60,9 +60,13 @@ Node's `--env-file` flag. Both processes share the same PostgreSQL database.
 | `npm run inference` | Optional inference broker on `127.0.0.1:${EMBERMEND_INFERENCE_PORT:-4181}` ([provider guide](docs/INFERENCE.md)) |
 | `node services/runtime/dist/index.js migrate` | Apply database migrations (`verify-initialization` checks them) |
 
-`GET /health/live` reports process health and `GET /health/compatibility` the runtime and
-bridge protocol; the authenticated `GET /api/v1/readiness` reports Magnus and inventory
-readiness.
+`GET /health/live` reports process health, `GET /health/ready` (unauthenticated, 503 when
+PostgreSQL does not answer; the container healthcheck uses it) database readiness, and
+`GET /health/compatibility` the runtime and bridge protocol; the authenticated
+`GET /api/v1/readiness` reports Magnus and inventory readiness. When Oathweave's keys or
+userinfo endpoint cannot be reached, authenticated routes answer
+`503 IDENTITY_PROVIDER_UNAVAILABLE` with `Retry-After: 1` instead of a 401, so clients retry
+rather than sign out. `MAGNUS_URL` may carry a base path; Magnus routes are joined under it.
 
 ## Product boundaries
 
