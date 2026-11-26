@@ -35,6 +35,7 @@ test('actions are dotted lowercase and actors, targets and outcomes follow the r
   assert.equal(auditRecord(row({ actorKind: null }), () => undefined).actor.type, 'service');
   assert.equal(auditRecord(row({ operation: 'execution.receipt', details: { state: 'failed' } })).outcome, 'failure');
   assert.equal(auditRecord(row({ operation: 'execution.receipt', details: { state: 'completed' } })).outcome, 'success');
+  assert.equal(auditRecord(row({ operation: 'execution.reconciled', details: { state: 'unknown' } })).outcome, 'failure');
   assert.equal(auditRecord(row({ operation: 'verification.recorded', details: { result: 'fail' } })).outcome, 'failure');
   assert.deepEqual(auditRecord(row({ operation: 'provider.merge.observed' })).target, { type: 'execution', id: 'fixture-plan' });
   assert.deepEqual(auditRecord(row({ operation: 'provider.effect.reserved' })).target?.type, 'provider-effect');

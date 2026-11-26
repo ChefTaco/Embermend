@@ -130,7 +130,11 @@ in `EMBERMEND_IDENTITY_GRANTS`; its Oathweave client needs the
 Each page's `nextCursor` is the cursor of its last record, even on the final
 page; it is `null` only when `data` is empty (caught up), so a collector keeps
 its last non-null cursor and polls it again. `target` and `subject` are omitted
-when empty. Oathweave signs client-credentials tokens with its native issuer by
+when empty. Finding records (`finding.observed`, `finding.recurred`) carry the finding's
+`severity`, `kind` and `priority` in `details`, and finding and execution records carry
+`subject.nodeId`, the Magnus node of the host (or a workload's host) involved, so
+Cindertrace can correlate them with other host evidence. An execution whose effect is
+`unknown` is exported with outcome `failure`, like a failed one. Oathweave signs client-credentials tokens with its native issuer by
 default: set the optional comma-separated `OATHWEAVE_NATIVE_ISSUERS` (for
 example Oathweave's `JWT_ISSUER`, such as `hive-iam`) to accept them. A
 native-issuer token is accepted for service grants only, verified with the

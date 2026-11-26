@@ -1,6 +1,7 @@
 import type { Page } from '@hivemagnus/hive-common/contracts';
 import { redact, redactText } from '@hivemagnus/hive-common/log';
-import { hiveAuditRecordSchema, type Actor, type HiveAuditRecord } from '@hivemagnus/embermend-contracts';
+import { z } from 'zod';
+import { entitySchema, hiveAuditRecordSchema, type Actor, type HiveAuditRecord } from '@hivemagnus/embermend-contracts';
 import type { Database } from '@hivemagnus/embermend-store';
 import { DomainError } from './authorization.js';
 import { createHash } from 'node:crypto';
@@ -49,7 +50,8 @@ function outcome(row: ExportedAuditRow): HiveAuditRecord['outcome'] {
   const details = typeof row.details === 'object' && row.details !== null && !Array.isArray(row.details) ? row.details : {};
   const state = 'state' in details ? details.state : undefined;
   const result = 'result' in details ? details.result : undefined;
-  if ((row.operation === 'execution.receipt' || row.operation === 'execution.reconciled') && state === 'failed') return 'failure';
+  // An unknown effect needs reconciliation: reported as a failure so collectors raise it.
+  if ((row.operation === 'execution.receipt' || row.operation === 'execution.reconciled') && (state === 'failed' || state === 'unknown')) return 'failure';
   if (row.operation === 'verification.recorded' && result === 'fail') return 'failure';
   return 'success';
 }
@@ -73,7 +75,7 @@ export function auditDetails(row: Pick<ExportedAuditRow, 'details' | 'installati
   return output;
 }
 
-export function auditRecord(row: ExportedAuditRow, resolve?: AuditExportOptions['actorKind']): HiveAuditRecord {
+export function auditRecord(row: ExportedAuditRow, resolve?: AuditExportOptions['actorKind'], nodeId?: string): HiveAuditRecord {
   const record = {
     id: `embermend:audit:${NATIVE_ID.test(row.id) ? row.id : `h-${createHash('sha256').update(row.id).digest('hex')}`}`,
     product: 'embermend' as const,
@@ -83,9 +85,45 @@ export function auditRecord(row: ExportedAuditRow, resolve?: AuditExportOptions[
     actor: { type: actorType(row, resolve), id: row.actorId.slice(0, 256) },
     // Empty objects are omitted, never sent as {}.
     target: { type: targetType(row.operation), ...(row.subjectId ? { id: row.subjectId.slice(0, 256) } : {}) },
+    // The Magnus node a finding was observed on or an execution ran on, for host correlation.
+    ...(nodeId ? { subject: { nodeId } } : {}),
     details: auditDetails(row),
   };
   return hiveAuditRecordSchema.parse(record);
+}
+
+const NODE_ID = /^[a-z0-9_-]{2,32}$/;
+const FINDING_OPERATIONS = new Set(['finding.observed', 'finding.recurred']);
+const EXECUTION_OPERATIONS = new Set(['execution.receipt', 'execution.reconciled']);
+/**
+ * The Magnus node ID behind each finding and execution row of a page: the host target's Magnus
+ * ID, or a workload's parent host. Read in three batched queries per page.
+ */
+async function rowNodes(db: Database, rows: readonly ExportedAuditRow[]): Promise<Map<string, string>> {
+  const subjectOf = new Map<string, string>();
+  for (const row of rows) {
+    if (!FINDING_OPERATIONS.has(row.operation)) continue;
+    const parsed = z.object({ occurrenceSubject: z.string() }).passthrough().safeParse(row.details);
+    if (parsed.success) subjectOf.set(row.id, parsed.data.occurrenceSubject);
+  }
+  const executionIds = rows.filter(row => EXECUTION_OPERATIONS.has(row.operation)).map(row => row.subjectId);
+  if (executionIds.length) {
+    const targets = new Map((await db.execution.findMany({ where: { id: { in: [...new Set(executionIds)] } }, select: { id: true, targetId: true } })).map(execution => [execution.id, execution.targetId]));
+    for (const row of rows) { const target = EXECUTION_OPERATIONS.has(row.operation) ? targets.get(row.subjectId) : undefined; if (target) subjectOf.set(row.id, target); }
+  }
+  if (!subjectOf.size) return new Map();
+  const entities = async (ids: readonly string[]) => new Map((await db.entity.findMany({ where: { id: { in: [...new Set(ids)] }, kind: 'target' } })).flatMap(row => { const parsed = entitySchema.safeParse(row.data); return parsed.success && parsed.data.kind === 'target' ? [[row.id, parsed.data] as const] : []; }));
+  const direct = await entities([...subjectOf.values()]);
+  const parents = await entities([...direct.values()].flatMap(target => target.targetKind !== 'host' && target.parentHostId ? [target.parentHostId] : []));
+  const nodeOf = (id: string): string | undefined => {
+    const target = direct.get(id) ?? parents.get(id); if (!target) return undefined;
+    if (target.targetKind === 'host') return NODE_ID.test(target.magnusTargetId) ? target.magnusTargetId : undefined;
+    const parent = target.parentHostId ? parents.get(target.parentHostId) : undefined;
+    return parent?.targetKind === 'host' && NODE_ID.test(parent.magnusTargetId) ? parent.magnusTargetId : undefined;
+  };
+  const result = new Map<string, string>();
+  for (const [rowId, subject] of subjectOf) { const node = nodeOf(subject); if (node) result.set(rowId, node); }
+  return result;
 }
 
 /**
@@ -111,5 +149,6 @@ export async function auditExport(db: Database, actor: Actor, options: AuditExpo
   // The last record's cursor is returned even on the final page, so a collector resumes from it;
   // null means nothing is newer than the cursor.
   const last = data.at(-1);
-  return { data: data.map(row => auditRecord(row, options.actorKind)), nextCursor: last ? encodeFeedPosition({ occurredAt: last.createdAt.toISOString(), id: last.id }) : null };
+  const nodes = await rowNodes(db, data);
+  return { data: data.map(row => auditRecord(row, options.actorKind, nodes.get(row.id))), nextCursor: last ? encodeFeedPosition({ occurredAt: last.createdAt.toISOString(), id: last.id }) : null };
 }

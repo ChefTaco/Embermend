@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { database, digest, claim, enqueue, json, serializeActor } from '@hivemagnus/embermend-store';
-import { Embermend } from '@hivemagnus/embermend-core';
+import { audit, database, digest, claim, enqueue, json, serializeActor } from '@hivemagnus/embermend-store';
+import { Embermend, auditExport } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus, type ArtifactPublisher } from '@hivemagnus/embermend-integrations';
 import { buildSchema, receiptSchema, scanRequestSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
@@ -1062,6 +1062,24 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal(ready.status, 200);
     const body = z.object({ status: z.literal('ready'), service: z.literal('embermend'), checks: z.object({ database: z.object({ status: z.literal('up') }).passthrough() }) }).passthrough().parse(await ready.json());
     assert.equal(body.service, 'embermend');
+
+  });
+
+  await t.test('the audit export names the Magnus node and severity of findings and unknown executions', async () => {
+    const { service, magnus } = await reset();
+    const collector: Actor = { id: 'fixture-collector', kind: 'integration', permissions: new Set(['audit:read']), scope };
+    const proposed = await service.propose(coordinator, plan()); await service.publish(coordinator, proposed.id, 1);
+    await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
+    magnus.loseReply = true; await assert.rejects(service.dispatch(coordinator, proposed.id, 'fixture-action'), /UNKNOWN_EXECUTION/);
+    // As the reconciliation of a still-unknown effect records it.
+    const execution = await db.execution.findFirstOrThrow({ where: { planId: proposed.id } }); assert.equal(execution.state, 'unknown');
+    await audit(db, operator, 'execution.reconciled', execution.id, { state: 'unknown' });
+    const records = (await auditExport(db, collector, { after: undefined, limit: 200 })).data;
+    const observed = records.find(record => record.action === 'finding.observed');
+    assert.equal(observed?.subject?.nodeId, 'fixture-node'); assert.equal(observed?.details['severity'], 'medium'); assert.equal(observed?.details['kind'], 'hardening');
+    const unknown = records.find(record => record.action === 'execution.reconciled');
+    assert.equal(unknown?.details['state'], 'unknown'); assert.equal(unknown?.outcome, 'failure'); assert.equal(unknown?.subject?.nodeId, 'fixture-node');
+    assert.equal(records.find(record => record.action === 'plan.proposed')?.subject, undefined);
   });
 
   await t.test('maintenance expires exceptions and enqueues due schedules once; delivery runs, cancels or blocks them', async () => {
