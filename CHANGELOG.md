@@ -2,9 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The release workflow's `npm` job passed each tarball to `npm publish` as a relative path (`release-assets/<file>.tgz`), which npm reads as a GitHub `owner/repo` shorthand, so it tried to clone a repository and failed. The 0.6.0 images and GitHub release were published, but its npm packages were not. The script now passes absolute paths, covered by `test/publish-npm.test.ts`.
+
 ## [0.6.0] - 2026-11-26
 
-Adds opt-in Oathweave role-derived operator authority (`EMBERMEND_AUTHORITY_SOURCE=oathweave`) and is the first release the workflow publishes to npm. No migration; nothing changes until an operator opts in.
+Adds opt-in Oathweave role-derived operator authority (`EMBERMEND_AUTHORITY_SOURCE=oathweave`) and turns on npm publishing in the release workflow. No migration; nothing changes until an operator opts in.
 
 ### Added
 
@@ -24,7 +28,7 @@ Adds opt-in Oathweave role-derived operator authority (`EMBERMEND_AUTHORITY_SOUR
 - To switch, create the Oathweave machine client and roles, write the role-to-scope mapping, remove the operator entries from the grants setting and set the new settings on both the API and the worker (steps in `docs/OPERATIONS.md`). Stored jobs and schedules keep running only where the operator's roles still cover their scope and permissions. To roll back (or before running an earlier release), put the operator grants back and unset `EMBERMEND_AUTHORITY_SOURCE`.
 - The `grants.reloaded` log keeps its `grants` count; a role scopes file logs `role_scopes.reloaded` and `role_scopes.reload_failed`. Both processes log `authority.source` at startup.
 - No migration: suite upgrades from 0.5.0 do not need `--allow-migrations`, and 0.5.0 images run against the same database if you roll back (with the operator grants restored as above).
-- npm publishing is on: `@hivemagnus/embermend-contracts`, `-integrations` and `-ardent-plugin` 0.6.0 are published to npm with provenance from the same attested tarballs as the GitHub release.
+- npm publishing is on, but the 0.6.0 `npm` job failed (see 0.6.1): `@hivemagnus/embermend-contracts`, `-integrations` and `-ardent-plugin` 0.6.0 are only on the GitHub release, not on npm.
 
 ## [0.5.0] - 2026-11-26
 
