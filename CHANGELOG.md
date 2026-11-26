@@ -10,6 +10,10 @@
 
 - Dependabot now opens one grouped weekly pull request (group `hivemagnus`) for `@hivemagnus/*` package updates, so suite package bumps arrive together. Repository configuration only; nothing to do when upgrading.
 
+### Security
+
+- The repository privacy check (`scripts/check-private-data.sh`) now reports a finding as `path:line: rule` and never print the matching text or the line around it, so a failing check cannot copy a private term into a public CI log. A path that itself contains a private term is shown as `(path redacted)`. Exit codes are unchanged, and `scripts/privacy-output.test.sh` (run in CI) plants fake values and checks they stay out of the output. Repository tooling only; nothing to do when upgrading.
+
 ### Upgrade notes
 
 - Nothing changes until an operator opts in: `EMBERMEND_AUTHORITY_SOURCE` defaults to `grants`, and `EMBERMEND_IDENTITY_GRANTS` / `EMBERMEND_IDENTITY_GRANTS_FILE` work exactly as before. No migration.
