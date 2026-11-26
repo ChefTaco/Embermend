@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { JWTVerifyGetKey } from 'jose';
 import { createOathweaveVerifier, createServiceTokenProvider, isOathweaveError, statusForReason, type ServiceTokenProvider } from '@hivemagnus/hive-common/oathweave';
 import { z } from 'zod';
+import { roleAuthority, type AccountLookup, type RoleScopes } from './oathweave-roles.js';
 import { capabilitySchema, operationRequestSchema, receiptSchema, permissions, scopeSchema, jsonObject, type Actor, type OperationRequest, type Receipt } from '@hivemagnus/embermend-contracts';
 
 export class IntegrationError extends Error { constructor(public readonly code: string, public readonly uncertain: boolean) { super(code); } }
@@ -52,20 +53,32 @@ export const grantsSchema = z.array(grantSchema);
 /**
  * Oathweave resource-token authentication with the shared hive-common verifier: RS256 only,
  * audience `embermend`, issuer, lifetime (at most 900 s) and `jti` checks, and an online userinfo
- * check of every user token. Product authority comes only from the unique matching grant.
+ * check of every user token. Product authority comes only from the unique matching grant, or,
+ * with `roles` set, an operator's authority comes from its current Oathweave roles instead (see
+ * oathweave-roles.ts): its account is read on every request (through the directory's short
+ * cache), and `grants` then holds only service (coordinator and integration) grants.
  *
  * Refusals are `OathweaveError`s (401) or plain errors naming the grant problem. An identity
  * provider that cannot be reached, or answers 5xx, is an `OathweaveError` whose reason is
  * `jwks_unavailable` or `identity_unavailable` (503): verification could not run, so the caller
  * should retry rather than sign out. A userinfo 401 or 403 is a revoked session (401).
  */
-export function oathweaveAuthenticator(config: { issuer: string; jwksUrl: string; userinfoUrl: string; grants: z.infer<typeof grantsSchema> | (() => z.infer<typeof grantsSchema>) }, overrides: { keys?: JWTVerifyGetKey; request?: typeof fetch } = {}): (token: string) => Promise<Actor> {
+export function oathweaveAuthenticator(config: { issuer: string; jwksUrl: string; userinfoUrl: string; grants: z.infer<typeof grantsSchema> | (() => z.infer<typeof grantsSchema>); roles?: { lookup: AccountLookup; scopes: RoleScopes | (() => RoleScopes) } }, overrides: { keys?: JWTVerifyGetKey; request?: typeof fetch } = {}): (token: string) => Promise<Actor> {
   endpoint(config.issuer); endpoint(config.jwksUrl); endpoint(config.userinfoUrl);
   const verifier = createOathweaveVerifier({ issuer: config.issuer, audience: 'embermend', jwksUrl: config.jwksUrl, userinfoUrl: config.userinfoUrl, accept: 'any', clientIdClaim: 'clientId', sessionCacheTtlMs: 0, clockToleranceSec: 0, ...(overrides.keys ? { keys: overrides.keys } : {}), ...(overrides.request ? { fetch: overrides.request } : {}) });
   // A function is read on every request, so grants can change without a restart.
   const source = config.grants; const grants = typeof source === 'function' ? source : (): z.infer<typeof grantsSchema> => source;
+  const roles = config.roles; const roleSource = roles?.scopes; const scopes = typeof roleSource === 'function' ? roleSource : (): RoleScopes => roleSource ?? [];
   return async token => {
     const principal = await verifier.verify(token);
+    if (roles && principal.kind === 'user') {
+      // Oathweave always sends roles on a user token; the account's current roles decide.
+      if (!Array.isArray(principal.claims['roles'])) throw new Error('OPERATOR_USER_TOKEN_REQUIRED');
+      const derived = roleAuthority(await roles.lookup(principal.subject), scopes());
+      if (!derived.ok) throw new Error(derived.reason);
+      const allowed = derived.permissions.filter(permission => principal.permissions.includes(`embermend:${permission}`));
+      return { id: principal.subject, kind: 'operator', scope: derived.scope, permissions: new Set(allowed) };
+    }
     const matching = grants().filter(grant => grant.subject === principal.subject);
     if (matching.length !== 1) throw new Error('EXPLICIT_UNIQUE_PRODUCT_GRANT_REQUIRED');
     const grant = matching[0]; if (!grant) throw new Error('PRODUCT_GRANT_REQUIRED');
@@ -154,3 +167,4 @@ export { GitHubClient, githubMergeOperationSchema, type GitHubRepositoryGrant, t
 export * from './threat-feeds.js';
 export * from './inference/index.js';
 export * from './registry.js';
+export { OathweaveDirectory, oathweavePermission, roleAuthority, roleScopesSchema, type AccountLookup, type OathweaveAccount, type RoleAuthority, type RoleAuthorityRefusal, type RoleScopes } from './oathweave-roles.js';

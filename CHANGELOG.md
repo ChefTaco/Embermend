@@ -2,9 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Operator authority can come from Oathweave roles instead of a second grant store. With `EMBERMEND_AUTHORITY_SOURCE=oathweave`, an operator holds Embermend permission `p` while one of its Oathweave roles (direct or through a group) carries `embermend:p` (and its token carries it too), and its scope is the union of its roles' scopes in a small role-to-scope mapping (`EMBERMEND_OATHWEAVE_ROLE_SCOPES` or the hot-reloaded `EMBERMEND_OATHWEAVE_ROLE_SCOPES_FILE`). Embermend reads the account's current roles through a read-only Oathweave machine client (`iam:users:read`, `iam:groups:read`) on every request and before the worker runs a queued job or scheduled delivery, with a 5-second cache (`EMBERMEND_OATHWEAVE_DIRECTORY_CACHE_MS`). Removing the role, group membership or account in Oathweave refuses the next request and stops stored work (`ACTOR_GRANT_REVOKED` or `ACTOR_SCOPE_REVOKED`, as with grants); an Oathweave outage is a `503` for requests and a retry (`worker.authority_unavailable`) for the worker, never a revocation. Coordinators and integrations keep their grants, which become optional and may not include operators in this mode. Setup in `docs/OPERATIONS.md`. Covered by unit and PostgreSQL integration tests against a fake Oathweave admin API; not yet exercised against a live Oathweave installation.
+
 ### Changed
 
 - Dependabot now opens one grouped weekly pull request (group `hivemagnus`) for `@hivemagnus/*` package updates, so suite package bumps arrive together. Repository configuration only; nothing to do when upgrading.
+
+### Upgrade notes
+
+- Nothing changes until an operator opts in: `EMBERMEND_AUTHORITY_SOURCE` defaults to `grants`, and `EMBERMEND_IDENTITY_GRANTS` / `EMBERMEND_IDENTITY_GRANTS_FILE` work exactly as before. No migration.
+- To switch, create the Oathweave machine client and roles, write the role-to-scope mapping, remove the operator entries from the grants setting and set the new settings on both the API and the worker (steps in `docs/OPERATIONS.md`). Stored jobs and schedules keep running only where the operator's roles still cover their scope and permissions. To roll back (or before running an earlier release), put the operator grants back and unset `EMBERMEND_AUTHORITY_SOURCE`.
+- The `grants.reloaded` log keeps its `grants` count; a role scopes file logs `role_scopes.reloaded` and `role_scopes.reload_failed`. Both processes log `authority.source` at startup.
 
 ## [0.5.0] - 2026-11-26
 

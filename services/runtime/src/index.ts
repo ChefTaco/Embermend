@@ -5,12 +5,11 @@ import { database } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
 import { nativeIssuersFromEnv, withNativeIssuerServiceTokens } from './native-issuer.js';
 import { MagnusClient, oathweaveAuthenticator, GitHubClient, OciRegistryPublisher } from '@hivemagnus/embermend-integrations';
-import { grantsFromEnv } from './grants.js';
+import { authorityFromEnv } from './grants.js';
 import { z } from 'zod';
 import { createApi } from './api.js';
 import { MAX_WORKER_CONCURRENCY, runWorker } from './worker.js';
 import { logger } from './log.js';
-import { grantAuthority } from './authority.js';
 import { migrate, verifyMigrations } from './migrations.js';
 import { VERSION } from '@hivemagnus/embermend-contracts';
 export { createApi } from './api.js';
@@ -37,8 +36,10 @@ if (process.argv[1]?.endsWith('/index.js')) {
     const publicationConfig = z.string().min(1).optional().parse(process.env['EMBERMEND_PUBLICATION_CONFIG']);
     const publisher = publicationConfig ? new OciRegistryPublisher(JSON.parse(await readFile(publicationConfig, 'utf8')), process.env) : undefined;
     const service = new Embermend(db, magnus, github, publisher);
-    const grants = grantsFromEnv(env);
-    const authenticate = withNativeIssuerServiceTokens(oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants }), { issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, nativeIssuers: nativeIssuersFromEnv(process.env['OATHWEAVE_NATIVE_ISSUERS']), grants });
+    // EMBERMEND_AUTHORITY_SOURCE: `grants` (default) or `oathweave` (operators from Oathweave roles).
+    const authority = authorityFromEnv(process.env); const grants = authority.grants;
+    logger.info('authority.source', { source: authority.source });
+    const authenticate = withNativeIssuerServiceTokens(oathweaveAuthenticator({ issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, userinfoUrl: env.OATHWEAVE_USERINFO_URL, grants, ...(authority.roles ? { roles: authority.roles } : {}) }), { issuer: env.OATHWEAVE_ISSUER, jwksUrl: env.OATHWEAVE_JWKS_URL, nativeIssuers: nativeIssuersFromEnv(process.env['OATHWEAVE_NATIVE_ISSUERS']), grants });
     const stop = new AbortController();
     if (process.argv[2] === 'worker') {
       const settings = workerSettings.parse(process.env);
@@ -51,7 +52,7 @@ if (process.argv[1]?.endsWith('/index.js')) {
         setTimeout(() => abort.abort(), settings.EMBERMEND_WORKER_DRAIN_SECONDS * 1000).unref();
       };
       process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
-      await runWorker(service, stop.signal, grantAuthority(grants), { abort: abort.signal, concurrency: settings.EMBERMEND_WORKER_CONCURRENCY }); await db.$disconnect();
+      await runWorker(service, stop.signal, authority.storedAuthority, { abort: abort.signal, concurrency: settings.EMBERMEND_WORKER_CONCURRENCY }); await db.$disconnect();
     } else if (process.argv[2] === 'api') {
       const server = serve({ fetch: createApi(service, authenticate, { auditActorKind: actorId => grants().find(grant => grant.subject === actorId)?.kind }).fetch, hostname: env.EMBERMEND_BIND, port: env.EMBERMEND_PORT });
       const close = (): void => { server.close(() => { void db.$disconnect(); }); };

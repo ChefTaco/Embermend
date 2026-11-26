@@ -8,7 +8,9 @@ import { IntegrationError, GitHubClient, type Magnus, type ArtifactPublisher } f
 import { buildSchema, receiptSchema, scanRequestSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
 import { tick, maintenance, deliverSchedules, runWorker } from '../../services/runtime/dist/worker.js';
-import { grantAuthority, type Grants } from '../../services/runtime/dist/authority.js';
+import { grantAuthority, oathweaveRoleAuthority, type Grants } from '../../services/runtime/dist/authority.js';
+import type { OathweaveAccount, RoleScopes } from '@hivemagnus/embermend-integrations';
+import { OathweaveError } from '@hivemagnus/hive-common/oathweave';
 import { AssessmentLedger } from '../../services/runtime/dist/assessment-ledger.js';
 import { reconcileDeploymentInventory } from '../../services/runtime/dist/deployment-inventory.js';
 import { createApi } from '../../services/runtime/dist/api.js';
@@ -891,6 +893,39 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: kept.id } })).status, 'delivered');
     const created = await db.job.findFirstOrThrow({ where: { kind: 'assessment', dedupeKey: { contains: 'fixture-kept-schedule' } } });
     assert.deepEqual(z.object({ permissions: z.array(z.string()) }).passthrough().parse(created.actor).permissions.sort(), ['assess', 'evidence', 'read']);
+  });
+
+  await t.test('in Oathweave role mode, stored work runs only while the creator still holds its Oathweave roles', async () => {
+    const { service, magnus } = await reset(); const signal = new AbortController().signal;
+    const scopes: RoleScopes = [{ role: 'embermend-fixture', scope }];
+    let account: OathweaveAccount | null = { active: true, roles: ['embermend-fixture'], permissions: [...operator.permissions].map(permission => `embermend:${permission}`) };
+    let outage = false;
+    const authority = oathweaveRoleAuthority(async () => { if (outage) throw new OathweaveError('identity_unavailable'); return account; }, () => scopes, []);
+    const assessment = (name: string) => service.assess(operator, { id: name, scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });
+    // An identity-provider outage revokes nothing: the job goes back to the queue unchanged.
+    const deferred = await assessment('roles-outage'); outage = true;
+    const writes = t.mock.method(process.stderr, 'write', () => true);
+    try { await tick(service, 'fixture-roles-outage', signal, authority); } finally { writes.mock.restore(); }
+    const queued = await db.job.findUniqueOrThrow({ where: { id: deferred } }); assert.equal(queued.status, 'queued'); assert.equal(queued.leaseOwner, null); assert.ok(queued.availableAt.getTime() > Date.now());
+    await db.job.update({ where: { id: deferred }, data: { status: 'canceled' } }); outage = false;
+    // Revoked in Oathweave: the role removed, then the account disabled or deleted.
+    for (const [name, current] of [['role-removed', { active: true, roles: ['unrelated-role'], permissions: ['embermend:read', 'embermend:assess'] }], ['account-disabled', { active: false, roles: ['embermend-fixture'], permissions: ['embermend:read', 'embermend:assess'] }], ['account-deleted', null]] satisfies Array<[string, OathweaveAccount | null]>) {
+      const id = await assessment('roles-' + name); account = current;
+      await tick(service, 'fixture-roles-' + name, signal, authority);
+      const job = await service.job(operator, id); assert.equal(job.status, 'failed', name); assert.equal(job.error, 'ACTOR_GRANT_REVOKED', name);
+      assert.equal(await db.audit.count({ where: { subjectId: id, operation: 'job.authority-revoked' } }), 1, name);
+    }
+    assert.equal(magnus.requests.length, 0);
+    // A scheduled occurrence of an operator whose role was removed is blocked, not delivered.
+    await db.schedule.create({ data: { id: 'fixture-roles-schedule', installationId: scope.installationId, actor: serializeActor(operator), kind: 'assessment', payload: json({ scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1' }), intervalSeconds: 3600, nextAt: new Date(Date.now() - 1000) } });
+    await maintenance(service); const row = await db.outbox.findFirstOrThrow({ where: { subjectId: 'fixture-roles-schedule', kind: 'schedule.assess' } });
+    const jobs = await db.job.count(); outage = true;
+    const quiet = t.mock.method(process.stderr, 'write', () => true);
+    try { await deliverSchedules(service, authority); } finally { quiet.mock.restore(); }
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: row.id } })).status, 'queued', 'an outage leaves the occurrence for the next pass');
+    outage = false; account = { active: true, roles: [], permissions: [] };
+    await deliverSchedules(service, authority);
+    assert.equal((await db.outbox.findUniqueOrThrow({ where: { id: row.id } })).status, 'blocked'); assert.equal(await db.job.count(), jobs);
   });
 
   await t.test('the worker loop survives database outages and stops on its signal', async () => {
