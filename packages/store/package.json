@@ -1,6 +1,6 @@
 {
   "name": "@hivemagnus/embermend-store",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@hivemagnus/embermend-contracts": "0.3.4",
+    "@hivemagnus/embermend-contracts": "0.4.0",
     "@prisma/client": "7.10.1",
     "@prisma/adapter-pg": "7.10.1",
     "pg": "8.23.1"
