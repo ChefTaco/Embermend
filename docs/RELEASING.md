@@ -35,15 +35,16 @@ done
 npm install ./release-assets/*.tgz
 ```
 
-### npm (off until the owner enables it)
+### npm
 
 The release workflow's `npm` job publishes the same three attested tarballs to npm as
 `@hivemagnus/embermend-contracts`, `-integrations` and `-ardent-plugin`, with provenance,
 through npm trusted publishing (OIDC; no npm token is stored). It runs only when the
 repository variable `EMBERMEND_NPM_PUBLISH` is `true`, waits for approval on the
 `npm-publish` environment and refuses to run unless that environment has a required
-reviewer. A version already on npm is skipped. To enable it, an owner of the `@hivemagnus`
-npm organization:
+reviewer. A version already on npm is skipped. It is enabled (since 0.6.0): the variable is
+`true` and the three packages have trusted publishers. To set it up from scratch, an owner of
+the `@hivemagnus` npm organization:
 
 1. Publishes each package once by hand, because npm configures a trusted publisher only for
    an existing package: download and verify a release as above, then
