@@ -2,11 +2,18 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-26
+
 - Security: the worker checks the stored authority of every job and scheduled delivery against the current `EMBERMEND_IDENTITY_GRANTS` before acting. Removing an operator's grant, changing its kind or narrowing its scope used to leave queued or resumed campaigns and recurring scans and assessments running under the old grant. Such a job now fails with `ACTOR_GRANT_REVOKED`, `ACTOR_KIND_CHANGED` or `ACTOR_SCOPE_REVOKED` (audit `job.authority-revoked`), and a scheduled occurrence is blocked (audit `schedule.blocked`). Removed permissions are intersected away (audit `job.authority-narrowed` or `schedule.authority-narrowed`), so work continues only while it still has the permission its normal admission checks. No migration.
 - The worker loop logs and backs off (up to 30 seconds) when maintenance, schedule delivery or a claim fails, for example while PostgreSQL is unavailable, instead of exiting without a message.
 - Server-side failures are logged as structured, redacted JSON lines on stderr with the request ID: API 500 responses (`api.request_failed`), refused authentication, which includes identity-provider outages (`api.authentication_refused`), and unexpected worker failures (`worker.job_failed`). Lines carry error names and codes, never messages. API responses now carry `x-request-id`.
 - CI runs the verify and integration gates on Node 24.22.3 and 26.13.1 (the image runtime) and fails on any moderate or higher `npm audit --omit=dev` finding.
 - README and implementation status name the current suite pins: Hive 3.14.3 pins Embermend 0.3.4 with Magnus 3.3.6 and HiveXUI 0.12.0.
+
+### Upgrade notes
+
+- Work stops when its stored authority no longer matches `EMBERMEND_IDENTITY_GRANTS`. After upgrading, queued or resumed jobs whose operator grant was removed, changed kind or lost scope fail with an `ACTOR_*` code, and scheduled occurrences of that operator are blocked; neither is retried. Review `job.authority-revoked`, `job.authority-narrowed`, `schedule.blocked` and `schedule.authority-narrowed` audit entries, and recreate the work under an operator that holds a current grant if it should continue.
+- No migration and no new setting.
 
 ## [0.3.4] - 2026-11-20
 
