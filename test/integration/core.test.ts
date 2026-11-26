@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { audit, database, digest, claim, enqueue, json, serializeActor } from '@hivemagnus/embermend-store';
-import { Embermend, auditExport } from '@hivemagnus/embermend-core';
+import { Embermend, auditExport, encodeFeedPosition } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus, type ArtifactPublisher } from '@hivemagnus/embermend-integrations';
 import { buildSchema, receiptSchema, scanRequestSchema, type OperationRequest, type Receipt, type Plan, type Actor } from '@hivemagnus/embermend-contracts';
 import { operator, coordinator, target, finding, occurrence, evidence, plan, policy, now, later, scope } from '../fixtures.js';
@@ -1080,6 +1080,14 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     const unknown = records.find(record => record.action === 'execution.reconciled');
     assert.equal(unknown?.details['state'], 'unknown'); assert.equal(unknown?.outcome, 'failure'); assert.equal(unknown?.subject?.nodeId, 'fixture-node');
     assert.equal(records.find(record => record.action === 'plan.proposed')?.subject, undefined);
+    // A row that cannot form a valid record is skipped and the cursor still moves past it.
+    const last = await db.audit.findFirstOrThrow({ orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    await db.audit.create({ data: { id: 'zz-fixture-unexportable', actorId: '', operation: 'plan.proposed', subjectId: 'fixture-plan', installationId: scope.installationId, details: json({}), createdAt: new Date(last.createdAt.getTime() + 1000) } });
+    const drops = t.mock.method(console, 'warn', () => undefined);
+    const tail = await auditExport(db, collector, { after: encodeFeedPosition({ occurredAt: last.createdAt.toISOString(), id: last.id }), limit: 10 });
+    drops.mock.restore();
+    assert.deepEqual(tail.data, []); assert.ok(tail.nextCursor); assert.equal(drops.mock.callCount(), 1);
+    assert.deepEqual((await auditExport(db, collector, { after: tail.nextCursor ?? undefined, limit: 10 })).data, []);
   });
 
   await t.test('maintenance expires exceptions and enqueues due schedules once; delivery runs, cancels or blocks them', async () => {
