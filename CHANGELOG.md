@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Dependabot now opens one grouped weekly pull request (group `hivemagnus`) for `@hivemagnus/*` package updates, so suite package bumps arrive together. Repository configuration only; nothing to do when upgrading.
+
 ## [0.5.0] - 2026-11-26
 
 Adds migration `20261126000000_list_paging` (suite upgrades need `--allow-migrations`), new worker and grants settings, cursor paging and a `503` for identity-provider outages; read the upgrade notes.
