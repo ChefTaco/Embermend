@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-26
+
+Adds migration `20261126000000_list_paging` (suite upgrades need `--allow-migrations`), new worker and grants settings, cursor paging and a `503` for identity-provider outages; read the upgrade notes.
+
 - The worker no longer stalls on one unreadable stored record. A queued schedule occurrence whose payload no longer parses (for example a stored actor permission retired by an upgrade) is marked `failed` with a `schedule.delivery-invalid` audit row, and later occurrences are still delivered; it used to fail every delivery pass. During maintenance such a schedule is disabled (`schedule.disabled-invalid`) and an exception with unreadable data still expires, instead of failing the whole pass and dropping to the 30-second backoff.
 - `@hivemagnus/hive-common` 0.7.0. The suite audit export is built with its `/audit` module: every record is validated strictly against the shared HiveAuditRecord v1 rules, and a row that cannot form a valid record is skipped (logged as `audit_export_rows_dropped`) while the cursor moves past it, instead of failing the page with a 500 and stalling the collector. Cursors keep their `{ t, i }` form, so a collector's saved cursor stays valid.
 - Grants can change without a restart: `EMBERMEND_IDENTITY_GRANTS_FILE` names a JSON grants file (the same format as `EMBERMEND_IDENTITY_GRANTS`, which stays supported; configure exactly one). The API and worker check it for changes at most every two seconds, so onboarding, narrowing or revoking an operator, collector or coordinator applies to new requests, queued jobs and scheduled deliveries within seconds (`grants.reloaded`). An invalid replacement is logged as `grants.reload_failed` and the last valid grants stay in force.
@@ -15,7 +19,7 @@
 - Oathweave tokens are verified with the shared `@hivemagnus/hive-common` verifier instead of hand-rolled `jose` checks: the same RS256, issuer, `embermend` audience, 900-second lifetime, `jti`, actor-type and per-request userinfo rules. The Ardent plugin's client-credentials provider runs on the shared `createServiceTokenProvider()`, which also backs off briefly after a failed token request.
 - The API uses the hive-common server kit: every response, errors included, carries `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`, and a new unauthenticated `GET /health/ready` checks PostgreSQL (503 when it does not answer). The container healthcheck of the API probes `/health/ready`, so a lost database now marks the API unhealthy. `GET /health/live` keeps its body.
 - `MAGNUS_URL` may carry a base path (`https://gateway.example.com/magnus`): Magnus routes are joined under it instead of replacing it.
-- Dependencies: `@hono/node-server` 2.1.11 (its 2.1.7, 2.1.10 and 2.1.11 security fixes concern `serveStatic` and WebSocket upgrades, which Embermend does not use), `hono` 4.13.22, `@hivemagnus/hive-common` 0.6.1, and the Ardent plugin is tested against `@hivemagnus/ardent` 3.3.0.
+- Dependencies: `@hono/node-server` 2.1.11 (its 2.1.7, 2.1.10 and 2.1.11 security fixes concern `serveStatic` and WebSocket upgrades, which Embermend does not use), `hono` 4.13.22, and the Ardent plugin is tested against `@hivemagnus/ardent` 3.3.0.
 - The worker drains on SIGTERM instead of aborting at once: it stops claiming, lets running jobs finish their current receipt or verification wait for up to `EMBERMEND_WORKER_DRAIN_SECONDS` (default 8), and a campaign between actions returns to the queue to resume later instead of becoming `unknown`. A second signal, or the end of the drain time, interrupts as before.
 - `EMBERMEND_WORKER_CONCURRENCY` (1-8, default 1) runs that many jobs at once in one worker. Maintenance and schedule delivery now run in their own loop every second, so a long job no longer delays exception expiry or scheduled work.
 - Integration tests cover maintenance and schedule delivery: exception expiry and its outbox notice, one enqueue per due schedule, disabled and not-yet-due schedules, delivery, cancellation of a disabled schedule's occurrence, and an admission failure blocking delivery.
@@ -23,10 +27,13 @@
 
 ### Upgrade notes
 
-- Migration `20261126000000_list_paging` adds `Plan.updatedAt` (backfilled from each plan's newest revision), list-order indexes on `Plan`, `Finding`, `Entity`, `Exception`, `ProfileAssignment` and `Build`, and a partial index on campaign jobs' `payload->>'planId'`. Suite upgrades need `--allow-migrations`.
-- Clients that read the plain arrays keep working unchanged. To read beyond the legacy bound, follow `x-next-cursor` or request pages with `limit`.
-- Clients that treated every authentication failure as a sign-out should retry a 503. Monitoring that alerts on the API container's health now also fires when PostgreSQL is unreachable.
+- Migration `20261126000000_list_paging` adds `Plan.updatedAt` (backfilled from each plan's newest revision), list-order indexes on `Plan`, `Finding`, `Entity`, `Exception`, `ProfileAssignment` and `Build`, and a partial index on campaign jobs' `payload->>'planId'`. Suite upgrades need `--allow-migrations`. The migration is additive (the new column has a default), so 0.4.0 images keep working against a migrated database if you roll back; plans changed while on 0.4.0 keep their older `updatedAt` and sort lower in the timeline until they change again.
+- Clients that treated every authentication failure as a sign-out should retry a 503 (`IDENTITY_PROVIDER_UNAVAILABLE`). Monitoring that alerts on the API container's health now also fires when PostgreSQL is unreachable, because the healthcheck probes `/health/ready`.
+- Clients that read the plain list arrays keep working unchanged. To read beyond the legacy bound, follow `x-next-cursor` or request pages with `limit`.
 - Docker and Compose send SIGKILL 10 seconds after SIGTERM unless `stop_grace_period` is longer, so keep `EMBERMEND_WORKER_DRAIN_SECONDS` below the worker container's grace period.
+- New optional settings: `EMBERMEND_IDENTITY_GRANTS_FILE` (configure it or `EMBERMEND_IDENTITY_GRANTS`, not both), `EMBERMEND_WORKER_DRAIN_SECONDS` and `EMBERMEND_WORKER_CONCURRENCY`. 0.4.0 does not read the grants file, so put the grants back in `EMBERMEND_IDENTITY_GRANTS` before rolling back.
+- Ardent plugin callers that matched `EMBERMEND_HTTP_<status>_INSPECT_AUTHORITATIVE_STATE` now get Embermend's own error code instead.
+- npm publishing stays off: none of the packages is on npm until the owner enables `EMBERMEND_NPM_PUBLISH`.
 
 ## [0.4.0] - 2026-11-26
 
