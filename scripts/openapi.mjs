@@ -13,6 +13,8 @@ const reports = c.campaignReportSchema;
 const listed = item => z.union([z.array(item), z.object({ data: z.array(item), nextCursor: z.string().nullable() }).strict()]);
 const listItems = new Map([['/builds', c.buildSchema], ['/entities', c.entitySchema], ['/findings', findings.element], ['/recommendations', c.recommendationSchema], ['/relationships', c.relationshipSchema], ['/profile-assignments', c.profileAssignmentSchema], ['/exceptions', c.exceptionSchema]]);
 const listQuery = [{ name: 'after', in: 'query', required: false, description: 'Opaque cursor from a previous page; returns the page after it. With `after` or `limit` the response is `{ data, nextCursor }`', schema: { type: 'string', pattern: '^[A-Za-z0-9._~:-]{1,512}$' } }, { name: 'limit', in: 'query', required: false, description: 'Page size from 1 to 200; larger values are clamped to 200. Without `after` and `limit` the legacy array is returned, and the x-next-cursor header names the next page when it was cut', schema: { type: 'integer', minimum: 1, default: 50 } }];
+// hive-common ReadyBody; 503 with status "not_ready" when PostgreSQL does not answer.
+const readyBody = z.object({ status: z.enum(['ready', 'degraded', 'not_ready']), service: z.literal('embermend'), version: c.id, time: c.timestamp, checks: z.record(z.string(), z.object({ status: z.enum(['up', 'down']), critical: z.boolean(), latencyMs: z.number(), error: z.string().optional() })) });
 const getResponses = new Map([
   ['/builds', z.array(c.buildSchema)], ['/entities', z.array(c.entitySchema)], ['/findings', findings], ['/evidence/:id', c.evidenceSchema], ['/recommendations', z.array(c.recommendationSchema)], ['/plans/:id', c.planSchema], ['/jobs/:id', c.jobSchema], ['/operations/:id', c.receiptSchema], ['/access', c.accessSchema], ['/relationships', z.array(c.relationshipSchema)], ['/profile-assignments', z.array(c.profileAssignmentSchema)], ['/exceptions', z.array(c.exceptionSchema)], ['/policies', z.array(c.policySchema)], ['/campaigns/:id/report', reports], ['/export', z.object({ generatedAt: c.timestamp, entities: z.array(c.entitySchema), findings, campaigns: z.array(c.recommendationSchema) })], ['/readiness', c.readinessSchema], ['/hive/events', c.hiveEventPageSchema], ['/audit/export', c.hiveAuditPageSchema], ['/openapi.json', z.record(z.string(), z.json())],
 ]);
@@ -29,10 +31,11 @@ const queries = new Map([
 for (const [path, item] of listItems) getResponses.set(path, listed(item));
 const schema = value => z.toJSONSchema(value, { target: 'draft-2020-12' });
 const paths = {};
-for (const match of source.matchAll(/app\.(get|post)\('([^']+)'/g)) {
-  const [, method, native] = match; const path = native.replace(/:([a-zA-Z]+)/g, '{$1}'); const short = native.replace(/^\/api\/v1/, '');
+// registerHealthRoutes() serves the two probes; every other route is an app.get/app.post call.
+const routes = [['get', '/health/live'], ['get', '/health/ready'], ...[...source.matchAll(/app\.(get|post)\('([^']+)'/g)].map(match => [match[1], match[2]])];
+for (const [method, native] of routes) { const path = native.replace(/:([a-zA-Z]+)/g, '{$1}'); const short = native.replace(/^\/api\/v1/, '');
   const body = method === 'post' ? requests.get(short) : undefined;
-  const response = native === '/health/live' ? z.object({ status: z.literal('alive'), version: c.id }) : native === '/health/compatibility' ? c.compatibilitySchema : method === 'get' ? getResponses.get(short) : postResponses.get(short) ?? (accepted.has(short) ? jobResult : created.has(short) ? idResult : undefined);
+  const response = native === '/health/live' ? z.object({ status: z.literal('alive'), version: c.id }) : native === '/health/ready' ? readyBody : native === '/health/compatibility' ? c.compatibilitySchema : method === 'get' ? getResponses.get(short) : postResponses.get(short) ?? (accepted.has(short) ? jobResult : created.has(short) ? idResult : undefined);
   if (!response) throw new Error(`Missing response contract: ${method} ${native}`);
   paths[path] ??= {};
   const status = method === 'post' && accepted.has(short) ? '202' : method === 'post' && created.has(short) ? '201' : '200';

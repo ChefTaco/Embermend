@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@hivemagnus/embermend-contracts": "0.4.0",
+    "@hivemagnus/hive-common": "0.6.1",
     "jose": "6.2.13",
     "zod": "4.6.7"
   },
