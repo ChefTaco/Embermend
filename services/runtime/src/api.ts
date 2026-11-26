@@ -4,7 +4,8 @@ import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
 import type { Actor } from '@hivemagnus/embermend-contracts';
 import { VERSION } from '@hivemagnus/embermend-contracts';
-import { DomainError, auditExport, auditExportInstallation, hiveEventFeed, requirePermission, type Embermend } from '@hivemagnus/embermend-core';
+import { DomainError, LEGACY_LIST_LIMITS, LIST_DEFAULT_LIMIT, LIST_MAX_LIMIT, auditExport, auditExportInstallation, hiveEventFeed, requirePermission, type Embermend, type ListQuery, type Page } from '@hivemagnus/embermend-core';
+import type { Context } from 'hono';
 import { parseFeedQuery } from '@hivemagnus/hive-common/events';
 import { requestContext } from '@hivemagnus/hive-common/hono';
 import { errorFields, logger } from './log.js';
@@ -13,6 +14,24 @@ export type Authenticate = (token: string) => Promise<Actor>;
 export interface ApiOptions {
   /** The configured kind of an audit actor, used for audit rows written before the kind was recorded. */
   auditActorKind?: (actorId: string) => Actor['kind'] | undefined;
+}
+/** Header naming the next page's cursor when an unpaginated list was cut at its legacy bound. */
+export const NEXT_CURSOR_HEADER = 'x-next-cursor';
+/**
+ * A list route. With `limit` or `after` in the query it returns one `{ data, nextCursor }` page;
+ * without either it returns the legacy array of the first `legacyLimit` rows, and names the next
+ * page's cursor in a header when there are more.
+ */
+async function list<T>(c: Context, legacyLimit: number, page: (query: ListQuery) => Promise<Page<T>>): Promise<Response> {
+  const params = new URL(c.req.url).searchParams;
+  if (!params.has('limit') && !params.has('after')) {
+    const result = await page({ after: undefined, limit: legacyLimit });
+    if (result.nextCursor) c.header(NEXT_CURSOR_HEADER, result.nextCursor);
+    return c.json(result.data);
+  }
+  let query: ListQuery;
+  try { query = parseFeedQuery(params, { defaultLimit: LIST_DEFAULT_LIMIT, maxLimit: LIST_MAX_LIMIT }); } catch { return c.json({ error: 'INVALID_LIST_QUERY' }, 400); }
+  return c.json(await page(query));
 }
 export function createApi(service: Embermend, authenticate: Authenticate, options: ApiOptions = {}): Hono<{ Variables: { actor: Actor } }> {
   const app = new Hono<{ Variables: { actor: Actor } }>();
@@ -50,20 +69,20 @@ export function createApi(service: Embermend, authenticate: Authenticate, option
       return c.json({ status: assessmentReady ? 'ready' : 'degraded', serviceAvailable: true, assessmentReady, managedDispatch: assessmentReady, eligibleTargets, blockers: assessmentReady ? [] : ['NO_FRESH_ENROLLED_ASSESSMENT_TARGET'], capabilities });
     } catch { return c.json({ status: 'degraded', serviceAvailable: true, assessmentReady: false, managedDispatch: false, eligibleTargets: 0, blockers: ['MAGNUS_UNAVAILABLE_OR_INCOMPATIBLE'], capabilities: null }); }
   });
-  app.get('/api/v1/entities', async c => c.json(await service.entities(c.get('actor'))));
+  app.get('/api/v1/entities', c => list(c, LEGACY_LIST_LIMITS.entities, query => service.entitiesPage(c.get('actor'), query)));
   app.get('/api/v1/openapi.json', async c => { const actor = c.get('actor'); requirePermission(actor, 'read', actor.scope); return c.json(JSON.parse(await readFile(new URL('../../../packages/contracts/openapi.json', import.meta.url), 'utf8'))); });
   app.get('/api/v1/policies', async c => { const actor = c.get('actor'); requirePermission(actor, 'read', actor.scope); const { policySchema } = await import('@hivemagnus/embermend-contracts'); const { within } = await import('@hivemagnus/embermend-store'); return c.json((await service.db.policy.findMany({ where: { installationId: actor.scope.installationId } })).map(row => policySchema.parse(row.data)).filter(policy => within(actor.scope, policy.scope))); });
   app.get('/api/v1/access', c => { const actor = c.get('actor'); requirePermission(actor, 'read', actor.scope); return c.json({ actorId: actor.id, kind: actor.kind, permissions: [...actor.permissions], scope: actor.scope }); });
   app.post('/api/v1/entities', async c => c.json(await service.entity(c.get('actor'), await c.req.json()), 201));
   app.post('/api/v1/relationships', async c => c.json({ id: await service.records.relationship(c.get('actor'), await c.req.json()) }, 201));
-  app.get('/api/v1/relationships', async c => c.json(await service.records.relationships(c.get('actor'))));
+  app.get('/api/v1/relationships', c => list(c, LEGACY_LIST_LIMITS.relationships, query => service.records.relationshipsPage(c.get('actor'), query)));
   app.post('/api/v1/observations', async c => c.json({ id: await service.records.observation(c.get('actor'), await c.req.json()) }, 201));
   app.post('/api/v1/profile-assignments', async c => c.json({ id: await service.records.assignment(c.get('actor'), await c.req.json()) }, 201));
-  app.get('/api/v1/profile-assignments', async c => c.json(await service.records.assignments(c.get('actor'))));
+  app.get('/api/v1/profile-assignments', c => list(c, LEGACY_LIST_LIMITS.assignments, query => service.records.assignmentsPage(c.get('actor'), query)));
   app.post('/api/v1/schedules', async c => c.json({ id: await service.records.schedule(c.get('actor'), await c.req.json()) }, 201));
-  app.get('/api/v1/exceptions', async c => c.json(await service.records.exceptions(c.get('actor'))));
+  app.get('/api/v1/exceptions', c => list(c, LEGACY_LIST_LIMITS.exceptions, query => service.records.exceptionsPage(c.get('actor'), query)));
   app.get('/api/v1/campaigns/:id/report', async c => c.json(await service.records.campaignReport(c.get('actor'), c.req.param('id'))));
-  app.get('/api/v1/findings', async c => c.json(await service.findings(c.get('actor'))));
+  app.get('/api/v1/findings', c => list(c, LEGACY_LIST_LIMITS.findings, query => service.findingsPage(c.get('actor'), query)));
   app.post('/api/v1/findings', async c => { const body = z.object({ finding: z.unknown(), occurrence: z.unknown() }).strict().parse(await c.req.json()); return c.json({ id: await service.finding(c.get('actor'), body.finding, body.occurrence) }, 201); });
   app.get('/api/v1/evidence/:id', async c => c.json(await service.readEvidence(c.get('actor'), c.req.param('id'))));
   app.post('/api/v1/evidence', async c => c.json({ id: await service.evidence(c.get('actor'), await c.req.json()) }, 201));
@@ -74,11 +93,11 @@ export function createApi(service: Embermend, authenticate: Authenticate, option
   app.post('/api/v1/preparations', async c => c.json({ jobId: await service.prepare(c.get('actor'), await c.req.json()) }, 202));
   app.post('/api/v1/source-reads', async c => c.json({ jobId: await service.source(c.get('actor'), await c.req.json()) }, 202));
   app.post('/api/v1/build-observations', async c => c.json({ jobId: await service.builds.request(c.get('actor'), await c.req.json()) }, 202));
-  app.get('/api/v1/builds', async c => c.json(await service.builds.list(c.get('actor'))));
+  app.get('/api/v1/builds', c => list(c, LEGACY_LIST_LIMITS.builds, query => service.builds.page(c.get('actor'), query)));
   app.get('/api/v1/jobs/:id', async c => c.json(await service.job(c.get('actor'), c.req.param('id'))));
   app.post('/api/v1/jobs/:id/reconcile', async c => c.json({ jobId: await service.reconcileJob(c.get('actor'), c.req.param('id')) }, 202));
   app.post('/api/v1/jobs/:id/cancel', async c => { await service.cancelJob(c.get('actor'), c.req.param('id')); return c.json({ cancellationRequested: true }); });
-  app.get('/api/v1/recommendations', async c => c.json(await service.timeline(c.get('actor'))));
+  app.get('/api/v1/recommendations', c => list(c, LEGACY_LIST_LIMITS.recommendations, query => service.timelinePage(c.get('actor'), query)));
   // Hive:Magnus inbox feed, derived from committed audit rows with the recommendation read rules.
   app.get('/api/v1/hive/events', async c => {
     const actor = c.get('actor'); requirePermission(actor, 'read', actor.scope);

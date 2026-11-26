@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { z } from 'zod';
-import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt, type ScanRequest, type Preparation, type SourceRequest, type Finding, type Evidence } from '@hivemagnus/embermend-contracts';
+import { entitySchema, evidenceSchema, findingSchema, occurrenceSchema, planSchema, policySchema, decisionSchema, verificationSchema, exceptionSchema, receiptSchema, profileSchema, assessmentRequestSchema, vulnerabilityAssessmentSchema, scanRequestSchema, sourceRequestSchema, preparationSchema, preparationResultSchema, scopeSchema, type Actor, type Entity, type Plan, type Action, type OperationRequest, type Receipt, type ScanRequest, type Preparation, type SourceRequest, type Finding, type Evidence, type Occurrence } from '@hivemagnus/embermend-contracts';
 import { audit, digest, enqueue, json, lock, within, Prisma, type Database, type Transaction } from '@hivemagnus/embermend-store';
 import { redactObject, redact, IntegrationError, githubMergeOperationSchema, publicationDescriptorSchema, publicationResultSchema, type ArtifactPublisher, type PublicationDescriptor, type GitHubMergeOperation, type Magnus, type GitHubClient } from '@hivemagnus/embermend-integrations';
 import { matchesPath, safePath } from '@hivemagnus/embermend-scanner';
@@ -17,6 +17,16 @@ import { retainHostCapture } from './finding-history.js';
 import { admitPublication } from './publication.js';
 import { admitRuntimeArtifact } from './runtime-artifact.js';
 import { visibleOccurrences } from './occurrence-access.js';
+import { LEGACY_LIST_LIMITS, chunks, listPage, scopedPlanPositions, scopedPositions, type ListQuery, type Page } from './listing.js';
+
+export interface FindingView { finding: Finding; occurrences: Occurrence[] }
+export interface TimelineEntry {
+  plan: Plan; digest: string; status: string;
+  jobs: Array<{ id: string; kind: string; status: string; progress: number; deadline: string; cancelRequested: boolean; result: Prisma.JsonValue; error: string | null }>;
+  publications: Array<{ id: string; planId: string; revision: number; digest: string; surface: string; explanation: string; publishedAt: Date }>;
+  executions: Array<{ id: string; state: string; actionId: string; targetId: string; receipt: Prisma.JsonValue }>;
+  campaign: { id: string; installationId: string; paused: boolean; generation: number; createdAt: Date } | null;
+}
 const remediationBranch = (preparationId: string): string => `embermend/${preparationId.replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 100)}`;
 
 function findingEvidenceScope(finding: Finding, evidence: Evidence, subjectId: string): boolean {
@@ -55,9 +65,13 @@ export class Embermend {
       await audit(tx, actor, 'entity.reconciled', stored.id, { observationId: historyId, digest: eventId }); return stored;
     });
   }
-  async entities(actor: Actor): Promise<Entity[]> {
+  /** The first entities by ID, as the unpaginated list has always returned them. */
+  async entities(actor: Actor): Promise<Entity[]> { return [...(await this.entitiesPage(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.entities })).data]; }
+  async entitiesPage(actor: Actor, query: ListQuery): Promise<Page<Entity>> {
     requirePermission(actor, 'read', actor.scope);
-    return (await this.db.entity.findMany({ where: { installationId: actor.scope.installationId }, orderBy: { id: 'asc' }, take: 1000 })).map(row => entitySchema.parse(row.data)).filter(entity => within(actor.scope, entity.scope));
+    const positions = await scopedPositions(this.db, 'Entity', 'id', actor.scope, query);
+    const rows = await this.db.entity.findMany({ where: { id: { in: positions.slice(0, query.limit).map(position => position.id) } } });
+    return listPage(positions, new Map(rows.map(row => [row.id, entitySchema.parse(row.data)] as const).filter(([, entity]) => within(actor.scope, entity.scope))), query, 'id');
   }
   async evidence(actor: Actor, input: unknown): Promise<string> {
     const value = evidenceSchema.parse(input); requirePermission(actor, 'ingest', value.scope);
@@ -134,12 +148,17 @@ export class Embermend {
       await audit(tx, actor, recurrence ? 'finding.recurred' : 'finding.observed', id); return id;
     });
   }
-  async findings(actor: Actor) {
+  /** The most recently updated findings, as the unpaginated list has always returned them. */
+  async findings(actor: Actor): Promise<FindingView[]> { return [...(await this.findingsPage(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.findings })).data]; }
+  async findingsPage(actor: Actor, query: ListQuery): Promise<Page<FindingView>> {
     requirePermission(actor, 'read', actor.scope);
-    const rows = await this.db.finding.findMany({ where: { installationId: actor.scope.installationId }, orderBy: { updatedAt: 'desc' }, take: 1000 });
-    const result = [];
-    for (const row of rows) { const finding = findingSchema.parse(row.data); if (within(actor.scope, finding.scope)) result.push({ finding, occurrences: await visibleOccurrences(this.db, actor, (await this.db.occurrence.findMany({ where: { findingId: finding.id } })).map(item => occurrenceSchema.parse(item.data))) }); }
-    return result;
+    const positions = await scopedPositions(this.db, 'Finding', 'recent', actor.scope, query);
+    const ids = positions.slice(0, query.limit).map(position => position.id);
+    const findings = (await this.db.finding.findMany({ where: { id: { in: ids } } })).map(row => findingSchema.parse(row.data)).filter(finding => within(actor.scope, finding.scope));
+    const occurrences = new Map<string, Occurrence[]>();
+    for (const batch of chunks(findings.map(finding => finding.id))) for (const row of await this.db.occurrence.findMany({ where: { findingId: { in: batch } }, orderBy: { id: 'asc' } })) occurrences.set(row.findingId, [...occurrences.get(row.findingId) ?? [], occurrenceSchema.parse(row.data)]);
+    const visible = new Set((await visibleOccurrences(this.db, actor, [...occurrences.values()].flat())).map(occurrence => occurrence.id));
+    return listPage(positions, new Map(findings.map(finding => [finding.id, { finding, occurrences: (occurrences.get(finding.id) ?? []).filter(occurrence => visible.has(occurrence.id)) }])), query, 'recent');
   }
   async propose(actor: Actor, input: unknown): Promise<{ id: string; revision: number; digest: string }> {
     const plan = planSchema.parse(input); requirePermission(actor, 'propose', plan.scope);
@@ -481,14 +500,49 @@ export class Embermend {
     requirePermission(actor, 'policy', actor.scope); const profile = profileSchema.parse(input);
     await this.db.$transaction(async tx => { const existing = await tx.profile.findUnique({ where: { id_version: { id: profile.id, version: profile.version } } }); if (existing && digest(existing.data) !== digest(profile)) throw new DomainError('PROFILE_VERSION_IMMUTABLE'); if (!existing) await tx.profile.create({ data: { id: profile.id, version: profile.version, data: json(profile) } }); await audit(tx, actor, 'profile.published', profile.id, { version: profile.version }); }); return profile.id;
   }
-  async timeline(actor: Actor) {
+  /** The most recently changed recommendations, as the unpaginated list returns them. */
+  async timeline(actor: Actor): Promise<TimelineEntry[]> { return [...(await this.timelinePage(actor, { after: undefined, limit: LEGACY_LIST_LIMITS.recommendations })).data]; }
+  /**
+   * One page of the HiveXUI recommendations timeline: plans whose current revision the actor can
+   * read, newest change first, each with its campaign jobs, publications and executions. Every
+   * related table is read once per page, not once per plan.
+   */
+  async timelinePage(actor: Actor, query: ListQuery): Promise<Page<TimelineEntry>> {
     requirePermission(actor, 'read', actor.scope);
-    const plans = await this.db.plan.findMany({ where: { installationId: actor.scope.installationId }, take: 200 }); const result = [];
-    for (const row of plans) { const plan = await this.plan(actor, row.id).catch((error: unknown) => { if (error instanceof DomainError && error.status === 403) return null; throw error; }); if (plan && within(actor.scope, plan.scope)) result.push({ plan, digest: digest(plan), status: row.status, jobs: await Promise.all((await this.db.job.findMany({ where: { kind: 'campaign', payload: { path: ['planId'], equals: plan.id } }, orderBy: { createdAt: 'desc' }, take: 100 })).filter(job => z.object({ revision: z.number() }).parse(job.payload).revision === plan.revision).map(job => this.job(actor, job.id))), publications: await this.db.publication.findMany({ where: { planId: row.id, revision: row.currentRevision } }), executions: (await this.db.execution.findMany({ where: { planId: row.id, revision: plan.revision } })).map(({ id, state, actionId, targetId, receipt }) => ({ id, state, actionId, targetId, receipt })), campaign: await this.db.campaign.findUnique({ where: { id: row.campaignId } }) }); }
-    return result;
+    const positions = await scopedPlanPositions(this.db, actor.scope, query);
+    const rows = await this.db.plan.findMany({ where: { id: { in: positions.slice(0, query.limit).map(position => position.id) } } });
+    const revisions = new Map(rows.length ? (await this.db.planRevision.findMany({ where: { OR: rows.map(row => ({ planId: row.id, revision: row.currentRevision })) } })).map(row => [row.planId, planSchema.parse(row.data)] as const) : []);
+    const readable = rows.flatMap(row => { const plan = revisions.get(row.id); return plan && plan.revision === row.currentRevision && actor.permissions.has('read') && within(actor.scope, plan.scope) ? [{ row, plan }] : []; });
+    const ids = readable.map(({ row }) => row.id);
+    const jobs = new Map<string, TimelineEntry['jobs']>(); const revisionOf = new Map(readable.map(({ row, plan }) => [row.id, plan.revision]));
+    const publications = new Map<string, Awaited<ReturnType<Database['publication']['findMany']>>>();
+    const executions = new Map<string, Awaited<ReturnType<Database['execution']['findMany']>>>();
+    const push = <T>(map: Map<string, T[]>, key: string, value: T): void => { map.set(key, [...map.get(key) ?? [], value]); };
+    for (const batch of chunks(ids)) {
+      // The 100 newest campaign jobs of each plan, through the partial index on payload->>'planId'.
+      const recent: unknown = await this.db.$queryRaw`SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY payload->>'planId' ORDER BY "createdAt" DESC) AS n FROM "Job" WHERE kind = 'campaign' AND payload->>'planId' IN (${Prisma.join(batch)})) ranked WHERE n <= 100`;
+      const jobIds = z.array(z.object({ id: z.string() })).parse(recent).map(row => row.id);
+      for (const job of jobIds.length ? await this.db.job.findMany({ where: { id: { in: jobIds } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }) : []) {
+        const payload = z.object({ planId: z.string(), revision: z.number() }).passthrough().parse(job.payload);
+        if (payload.revision === revisionOf.get(payload.planId)) push(jobs, payload.planId, this.jobView(actor, job));
+      }
+      for (const publication of await this.db.publication.findMany({ where: { planId: { in: batch } } })) push(publications, publication.planId, publication);
+      for (const execution of await this.db.execution.findMany({ where: { planId: { in: batch } } })) push(executions, execution.planId, execution);
+    }
+    const campaigns = new Map((await this.db.campaign.findMany({ where: { id: { in: [...new Set(readable.map(({ row }) => row.campaignId))] } } })).map(campaign => [campaign.id, campaign]));
+    return listPage(positions, new Map(readable.map(({ row, plan }) => [row.id, {
+      plan, digest: digest(plan), status: row.status, jobs: jobs.get(row.id) ?? [],
+      publications: (publications.get(row.id) ?? []).filter(publication => publication.revision === row.currentRevision),
+      executions: (executions.get(row.id) ?? []).filter(execution => execution.revision === plan.revision).map(({ id, state, actionId, targetId, receipt }) => ({ id, state, actionId, targetId, receipt })),
+      campaign: campaigns.get(row.campaignId) ?? null,
+    }])), query, 'recent');
   }
   async job(actor: Actor, id: string) {
     const row = await this.db.job.findUnique({ where: { id } }); if (!row) throw new DomainError('NOT_FOUND', 404);
+    return this.jobView(actor, row);
+  }
+  /** A job as its reader may see it; throws when the reader may not. */
+  private jobView(actor: Actor, row: { id: string; kind: string; status: string; progress: number; deadline: Date; cancelRequested: boolean; result: Prisma.JsonValue; error: string | null; payload: Prisma.JsonValue }) {
     const scope = z.object({ scope: scopeSchema }).parse(row.payload).scope; requirePermission(actor, 'read', scope);
     if (row.result !== null && ['source', 'preparation', 'scan', 'reconciliation', 'build-observation'].includes(row.kind)) requirePermission(actor, 'evidence', scope);
     return { id: row.id, kind: row.kind, status: row.status, progress: row.progress, deadline: row.deadline.toISOString(), cancelRequested: row.cancelRequested, result: row.result, error: row.error };
