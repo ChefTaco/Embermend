@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { z } from 'zod';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { database, digest, claim, enqueue, json, serializeActor } from '@hivemagnus/embermend-store';
 import { Embermend } from '@hivemagnus/embermend-core';
 import { IntegrationError, GitHubClient, type Magnus, type ArtifactPublisher } from '@hivemagnus/embermend-integrations';
@@ -1061,6 +1062,69 @@ test('PostgreSQL-backed security and execution invariants', async t => {
     assert.equal(ready.status, 200);
     const body = z.object({ status: z.literal('ready'), service: z.literal('embermend'), checks: z.object({ database: z.object({ status: z.literal('up') }).passthrough() }) }).passthrough().parse(await ready.json());
     assert.equal(body.service, 'embermend');
+  });
+
+  await t.test('maintenance expires exceptions and enqueues due schedules once; delivery runs, cancels or blocks them', async () => {
+    const { service, magnus } = await reset(); const signal = new AbortController().signal;
+    await service.profile(operator, { id: 'fixture-inventory', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Retain original inventory', capability: 'inventory.v1', field: 'exitCode', expected: 0, actionVersion: null }] });
+    const exception = (id: string, expiresAt: Date) => db.exception.create({ data: { id, installationId: scope.installationId, expiresAt, status: 'active', data: json({ id, scope, findingIds: ['fixture-finding'], owner: 'fixture-owner', rationale: 'Accepted for the fixture', compensatingControls: [], expiresAt: expiresAt.toISOString(), status: 'active' }) } });
+    await exception('fixture-expired-exception', new Date(Date.now() - 1000)); await exception('fixture-current-exception', new Date(Date.now() + 3600000));
+    const schedule = (id: string, changes: { enabled?: boolean; nextAt?: Date; targetIds?: string[] } = {}) => db.schedule.create({ data: { id, installationId: scope.installationId, actor: serializeActor(operator), kind: 'assessment', payload: json({ scope, targetIds: changes.targetIds ?? ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1' }), intervalSeconds: 3600, nextAt: changes.nextAt ?? new Date(Date.now() - 1000), enabled: changes.enabled ?? true } });
+    const due = await schedule('fixture-due'); await schedule('fixture-disabled', { enabled: false }); await schedule('fixture-later', { nextAt: new Date(Date.now() + 600000) });
+    await schedule('fixture-turned-off'); await schedule('fixture-unknown-target', { targetIds: ['fixture-missing-node'] });
+    await maintenance(service); await maintenance(service);
+    const expired = await db.exception.findUniqueOrThrow({ where: { id: 'fixture-expired-exception' } });
+    assert.equal(expired.status, 'expired'); assert.equal(z.object({ status: z.string() }).passthrough().parse(expired.data).status, 'expired');
+    assert.equal((await db.exception.findUniqueOrThrow({ where: { id: 'fixture-current-exception' } })).status, 'active');
+    const notice = await db.outbox.findFirstOrThrow({ where: { kind: 'exception.expired', subjectId: 'fixture-expired-exception' } });
+    assert.deepEqual(notice.payload, { installationId: scope.installationId, findingIds: ['fixture-finding'] });
+    assert.equal(await db.outbox.count({ where: { kind: 'exception.expired' } }), 1);
+    // Each due schedule is enqueued exactly once and moves on by its interval.
+    const queued = await db.outbox.findMany({ where: { kind: 'schedule.assess' }, orderBy: { subjectId: 'asc' } });
+    assert.deepEqual(queued.map(row => row.subjectId), ['fixture-due', 'fixture-turned-off', 'fixture-unknown-target']);
+    const request = z.object({ kind: z.literal('assessment'), request: z.object({ id: z.string(), deadline: z.string() }).passthrough(), actor: z.object({ id: z.string() }).passthrough() }).strict().parse(queued[0]?.payload);
+    assert.equal(request.request.id, `fixture-due:${due.nextAt.toISOString()}`); assert.equal(request.actor.id, operator.id);
+    assert.ok((await db.schedule.findUniqueOrThrow({ where: { id: 'fixture-due' } })).nextAt.getTime() > Date.now() + 3500000);
+    assert.equal(await db.audit.count({ where: { operation: 'schedule.enqueued' } }), 3);
+    await db.schedule.update({ where: { id: 'fixture-turned-off' }, data: { enabled: false } });
+    const grants = grantAuthority([{ subject: operator.id, kind: operator.kind, permissions: [...operator.permissions], scope }]);
+    await deliverSchedules(service, grants);
+    const status = async (subjectId: string) => (await db.outbox.findFirstOrThrow({ where: { kind: 'schedule.assess', subjectId } })).status;
+    assert.equal(await status('fixture-due'), 'delivered'); assert.equal(await status('fixture-turned-off'), 'canceled'); assert.equal(await status('fixture-unknown-target'), 'blocked');
+    const blocked = await db.audit.findFirstOrThrow({ where: { operation: 'schedule.blocked', subjectId: 'fixture-unknown-target' } });
+    assert.match(z.object({ reason: z.string() }).passthrough().parse(blocked.details).reason, /^[A-Z][A-Z0-9_]+$/);
+    const jobs = await db.job.findMany({ where: { kind: 'assessment' } }); assert.equal(jobs.length, 1); assert.ok(jobs[0]?.dedupeKey.includes(`fixture-due:${due.nextAt.toISOString()}`));
+    // A delivered occurrence is not delivered again, and its job runs normally.
+    await deliverSchedules(service, grants); assert.equal(await db.job.count({ where: { kind: 'assessment' } }), 1);
+    await tick(service, 'fixture-scheduled-worker', signal, grants);
+    assert.equal((await db.job.findUniqueOrThrow({ where: { id: jobs[0]?.id ?? '' } })).status, 'completed'); assert.equal(magnus.requests.length, 1);
+
+  });
+
+  await t.test('a draining worker yields campaigns at an action boundary and finishes jobs in flight; lanes run jobs at once', async () => {
+    const { service, magnus } = await reset();
+    const grants = grantAuthority([{ subject: operator.id, kind: operator.kind, permissions: [...operator.permissions], scope }, { subject: coordinator.id, kind: coordinator.kind, permissions: [...coordinator.permissions], scope }]);
+    const proposed = await service.propose(coordinator, plan()); await service.publish(coordinator, proposed.id, 1);
+    await service.decide(operator, { planId: proposed.id, revision: 1, digest: proposed.digest, decision: 'approve', expiresAt: (await service.plan(operator, proposed.id)).expiresAt });
+    const campaign = await service.execute(coordinator, proposed.id, { revision: 1, digest: proposed.digest });
+    const draining = new AbortController(); draining.abort();
+    await tick(service, 'fixture-draining-worker', new AbortController().signal, grants, draining.signal);
+    const yielded = await db.job.findUniqueOrThrow({ where: { id: campaign } });
+    assert.equal(yielded.status, 'queued'); assert.equal(yielded.leaseOwner, null); assert.equal(yielded.error, null); assert.equal(magnus.requests.length, 0);
+    await tick(service, 'fixture-next-worker', new AbortController().signal, grants);
+    assert.equal((await service.job(operator, campaign)).status, 'completed'); assert.equal(magnus.requests.length, 1);
+
+    // Two assessments in two lanes reach Magnus together; stopping lets them finish.
+    await service.profile(operator, { id: 'fixture-inventory', version: '1', platform: 'ubuntu-24.04', rules: [{ id: 'fixture-rule', explanation: 'Retain original inventory', capability: 'inventory.v1', field: 'exitCode', expected: 0, actionVersion: null }] });
+    const first = await service.assess(operator, { id: 'fixture-lane-1', scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });
+    const second = await service.assess(operator, { id: 'fixture-lane-2', scope, targetIds: ['fixture-node'], profileId: 'fixture-inventory', profileVersion: '1', deadline: later() });
+    const dispatch = magnus.dispatch.bind(magnus); let inFlight = 0; let release: () => void = () => undefined; const together = new Promise<void>(resolve => { release = resolve; });
+    const stop = new AbortController(); const abort = new AbortController();
+    magnus.dispatch = async request => { inFlight++; if (inFlight === 2) { release(); stop.abort(); } await Promise.race([together, sleep(5000)]); return dispatch(request); };
+    try { await runWorker(service, stop.signal, grants, { concurrency: 2, abort: abort.signal, maxBackoffMs: 20 }); } finally { magnus.dispatch = dispatch; }
+    assert.equal(inFlight, 2); assert.equal(abort.signal.aborted, false);
+    for (const id of [first, second]) assert.equal((await service.job(operator, id)).status, 'completed');
+    await assert.rejects(runWorker(service, stop.signal, grants, { concurrency: 9 }), RangeError);
   });
 
 });

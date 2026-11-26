@@ -12,9 +12,12 @@ import { errorFields, logger } from './log.js';
 const actorSchema = z.object({ id: z.string(), kind: z.enum(['operator', 'coordinator', 'integration']), permissions: z.array(z.enum(permissions)), scope: scopeSchema });
 /**
  * Run one claimed job. `authority` checks the job's stored actor against the identity grants
- * in force now (see authority.ts); runWorker always passes it.
+ * in force now (see authority.ts); runWorker always passes it. `signal` aborts the job's work
+ * in flight. `drain`, once aborted, asks a campaign to stop at its next action boundary, where
+ * nothing of it is in flight, and go back to the queue to resume later with its original
+ * authority and deadline.
  */
-export async function tick(service: Embermend, owner: string, signal: AbortSignal, authority: StoredAuthority = unverifiedStoredAuthority): Promise<boolean> {
+export async function tick(service: Embermend, owner: string, signal: AbortSignal, authority: StoredAuthority = unverifiedStoredAuthority, drain?: AbortSignal): Promise<boolean> {
   const id = await claim(service.db, owner); if (!id) return false;
   const job = await service.db.job.findUnique({ where: { id } }); if (!job) return false;
   const parsed = actorSchema.parse(job.actor); const stored: Actor = { ...parsed, permissions: new Set(parsed.permissions) };
@@ -57,6 +60,11 @@ export async function tick(service: Embermend, owner: string, signal: AbortSigna
       if (plan.revision !== payload.revision) throw new DomainError('PLAN_CHANGED');
       const done = new Set<string>(); const remaining = [...plan.actions].sort((a, b) => Number(b.targetId === plan.canaryTargetId) - Number(a.targetId === plan.canaryTargetId));
       while (remaining.length) {
+        if (drain?.aborted && !controller.signal.aborted && job.deadline.getTime() > Date.now()) {
+          // Shutting down: no action is reserved here, so yield instead of leaving it unknown.
+          await service.db.job.updateMany({ where: { id, status: 'running', leaseOwner: owner, leaseUntil: { gt: new Date() } }, data: { status: 'queued', availableAt: new Date(), leaseOwner: null, leaseUntil: null, ...(done.size ? { result: json({ state: 'yielded-for-shutdown', completedActions: done.size }) } : {}) } });
+          return true;
+        }
         if (combined.aborted) throw new DomainError('CAMPAIGN_INTERRUPTED_RECONCILE_IN_FLIGHT');
         const next = remaining.find(action => action.dependsOn.every(id => done.has(id))); if (!next) throw new DomainError('DEPENDENCY_NOT_READY');
         let receipt: Receipt;
@@ -142,12 +150,38 @@ export async function deliverSchedules(service: Embermend, authority: StoredAuth
     }
   }
 }
-export async function runWorker(service: Embermend, signal: AbortSignal, authority: StoredAuthority, options: { maxBackoffMs?: number } = {}): Promise<void> {
-  const owner = randomUUID(); const maxBackoffMs = options.maxBackoffMs ?? 30000; let failures = 0;
+/** The largest `EMBERMEND_WORKER_CONCURRENCY`: each lane can hold a database connection and a lease. */
+export const MAX_WORKER_CONCURRENCY = 8;
+export interface WorkerOptions {
+  /** Longest wait between retries after a loop failure. 30 000 ms. */
+  maxBackoffMs?: number;
+  /** Jobs processed at once, 1 to MAX_WORKER_CONCURRENCY. 1. */
+  concurrency?: number;
+  /**
+   * Aborts jobs in flight. Defaults to the stop signal. With a separate signal, stopping only
+   * ends claiming: running jobs finish (campaigns at their next action boundary) until it fires.
+   */
+  abort?: AbortSignal;
+}
+/**
+ * Claim and run jobs until `signal` aborts, in `concurrency` lanes that claim with
+ * `FOR UPDATE SKIP LOCKED`. One more loop runs maintenance and schedule delivery every second,
+ * so a long job never holds up exception expiry or scheduled work.
+ */
+export async function runWorker(service: Embermend, signal: AbortSignal, authority: StoredAuthority, options: WorkerOptions = {}): Promise<void> {
+  const concurrency = options.concurrency ?? 1;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > MAX_WORKER_CONCURRENCY) throw new RangeError(`Worker concurrency must be 1-${MAX_WORKER_CONCURRENCY}`);
+  const abort = options.abort ?? signal; const maxBackoffMs = options.maxBackoffMs ?? 30000;
+  const scheduler = async (): Promise<boolean> => { await maintenance(service); await deliverSchedules(service, authority); return false; };
+  const lane = (owner: string) => (): Promise<boolean> => tick(service, owner, abort, authority, signal);
+  await Promise.all([loop(signal, maxBackoffMs, scheduler), ...Array.from({ length: concurrency }, () => loop(signal, maxBackoffMs, lane(randomUUID())))]);
+}
+/** Repeat `step` until `signal` aborts: at once after work, after a second when idle, with backoff after a failure. */
+async function loop(signal: AbortSignal, maxBackoffMs: number, step: () => Promise<boolean>): Promise<void> {
+  let failures = 0;
   while (!signal.aborted) {
     try {
-      await maintenance(service); await deliverSchedules(service, authority);
-      const worked = await tick(service, owner, signal, authority); failures = 0;
+      const worked = await step(); failures = 0;
       if (!worked) await setTimeout(1000, undefined, { signal }).catch(() => undefined);
     } catch (error) {
       // A database outage must not end the worker; jobs keep their leases and state.

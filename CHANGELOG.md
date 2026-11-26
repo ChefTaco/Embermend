@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Grants can change without a restart: `EMBERMEND_IDENTITY_GRANTS_FILE` names a JSON grants file (the same format as `EMBERMEND_IDENTITY_GRANTS`, which stays supported; configure exactly one). The API and worker check it for changes at most every two seconds, so onboarding, narrowing or revoking an operator, collector or coordinator applies to new requests, queued jobs and scheduled deliveries within seconds (`grants.reloaded`). An invalid replacement is logged as `grants.reload_failed` and the last valid grants stay in force.
 - List endpoints filter by scope inside the database query. `GET /api/v1/findings`, `/entities`, `/relationships`, `/profile-assignments`, `/exceptions` and `/builds` used to read the first 1000 (or 2000) rows of the installation and drop out-of-scope rows afterwards, so a narrowly scoped operator could get an incomplete list. `findings()` no longer runs one occurrence query per finding, and occurrence visibility reads subjects and evidence in batches.
 - The recommendations timeline (`GET /api/v1/recommendations`, also in `/api/v1/export`) is ordered by each plan's last change, newest first. It used to return an arbitrary 200 plans that could omit the newest. Its campaign jobs, publications, executions and campaigns are read once per page instead of several queries per plan.
 - Cursor pagination for those seven list endpoints: with `?limit=` (1-200, default 50) or `?after=<cursor>` the response is a `{ data, nextCursor }` page, like `/api/v1/hive/events`. Without either parameter the legacy array is returned, as before, with an `x-next-cursor` header when the list was cut at its legacy bound (200 recommendations, 2000 relationships, 1000 of the rest). An invalid query or cursor is `400 INVALID_LIST_QUERY` or `400 INVALID_LIST_CURSOR`. Findings and recommendations page newest first, the other lists by ID.
@@ -10,12 +11,16 @@
 - The API uses the hive-common server kit: every response, errors included, carries `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`, and a new unauthenticated `GET /health/ready` checks PostgreSQL (503 when it does not answer). The container healthcheck of the API probes `/health/ready`, so a lost database now marks the API unhealthy. `GET /health/live` keeps its body.
 - `MAGNUS_URL` may carry a base path (`https://gateway.example.com/magnus`): Magnus routes are joined under it instead of replacing it.
 - Dependencies: `@hono/node-server` 2.1.11 (its 2.1.7, 2.1.10 and 2.1.11 security fixes concern `serveStatic` and WebSocket upgrades, which Embermend does not use), `hono` 4.13.22, `@hivemagnus/hive-common` 0.6.1, and the Ardent plugin is tested against `@hivemagnus/ardent` 3.3.0.
+- The worker drains on SIGTERM instead of aborting at once: it stops claiming, lets running jobs finish their current receipt or verification wait for up to `EMBERMEND_WORKER_DRAIN_SECONDS` (default 8), and a campaign between actions returns to the queue to resume later instead of becoming `unknown`. A second signal, or the end of the drain time, interrupts as before.
+- `EMBERMEND_WORKER_CONCURRENCY` (1-8, default 1) runs that many jobs at once in one worker. Maintenance and schedule delivery now run in their own loop every second, so a long job no longer delays exception expiry or scheduled work.
+- Integration tests cover maintenance and schedule delivery: exception expiry and its outbox notice, one enqueue per due schedule, disabled and not-yet-due schedules, delivery, cancellation of a disabled schedule's occurrence, and an admission failure blocking delivery.
 
 ### Upgrade notes
 
 - Migration `20261126000000_list_paging` adds `Plan.updatedAt` (backfilled from each plan's newest revision), list-order indexes on `Plan`, `Finding`, `Entity`, `Exception`, `ProfileAssignment` and `Build`, and a partial index on campaign jobs' `payload->>'planId'`. Suite upgrades need `--allow-migrations`.
 - Clients that read the plain arrays keep working unchanged. To read beyond the legacy bound, follow `x-next-cursor` or request pages with `limit`.
 - Clients that treated every authentication failure as a sign-out should retry a 503. Monitoring that alerts on the API container's health now also fires when PostgreSQL is unreachable.
+- Docker and Compose send SIGKILL 10 seconds after SIGTERM unless `stop_grace_period` is longer, so keep `EMBERMEND_WORKER_DRAIN_SECONDS` below the worker container's grace period.
 
 ## [0.4.0] - 2026-11-26
 

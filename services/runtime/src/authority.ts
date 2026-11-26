@@ -19,9 +19,11 @@ export type StoredAuthority = (stored: Actor) => AuthorityDecision;
 
 export const REVOKED_AUTHORITY_CODES: readonly string[] = ['ACTOR_GRANT_REVOKED', 'ACTOR_KIND_CHANGED', 'ACTOR_SCOPE_REVOKED'];
 
-export function grantAuthority(grants: Grants): StoredAuthority {
+/** Check stored authority against `grants`, or against what a grant source returns at each check. */
+export function grantAuthority(grants: Grants | (() => Grants)): StoredAuthority {
+  const current = typeof grants === 'function' ? grants : (): Grants => grants;
   return stored => {
-    const matching = grants.filter(grant => grant.subject === stored.id);
+    const matching = current().filter(grant => grant.subject === stored.id);
     const grant = matching.length === 1 ? matching[0] : undefined;
     if (!grant) return { allowed: false, reason: 'ACTOR_GRANT_REVOKED' };
     if (grant.kind !== stored.kind) return { allowed: false, reason: 'ACTOR_KIND_CHANGED' };
